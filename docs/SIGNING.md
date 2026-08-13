@@ -62,7 +62,9 @@ xcrun notarytool store-credentials redline \
   --issuer xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
-Keep the `.p8` out of the repo. It is a credential, and it cannot be downloaded twice.
+Keep the `.p8` out of the repo. It is a credential, and it cannot be downloaded twice. Store it
+`chmod 600`: the download default leaves it readable by every process running as you. Once
+`store-credentials` succeeds the key is in the Keychain, so later builds never touch the file.
 
 ## The trap that costs you twenty minutes
 
