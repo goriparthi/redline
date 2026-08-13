@@ -185,6 +185,24 @@ It prints only the model's response on stdout, so it is a drop-in replacement fo
 `ollama run <model>` in a heredoc. Local inference has no dollar cost, so these entries are
 counted as tokens and left out of spend on purpose.
 
+### Tell your coding agent about it
+
+Coding agents reach for `ollama run` by default, and those calls are never counted. Paste
+this into whatever instruction file your agent reads (`CLAUDE.md`, `AGENTS.md`, a skill, a
+rules file) and its local calls start showing up in Redline:
+
+```text
+Route every local Ollama call through the Redline wrapper, never `ollama run`.
+It records the usage and prints only the model's response, so it is a drop-in
+replacement:
+
+/path/to/redline/scripts/ollama-run.sh qwen3-coder:30b <<'PROMPT'
+Summarize this build log.
+PROMPT
+
+If the wrapper is missing, say so rather than falling back to `ollama run`.
+```
+
 ## Configuration
 
 `~/.config/redline/config.json`, written with defaults on first launch. Reloaded on every
@@ -285,10 +303,7 @@ signing automatically once one exists.
 `site/index.html` is a single self-contained page, deployed to GitHub Pages by
 `.github/workflows/pages.yml` on any push that touches it.
 
-Note that `redline.github.io` is not available to this project; that hostname would require
-owning a GitHub account or org named `redline`. The project URL is
-`https://goriparthi.github.io/redline/`. Pages also requires either a public repo or a paid
-plan, so deployment stays off until one of those is true.
+The project homepage is at https://goriparthi.github.io/redline/.
 
 ## Track badges
 

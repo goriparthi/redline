@@ -458,6 +458,25 @@
         </div>
       </div>
     </div>
+
+    <div class="route" style="margin-top:1.25rem">
+      <p class="label">For coding agents</p>
+      <h3>Make the wrapper the default</h3>
+      <p class="note">Agents reach for <code>ollama run</code>, and those calls are never
+         counted. Paste this into whatever instruction file yours reads, such as
+         <code>CLAUDE.md</code> or <code>AGENTS.md</code>, and its local calls start showing
+         up in Redline.</p>
+      <pre><span class="c"># paste into your agent's instruction file</span>
+Route every local Ollama call through the Redline wrapper, never `ollama run`.
+It records the usage and prints only the model's response, so it is a drop-in
+replacement:
+
+/path/to/redline/scripts/ollama-run.sh qwen3-coder:30b &lt;&lt;'PROMPT'
+Summarize this build log.
+PROMPT
+
+If the wrapper is missing, say so rather than falling back to `ollama run`.</pre>
+    </div>
   </section>
 
   <section>
