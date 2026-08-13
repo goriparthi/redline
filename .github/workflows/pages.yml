@@ -23,6 +23,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Skip rather than fail while the repo is private and Pages is unavailable
+    if: github.event.repository.private == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -41,7 +43,12 @@ jobs:
             exit 1
           fi
 
+      # enablement turns Pages on via the API the first time, rather than failing with a
+      # "Not Found" that looks like a broken workflow. Pages needs the repo to be public, or a
+      # paid plan on a private one.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

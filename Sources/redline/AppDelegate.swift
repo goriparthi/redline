@@ -77,9 +77,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var claudeLimits: [LimitWindow] = []
     private var codexLimits: [LimitWindow] = []
     private var limitsStatus: String?
+    private var updateStatus: String?
+    private var updateURL: URL?
     private var claudeLimitsAt: Date?
     private var ollamaSection: Snapshot.Ollama?
+    // Recomputed on each refresh so a provider installed later shows up without a restart
+    private var availability = ProviderAvailability.detect()
     private var dashboardWindow: NSWindow?
+    private var setupWindow: NSWindow?
     private lazy var dashboardModel = DashboardModel()
     private lazy var ollamaService = OllamaService()
 
@@ -97,9 +102,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+        let firstRun = Config.isFirstRun()
         scheduleTimer()
         refresh()
         if CommandLine.arguments.contains("--dashboard") { openDashboard(nil) }
+        // Ask once what to read, rather than switching every provider on by default
+        if firstRun { showSetup() }
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(wokeUp),
             name: NSWorkspace.didWakeNotification, object: nil)
@@ -212,6 +220,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                  onReload: { [weak self] range in
             guard let self else { return }
             self.dashboardModel.load(range: range, limits: self.allLimits)
+            // Ollama is live state, not derived from transcripts, so refresh it here too or
+            // the model list goes stale while the window stays open
+            self.ollamaService.refresh()
         }, onFocus: { [weak self] provider in
             guard let self else { return }
             self.dashboardModel.setFocus(provider)
@@ -235,6 +246,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ollamaService.refresh()
     }
 
+    @objc func showSetup(_ sender: Any? = nil) {
+        if let w = setupWindow {
+            w.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let detected = ProviderAvailability.detect(
+            ollamaReachable: ollamaSection?.reachable ?? false)
+        let view = FirstRunView(availability: detected) { [weak self] providers, useCLI in
+            guard let self else { return }
+            if !providers.isEmpty { Config.setProviders(providers) }
+            Config.write(["useCLIToken": useCLI])
+            self.config = Config.load()
+            self.oauth.update(settings: self.config.oauth, useCLIToken: self.config.useCLIToken)
+            self.setupWindow?.close()
+            self.setupWindow = nil
+            self.refresh()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 470, height: 460),
+                              styleMask: [.titled, .closable],
+                              backing: .buffered, defer: false)
+        window.title = "Set up Redline"
+        window.contentView = NSHostingView(rootView: view)
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        setupWindow = window
+    }
+
+    @objc func checkForUpdates(_ sender: Any?) {
+        updateStatus = "Checking…"
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+        Updates.check(currentVersion: Updates.bundleVersion) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .upToDate:
+                    self.updateStatus = "Up to date (\(Updates.bundleVersion))"
+                case .available(let version, let url):
+                    self.updateStatus = "Update available: \(version)"
+                    self.updateURL = url
+                case .failed(let message):
+                    self.updateStatus = message
+                }
+                if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+            }
+        }
+    }
+
+    @objc func openUpdate(_ sender: Any?) {
+        guard let updateURL else { return }
+        NSWorkspace.shared.open(updateURL)
+    }
+
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -249,10 +315,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshLocal()
         refreshLimits()
         refreshOllamaSection()
+        refreshAvailability()
     }
 
     // Polled here rather than in the widget: keeping the extension offline means it needs no
     // network entitlement at all.
+    private func refreshAvailability() {
+        let reachable = ollamaSection?.reachable ?? false
+        let next = ProviderAvailability.detect(ollamaReachable: reachable)
+        guard next != availability else { return }
+        availability = next
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
     private func refreshOllamaSection() {
         guard config.wants(OllamaStore.provider) else {
             if ollamaSection != nil {
@@ -505,9 +580,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // reset); anything actually being consumed still shows.
         let grouped = Dictionary(grouping: allLimits.filter { !$0.isUninformative },
                                  by: { $0.provider })
-        if grouped.isEmpty {
+        if availability.isEmpty {
+            addInfo(menu, "No supported tool found")
+            addInfo(menu, "    Redline reads Claude Code, Codex, or Ollama", secondary: true)
+        } else if grouped.isEmpty {
             addInfo(menu, "Rate limits:")
-            addInfo(menu, "    none available")
+            addInfo(menu, "    none available", secondary: true)
         }
         for provider in grouped.keys.sorted() {
             addInfo(menu, "\(provider) limits:\(staleSuffix(for: provider))")
@@ -561,9 +639,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            keyEquivalent: ",")
         e.target = self
         menu.addItem(e)
+        // Only offer what is actually installed; a toggle for a missing tool is noise
+        let installed = availability.installed
         let providersItem = NSMenuItem(title: "Providers to read", action: nil, keyEquivalent: "")
         let sub = NSMenu()
-        for name in Config.knownProviders {
+        for name in installed.isEmpty ? Config.knownProviders : installed {
             let item = NSMenuItem(title: name, action: #selector(toggleProvider(_:)),
                                   keyEquivalent: "")
             item.target = self
@@ -576,11 +656,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sub.addItem(item)
         }
         providersItem.submenu = sub
-        menu.addItem(providersItem)
+        if availability.hasChoice { menu.addItem(providersItem) }
 
         let barItem = NSMenuItem(title: "Menu bar shows", action: nil, keyEquivalent: "")
         let barSub = NSMenu()
-        for choice in Config.menuBarProviderChoices {
+        for choice in availability.trackChoices {
             let title = choice == Config.autoProvider ? "Nearest limit (any provider)" : choice
             let item = NSMenuItem(title: title, action: #selector(pickMenuBarProvider(_:)),
                                   keyEquivalent: "")
@@ -598,7 +678,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             barSub.addItem(item)
         }
         barItem.submenu = barSub
-        menu.addItem(barItem)
+        if availability.hasChoice { menu.addItem(barItem) }
+
+        if let updateStatus {
+            addInfo(menu, "    \(updateStatus)", secondary: true)
+        }
+        if updateURL != nil {
+            let u = NSMenuItem(title: "Open Release Page…", action: #selector(openUpdate(_:)),
+                               keyEquivalent: "")
+            u.target = self
+            menu.addItem(u)
+        }
+        let c = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates(_:)),
+                           keyEquivalent: "")
+        c.target = self
+        menu.addItem(c)
+
+        let setup = NSMenuItem(title: "Choose Providers…", action: #selector(showSetup(_:)),
+                               keyEquivalent: "")
+        setup.target = self
+        menu.addItem(setup)
 
         let l = NSMenuItem(title: "Launch at Login",
                            action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")

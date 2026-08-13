@@ -8,12 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		0877B5F2853087C4E76A3A54 /* RedlineCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		0AA2EE3944F14CF933B1A7F5 /* Availability.swift in Sources */ = {isa = PBXBuildFile; fileRef = F243DEA3F6D6C090FFF94EF1 /* Availability.swift */; };
 		1649CE694ADE1CCFF1E9E6DF /* Usage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4D3B9D0F9D8C9F124020D6 /* Usage.swift */; };
 		1C9DAD2B8067833CC4E648E0 /* RedlineWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */; };
 		24926363A3D24D71291FCE23 /* OllamaUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */; };
 		2F1CF67F76429502CD8D63D1 /* Snapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */; };
 		3449476BD8EA798D28593265 /* MenuRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750D227E31167B98C4F99ABF /* MenuRowView.swift */; };
 		3463145D1F433B054394DE98 /* OllamaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F436657B1570389AAB09F13 /* OllamaService.swift */; };
+		59BCA283605365D30DEB0099 /* FirstRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB28E0B0D7A29BB559A18C5 /* FirstRun.swift */; };
 		6273399A6642182B1E1D7AFD /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9633CFA9869A094B682E3409 /* BrandUI.swift */; };
 		63C9EEC4C3CD9715FD4AAECA /* OAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB67C592C32CEC96CB61C6 /* OAuth.swift */; };
 		6A67B4BBE283F922FA6F430F /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624A5B9C5D72E93609652D17 /* Config.swift */; };
@@ -29,6 +31,7 @@
 		B8F5BC0B534826FD82FD8DDB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256BCA039C4F6C0212417A7A /* main.swift */; };
 		BEDE53D6D98918E29558333F /* Dashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50E09070EBE226E6195A468 /* Dashboard.swift */; };
 		C0B7F2FB9DD287E1BF05F920 /* RedlineTemplate.png in Resources */ = {isa = PBXBuildFile; fileRef = 1D8A7BED0FAF0DE852F5BA05 /* RedlineTemplate.png */; };
+		C49790D73A16C386B1BFFD11 /* Updates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48BC351F168C9882F9F793EE /* Updates.swift */; };
 		C5FCD0C6BE931628CA7A443F /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B17D76D7A2F62CA3643183 /* UsageStore.swift */; };
 		C699C185E0965CC220924DEA /* RedlineWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 78FE2F26BDB6366C0D7C1974 /* RedlineWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D1346E76D50919C07BCA074F /* Sparkline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB7A91F7558A008A61D6AE0B /* Sparkline.swift */; };
@@ -91,9 +94,11 @@
 		256BCA039C4F6C0212417A7A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		32B17D76D7A2F62CA3643183 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snapshot.swift; sourceTree = "<group>"; };
+		48BC351F168C9882F9F793EE /* Updates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updates.swift; sourceTree = "<group>"; };
 		594A59204E47A19AF9380F42 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		5F436657B1570389AAB09F13 /* OllamaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaService.swift; sourceTree = "<group>"; };
 		624A5B9C5D72E93609652D17 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		6CB28E0B0D7A29BB559A18C5 /* FirstRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRun.swift; sourceTree = "<group>"; };
 		750D227E31167B98C4F99ABF /* MenuRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRowView.swift; sourceTree = "<group>"; };
 		77E369CE6531396BD0644322 /* Redline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Redline.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		78FE2F26BDB6366C0D7C1974 /* RedlineWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RedlineWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,6 +117,7 @@
 		DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedlineWidget.swift; sourceTree = "<group>"; };
 		EF2D39E506526264BDC08DB4 /* CodexSessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSessions.swift; sourceTree = "<group>"; };
 		F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaUsage.swift; sourceTree = "<group>"; };
+		F243DEA3F6D6C090FFF94EF1 /* Availability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Availability.swift; sourceTree = "<group>"; };
 		F50E09070EBE226E6195A468 /* Dashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dashboard.swift; sourceTree = "<group>"; };
 		FC4D3B9D0F9D8C9F124020D6 /* Usage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Usage.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -181,10 +187,12 @@
 			children = (
 				594A59204E47A19AF9380F42 /* AppDelegate.swift */,
 				F50E09070EBE226E6195A468 /* Dashboard.swift */,
+				6CB28E0B0D7A29BB559A18C5 /* FirstRun.swift */,
 				256BCA039C4F6C0212417A7A /* main.swift */,
 				750D227E31167B98C4F99ABF /* MenuRowView.swift */,
 				BCFB67C592C32CEC96CB61C6 /* OAuth.swift */,
 				5F436657B1570389AAB09F13 /* OllamaService.swift */,
+				48BC351F168C9882F9F793EE /* Updates.swift */,
 			);
 			path = redline;
 			sourceTree = "<group>";
@@ -192,6 +200,7 @@
 		EF63F5151055D3F432C21EEF /* RedlineCore */ = {
 			isa = PBXGroup;
 			children = (
+				F243DEA3F6D6C090FFF94EF1 /* Availability.swift */,
 				B7AF4BF9E1F8FE7E67230776 /* Brand.swift */,
 				9633CFA9869A094B682E3409 /* BrandUI.swift */,
 				EF2D39E506526264BDC08DB4 /* CodexSessions.swift */,
@@ -290,15 +299,15 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					299BF6CE55BF3236BABD32D4 = {
-						DevelopmentTeam = "${REDLINE_TEAM_ID}";
+						DevelopmentTeam = QX3NQYWX6F;
 						ProvisioningStyle = Automatic;
 					};
 					6F049CA8C42D3D4B9F30CB30 = {
-						DevelopmentTeam = "${REDLINE_TEAM_ID}";
+						DevelopmentTeam = QX3NQYWX6F;
 						ProvisioningStyle = Automatic;
 					};
 					78E2D3ED9A80CB97FFD0EA18 = {
-						DevelopmentTeam = "${REDLINE_TEAM_ID}";
+						DevelopmentTeam = QX3NQYWX6F;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -344,9 +353,11 @@
 			files = (
 				8A37C1B9C476E667D3C7626E /* AppDelegate.swift in Sources */,
 				BEDE53D6D98918E29558333F /* Dashboard.swift in Sources */,
+				59BCA283605365D30DEB0099 /* FirstRun.swift in Sources */,
 				3449476BD8EA798D28593265 /* MenuRowView.swift in Sources */,
 				63C9EEC4C3CD9715FD4AAECA /* OAuth.swift in Sources */,
 				3463145D1F433B054394DE98 /* OllamaService.swift in Sources */,
+				C49790D73A16C386B1BFFD11 /* Updates.swift in Sources */,
 				B8F5BC0B534826FD82FD8DDB /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -363,6 +374,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0AA2EE3944F14CF933B1A7F5 /* Availability.swift in Sources */,
 				B60126738CA4B07C53ED7548 /* Brand.swift in Sources */,
 				6273399A6642182B1E1D7AFD /* BrandUI.swift in Sources */,
 				FF43854EF3B1451EFD855320 /* CodexSessions.swift in Sources */,
@@ -533,9 +545,9 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.2.0;
+				CURRENT_PROJECT_VERSION = 0.3.0;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "${REDLINE_TEAM_ID}";
+				DEVELOPMENT_TEAM = QX3NQYWX6F;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -547,7 +559,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -617,9 +629,9 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.2.0;
+				CURRENT_PROJECT_VERSION = 0.3.0;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "${REDLINE_TEAM_ID}";
+				DEVELOPMENT_TEAM = QX3NQYWX6F;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -637,7 +649,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

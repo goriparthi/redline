@@ -2,19 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- macOS refuses to register an unsandboxed widget extension, so the sandbox stays. -->
+    <!-- macOS refuses to register an unsandboxed widget extension, so the sandbox stays.
+         No App Group: a capability entitlement needs a provisioning profile, which blocks
+         Developer ID signing and notarization. The app writes the snapshot into this
+         extension's own container, which a sandboxed process can always read. -->
     <key>com.apple.security.app-sandbox</key>
     <true/>
-    <!-- Declared for the day a Developer ID cert is in use, when the shared container starts
-         resolving. It does nothing while signing ad-hoc, because App Group containers require
-         a real Team ID. Until then the app writes the snapshot into this extension's own
-         container, which a sandboxed process can always read.
-
-         A temporary-exception read path was tried here first and did not work, so it was
-         removed rather than left in place implying access it never granted. -->
-    <key>com.apple.security.application-groups</key>
-    <array>
-        <string>group.com.goriparthi.redline</string>
-    </array>
 </dict>
 </plist>

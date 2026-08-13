@@ -30,46 +30,49 @@ DERIVED="$DIST_DIR/xcode"
 BUILT="$DERIVED/Build/Products/Release/$APP_NAME.app"
 IDENTITY="$(find_signing_identity)"
 
+# Always build unsigned, then sign inside-out ourselves.
+#
+# Letting Xcode sign was the problem: automatic signing picks a *Development* identity for a
+# plain build action, which notarization rejects three ways at once - wrong certificate, no
+# secure timestamp, and a get-task-allow entitlement that only belongs in debug builds.
 ARGS=(-project Redline.xcodeproj -scheme "$APP_NAME" -configuration Release
-      -destination 'platform=macOS' -derivedDataPath "$DERIVED")
-
-if [[ -n "$IDENTITY" ]]; then
-    info "Building with Developer ID: $IDENTITY"
-    ARGS+=(-allowProvisioningUpdates)
-else
-    info "No Developer ID; building unsigned then ad-hoc signing with entitlements"
-    ARGS+=(CODE_SIGNING_ALLOWED=NO)
-fi
+      -destination 'platform=macOS' -derivedDataPath "$DERIVED"
+      CODE_SIGNING_ALLOWED=NO)
 
 info "Building $APP_NAME $VERSION with widget"
 DEVELOPER_DIR="$DEV_DIR" xcodebuild "${ARGS[@]}" build
 [[ -d "$BUILT" ]] || die "build reported success but $BUILT is missing"
 
-if [[ -z "$IDENTITY" ]]; then
-    # Nested code must be sealed before the enclosing bundle, so sign framework, then
-    # extension, then app. --deep is deprecated and skips per-target entitlements.
-    info "Ad-hoc signing framework, widget, then app"
-    codesign --force --sign - "$BUILT/Contents/Frameworks/RedlineCore.framework"
-    codesign --force --sign - \
-        --entitlements Sources/RedlineWidget/RedlineWidget.entitlements \
-        --identifier com.goriparthi.redline.widget \
-        "$BUILT/Contents/PlugIns/RedlineWidget.appex"
-    codesign --force --sign - \
-        --entitlements Resources/Redline.entitlements \
-        --identifier "$BUNDLE_ID" "$BUILT"
+# Nested code must be sealed before the enclosing bundle: framework, then extension, then app.
+# --deep is deprecated and would skip the per-target entitlements.
+SIGN_ARGS=(--force)
+if [[ -n "$IDENTITY" ]]; then
+    info "Signing with Developer ID: $IDENTITY"
+    # Hardened runtime and a secure timestamp are both required for notarization
+    SIGN_ARGS+=(--sign "$IDENTITY" --options runtime --timestamp)
+else
+    info "No Developer ID; signing ad-hoc"
+    SIGN_ARGS+=(--sign -)
     warn "Ad-hoc signed: runs here, but not distributable to other machines"
+fi
+
+codesign "${SIGN_ARGS[@]}" "$BUILT/Contents/Frameworks/RedlineCore.framework"
+codesign "${SIGN_ARGS[@]}" \
+    --entitlements Sources/RedlineWidget/RedlineWidget.entitlements \
+    --identifier com.goriparthi.redline.widget \
+    "$BUILT/Contents/PlugIns/RedlineWidget.appex"
+codesign "${SIGN_ARGS[@]}" \
+    --entitlements Resources/Redline.entitlements \
+    --identifier "$BUNDLE_ID" "$BUILT"
+
+# get-task-allow is a debug-only entitlement and notarization refuses it outright
+if codesign -d --entitlements - "$BUILT" 2>/dev/null | grep -q "get-task-allow"; then
+    die "get-task-allow present; this build would be rejected by notarization"
 fi
 
 codesign --verify --strict "$BUILT" || die "signature verification failed"
 
-# Fail loudly rather than shipping a bundle whose widget cannot reach the shared container
-APP_GROUP="group.com.goriparthi.redline"
-if ! codesign -d --entitlements - --xml "$BUILT" 2>/dev/null | grep -q "$APP_GROUP"; then
-    die "missing App Group entitlement ($APP_GROUP) on the app"
-fi
-# macOS only registers a sandboxed widget. On an ad-hoc build the App Group cannot resolve,
-# so the app writes the snapshot into the widget's own container instead; nothing further is
-# needed in the entitlements for that to work.
+# macOS only registers a sandboxed widget extension
 WIDGET_ENT="$(codesign -d --entitlements - --xml \
     "$BUILT/Contents/PlugIns/RedlineWidget.appex" 2>/dev/null || true)"
 grep -q "app-sandbox" <<<"$WIDGET_ENT" \

@@ -36,6 +36,8 @@ public struct ModelUsage: Equatable {
 public struct ProviderUsage: Equatable {
     public var io = 0
     public var cost = 0.0
+    public var cacheRead = 0
+    public var cacheWrite = 0
     public var models: [String: ModelUsage] = [:]
 
     // Largest first, with a name tiebreak so the order does not jitter between refreshes
@@ -94,6 +96,8 @@ public func aggregate(_ entries: [Entry], since: Date, config: Config) -> Agg {
         var provider = a.providers[e.provider] ?? ProviderUsage()
         provider.io += io
         provider.cost += cost
+        provider.cacheRead += e.cacheRead
+        provider.cacheWrite += e.cache5m + e.cache1h
         var model = provider.models[e.model] ?? ModelUsage()
         model.io += io
         model.cost += cost

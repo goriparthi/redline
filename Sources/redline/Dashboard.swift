@@ -36,6 +36,7 @@ enum Brandkit {
 
 struct DashboardData {
     var range = 14
+    var availability = ProviderAvailability.detect()
     var focus = Config.autoProvider
     var trends: [ProviderTrend] = []
     var hourly: [ProviderTrend] = []
@@ -45,12 +46,37 @@ struct DashboardData {
     var week = Agg()
     var loading = true
     var scannedAt: Date?
+    var ollamaReachableHint = false
 
     var focusingAll: Bool { focus == Config.autoProvider }
 
     func matches(_ provider: String) -> Bool {
         focusingAll || provider.caseInsensitiveCompare(focus) == .orderedSame
     }
+
+    /// Totals narrowed to the focused provider. Global figures while focused on one track
+    /// read as that track's usage, which is how Ollama appeared to have spent thousands.
+    struct Slice {
+        var io = 0
+        var cost = 0.0
+        var cacheRead = 0
+        var hasUnpriced = false
+    }
+
+    func slice(_ agg: Agg) -> Slice {
+        guard !focusingAll else {
+            return Slice(io: agg.io, cost: agg.cost, cacheRead: agg.cacheRead,
+                         hasUnpriced: agg.hasUnpriced)
+        }
+        guard let usage = agg.providers.first(where: {
+            $0.key.caseInsensitiveCompare(focus) == .orderedSame
+        })?.value else { return Slice() }
+        return Slice(io: usage.io, cost: usage.cost, cacheRead: usage.cacheRead,
+                     hasUnpriced: usage.models.values.contains { !$0.priced })
+    }
+
+    var todaySlice: Slice { slice(today) }
+    var weekSlice: Slice { slice(week) }
 
     var visibleTrends: [ProviderTrend] { trends.filter { matches($0.provider) } }
     var visibleHourly: [ProviderTrend] { hourly.filter { matches($0.provider) } }
@@ -80,6 +106,13 @@ final class DashboardModel: ObservableObject {
         data.limits = limits
         let cfg = Config.load()
         let days = range
+        let detected = ProviderAvailability.detect(
+            ollamaReachable: data.ollamaReachableHint)
+        data.availability = detected
+        // With one track there is nothing to aggregate across, so focus it automatically
+        if !detected.hasChoice, let only = detected.installed.first {
+            data.focus = only
+        }
         queue.async { [weak self] in
             guard let self else { return }
             var entries: [Entry] = []
@@ -579,11 +612,20 @@ struct DashboardView: View {
         .background(Brandkit.carbon)
     }
 
+    @ViewBuilder
     private var empty: some View {
-        Text("No usage recorded in this range")
-            .font(.system(size: 14, design: .monospaced))
-            .foregroundStyle(Brandkit.steel)
-            .frame(height: 60)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("No usage recorded in this range")
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundStyle(Brandkit.steel)
+            // Ollama keeps no history of its own, so say how to start collecting it
+            if data.focus == OllamaStore.provider {
+                Text("Route calls through scripts/ollama-run.sh to record them")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Brandkit.steel.opacity(0.8))
+            }
+        }
+        .frame(height: 60, alignment: .topLeading)
     }
 
     private var header: some View {
@@ -625,16 +667,25 @@ struct DashboardView: View {
             HStack(spacing: 10) {
                 HStack(spacing: 7) {
                     TrackBadge(provider: data.focusingAll ? nil : data.focus, size: 23)
-                    Picker("", selection: Binding(
-                        get: { data.focus },
-                        set: { onFocus($0) }
-                    )) {
-                        Text("All providers").tag(Config.autoProvider)
-                        ForEach(Config.knownProviders, id: \.self) { Text($0).tag($0) }
+                    if data.availability.hasChoice {
+                        Picker("", selection: Binding(
+                            get: { data.focus },
+                            set: { onFocus($0) }
+                        )) {
+                            ForEach(data.availability.trackChoices, id: \.self) { choice in
+                                Text(choice == Config.autoProvider ? "All providers" : choice)
+                                    .tag(choice)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 180)
+                        .help("Show one provider, or all of them")
+                    } else if let only = data.availability.installed.first {
+                        // Nothing to choose between, so state the track rather than offer it
+                        Text(only)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Brandkit.chalk)
                     }
-                    .labelsHidden()
-                    .frame(width: 180)
-                    .help("Show one provider, or all of them")
                 }
 
                 Spacer()
@@ -663,16 +714,20 @@ struct DashboardView: View {
     }
 
     private var tiles: some View {
-        HStack(spacing: 12) {
-            StatTile(label: "Today", value: fmtTokens(data.today.io),
-                     sub: "\(fmtCost(data.today.cost))\(data.today.hasUnpriced ? "+" : "") est")
-            StatTile(label: "Last 7 days", value: fmtTokens(data.week.io),
-                     sub: "\(fmtCost(data.week.cost))\(data.week.hasUnpriced ? "+" : "") est")
-            StatTile(label: "Cache read", value: fmtTokens(data.week.cacheRead),
+        // Labels name the track so a focused figure cannot be read as the global one
+        let scope = data.focusingAll ? "" : " · \(data.focus)"
+        let today = data.todaySlice
+        let week = data.weekSlice
+        let peak = data.visibleTrends.compactMap(\.peak).map(\.io).max()
+        return HStack(spacing: 12) {
+            StatTile(label: "Today\(scope)", value: fmtTokens(today.io),
+                     sub: "\(fmtCost(today.cost))\(today.hasUnpriced ? "+" : "") est")
+            StatTile(label: "Last 7 days\(scope)", value: fmtTokens(week.io),
+                     sub: "\(fmtCost(week.cost))\(week.hasUnpriced ? "+" : "") est")
+            StatTile(label: "Cache read", value: fmtTokens(week.cacheRead),
                      sub: "7 days")
             StatTile(label: "Busiest day",
-                     value: data.trends.compactMap(\.peak).map(\.io).max().map(fmtTokens) ?? "—",
-                     sub: "in range")
+                     value: peak.map(fmtTokens) ?? "—", sub: "in range")
         }
         .padding(16)
         .background(Brandkit.graphite, in: RoundedRectangle(cornerRadius: 12))

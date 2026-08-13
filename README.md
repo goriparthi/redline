@@ -41,6 +41,18 @@ is your own machine.
 
 If Anthropic publishes a real usage API, this all becomes moot and Redline should move to it.
 
+## Screenshots
+
+| Menu bar | Dashboard |
+| --- | --- |
+| <img src="site/img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits and a per provider usage table" width="420"> | <img src="site/img/dashboard.png" alt="Dashboard window with limit rails and tokens per day chart" width="420"> |
+
+Widgets, one per track, configurable from the widget's own settings:
+
+| Claude | Codex | Ollama |
+| --- | --- | --- |
+| <img src="site/img/claude-widget.png" alt="Claude widget showing session and week percentages" width="230"> | <img src="site/img/codex-widget.png" alt="Codex widget showing week percentage" width="230"> | <img src="site/img/ollama-widget.png" alt="Ollama widget showing loaded and downloaded models" width="230"> |
+
 ## What it shows
 
 - **Usage and remaining capacity** per provider for the session and week windows, coloured by the brand thresholds (Clear, Amber, Signal).
@@ -54,41 +66,67 @@ If Anthropic publishes a real usage API, this all becomes moot and Redline shoul
 
 ## Install
 
-### Homebrew
+Three routes. **Building from source is the one to prefer**, and the reason is below.
+
+### 1. Homebrew, from this repo
 
 ```sh
+git clone https://github.com/goriparthi/redline.git
+cd redline
 brew install --cask ./Casks/redline.rb
 ```
 
-Or from a tap, once published:
+### 2. From source (recommended)
 
 ```sh
-brew tap goriparthi/tap && brew install --cask redline
+git clone https://github.com/goriparthi/redline.git
+cd redline
+make install            # menu bar app
+WIDGET=1 make install   # menu bar app and the desktop widget
 ```
 
-### From source
+Needs Xcode for the widget; the menu bar app alone builds with the Command Line Tools. You
+end up running a binary you compiled from source you can read, which is the whole point.
+
+### 3. Download the DMG
+
+[Latest release](https://github.com/goriparthi/redline/releases/latest) → open the DMG → drag
+**Redline.app** to Applications → launch it. It opens normally: releases are **signed with a
+Developer ID certificate and notarized by Apple**, so Gatekeeper lets them through without any
+workaround.
+
+Verifying is still worth a moment, and here it actually tells you something:
 
 ```sh
-git clone git@github.com:goriparthi/redline.git && cd redline
-make install
+spctl -a -vvv -t install /Applications/Redline.app
+#   expect: accepted, source=Notarized Developer ID
+
+codesign -dv --verbose=2 /Applications/Redline.app
+#   expect: Authority=Developer ID Application: Prashanth Goriparthi (QX3NQYWX6F)
 ```
 
-`make install` builds a release binary, assembles `Redline.app`, copies it to
-`~/Applications`, and loads a LaunchAgent so the menu bar item returns after a restart.
+If macOS ever *does* block a build of this app, treat that as a signal something is wrong with
+the download rather than something to work around. The command that strips the quarantine flag
+is easy to find, and it is the same step malware distributors ask victims to perform, so
+reserve it for software you have actually verified. Building from source remains the only route
+where you can read what you are about to run.
 
-### Gatekeeper will block a downloaded build
+### Which providers to read
 
-Releases are **ad-hoc signed and not notarized**, because notarizing needs a paid Developer ID
-Application certificate. macOS will refuse to open the app on first launch and may say it is
-damaged. It is not; it is unsigned by a recognised authority.
+On first launch Redline asks which of Claude, Codex, and Ollama to read, listing only what it
+finds installed. Change it later from **Choose Providers…** in the menu.
 
-```sh
-xattr -dr com.apple.quarantine /Applications/Redline.app
-```
+Redline works with any one of them. With a single tool installed the provider pickers
+disappear, since there is nothing to choose between.
 
-**Building from source avoids this entirely** and is two commands, so it is the recommended
-route for anyone who has Xcode. Do not run that `xattr` command on software you have not
-checked; the point of the quarantine flag is to make you stop and think.
+### Updates
+
+**Check for Updates…** in the menu compares your version against the latest release. It runs
+only when you ask, because a background poll would break the promise that Redline makes no
+network requests unless you opt into Claude limits.
+
+Installed with Homebrew? `brew upgrade --cask redline`. Built from source? `git pull &&
+make install`.
 
 ## Providers
 
@@ -182,8 +220,9 @@ make uninstall  # remove app, LaunchAgent and Keychain token
 Tests need XCTest, which ships with Xcode rather than the Command Line Tools.
 `scripts/test.sh` finds a usable Xcode automatically, so no `sudo xcode-select` is needed.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layout and
-[docs/EXTENDING.md](docs/EXTENDING.md) for how to add a provider.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layout,
+[docs/EXTENDING.md](docs/EXTENDING.md) for how to add a provider, and
+[docs/SIGNING.md](docs/SIGNING.md) for signing and notarizing a release.
 
 ## Usage dashboard
 
@@ -268,6 +307,29 @@ mark be reproduced unaltered.
 hosts it can reach, and how credentials are handled. In short: transcripts are parsed for
 token counts and never copied or transmitted, there is no telemetry, and reading the Claude
 CLI's Keychain token is opt-in.
+
+## Disclaimer
+
+There is no Terms of Service here, and none is needed: Redline is not a service. Nothing is
+hosted, no account is created, and no data leaves your Mac except the optional Claude
+rate-limit call. The **MIT licence is the governing document**, and it already disclaims
+warranty and liability in the usual terms.
+
+In plain language:
+
+- **No warranty.** This is provided as-is. If it misreports something, you carry the outcome.
+- **Costs are estimates**, computed from a pricing table you can edit. They are not a bill and
+  will not match your invoice. Treat them as a signal, not an accounting record.
+- **Your account is your responsibility.** Claude rate-limit percentages come from an
+  undocumented endpoint, described at the top of this file. Whether using it is acceptable
+  under Anthropic's terms is a decision only you can make for your own account.
+- **Built with heavy AI assistance.** Most of this code was written by an AI agent working
+  with the author. It is reviewed, tested, and shipped deliberately, and the author is
+  responsible for what it does. AI involvement is disclosed because you deserve to know how
+  something you run was made, not as an excuse: "an AI wrote it" would not transfer risk to
+  you, and the MIT warranty disclaimer is what actually governs liability.
+
+If you find something wrong, please open an issue.
 
 ## License
 

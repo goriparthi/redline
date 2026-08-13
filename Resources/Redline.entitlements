@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Shared container so the widget can read the snapshot the app writes -->
-    <key>com.apple.security.application-groups</key>
-    <array>
-        <string>group.com.goriparthi.redline</string>
-    </array>
+    <!-- Intentionally empty. Redline is not sandboxed, and it needs no special capability:
+         it reads files in the user's own home directory. An App Group was declared here once,
+         but a capability entitlement requires a provisioning profile, which forces development
+         signing and makes the build unnotarizable. The widget reads the snapshot from its own
+         container instead, which needs no entitlement at all. -->
 </dict>
 </plist>

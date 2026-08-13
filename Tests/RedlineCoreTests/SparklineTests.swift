@@ -101,3 +101,22 @@ final class GroupedAggregationTests: XCTestCase {
         XCTAssertEqual(Agg().share(ofIO: 0), 0, "must not divide by zero")
     }
 }
+
+final class ProviderCacheTests: XCTestCase {
+    private let t = Date(timeIntervalSince1970: 1_700_000_000)
+
+    func testCacheFiguresAreTrackedPerProvider() {
+        let entries = [
+            Entry(provider: "Claude", key: nil, ts: t, model: "claude-sonnet-5",
+                  input: 10, output: 1, cacheRead: 500, cache5m: 20, cache1h: 5),
+            Entry(provider: "Codex", key: nil, ts: t, model: "gpt-5.3-codex",
+                  input: 5, output: 1, cacheRead: 7, cache5m: 0, cache1h: 0),
+        ]
+        let a = aggregate(entries, since: t, config: Config())
+        XCTAssertEqual(a.providers["Claude"]?.cacheRead, 500)
+        XCTAssertEqual(a.providers["Claude"]?.cacheWrite, 25)
+        XCTAssertEqual(a.providers["Codex"]?.cacheRead, 7,
+                       "a focused tile must not show another provider's cache")
+        XCTAssertEqual(a.cacheRead, 507, "the global figure still sums every provider")
+    }
+}

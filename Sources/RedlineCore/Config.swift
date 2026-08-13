@@ -61,6 +61,12 @@ public struct Config {
             .appendingPathComponent(".config/redline/config.json")
     }
 
+    /// True before the first launch has written a config. Used to offer the setup screen
+    /// once, rather than nagging on every start.
+    public static func isFirstRun(at url: URL? = nil) -> Bool {
+        !FileManager.default.fileExists(atPath: (url ?? configURL).path)
+    }
+
     public static func load(from url: URL? = nil) -> Config {
         let url = url ?? configURL
         let cfg = Config()
@@ -180,7 +186,7 @@ public struct Config {
 
     // Rewrites only the given keys so hand-edited notes and pricing survive
     @discardableResult
-    static func write(_ values: [String: Any], at url: URL? = nil) -> Bool {
+    public static func write(_ values: [String: Any], at url: URL? = nil) -> Bool {
         let url = url ?? configURL
         var json: [String: Any] = [:]
         if let data = try? Data(contentsOf: url),
