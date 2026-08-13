@@ -357,8 +357,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let bundle = Bundle.main.bundleURL
         // A development build runs straight from .build, where there is no bundle to move
         guard bundle.pathExtension == "app" else { NSApp.terminate(nil); return }
-        NSWorkspace.shared.recycle([bundle]) { _, _ in
-            DispatchQueue.main.async { NSApp.terminate(nil) }
+        NSWorkspace.shared.recycle([bundle]) { _, error in
+            DispatchQueue.main.async {
+                guard let error else { NSApp.terminate(nil); return }
+                // macOS can refuse to let an app move its own bundle out of /Applications.
+                // Say so and hand it over, rather than quitting as if the app were gone.
+                let failed = NSAlert()
+                failed.messageText = "Everything except the app itself was removed"
+                failed.informativeText = """
+                    macOS would not let RedLine move its own bundle to the Trash: \
+                    \(error.localizedDescription)
+
+                    Drag \(bundle.lastPathComponent) to the Trash to finish.
+                    """
+                failed.addButton(withTitle: "Show in Finder")
+                failed.addButton(withTitle: "Quit")
+                if failed.runModal() == .alertFirstButtonReturn {
+                    NSWorkspace.shared.activateFileViewerSelecting([bundle])
+                }
+                NSApp.terminate(nil)
+            }
         }
     }
 
@@ -458,7 +476,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshLimits() {
-        guard config.wants(UsageStore.provider) else { return }
+        guard config.wants(UsageStore.provider) else {
+            // Switching Claude off has to drop its rows too. Returning early left the last
+            // fetched percentages on display, so the menu looked unchanged.
+            if !claudeLimits.isEmpty || claudeLimitsAt != nil || limitsStatus != nil {
+                claudeLimits = []
+                claudeLimitsAt = nil
+                limitsStatus = nil
+                updateTitle()
+                publishSnapshot()
+                if let menu = statusItem.menu { rebuildMenu(menu) }
+            }
+            return
+        }
         oauth.fetchLimits { [weak self] limits, err in
             DispatchQueue.main.async {
                 guard let self else { return }

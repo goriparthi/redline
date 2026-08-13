@@ -108,11 +108,19 @@ struct FirstRunView: View {
             }
 
             HStack {
+                // Starting with nothing ticked would silently keep the old choice, since an
+                // empty list means "read everything" further down
+                if !availability.isEmpty && selection.isEmpty {
+                    Text("Pick at least one")
+                        .font(.system(size: 11))
+                        .foregroundStyle(BrandUI.signal)
+                }
                 Spacer()
                 Button(availability.isEmpty ? "Close" : "Start") {
                     onDone(Array(selection).sorted(), useCLIToken)
                 }
                 .keyboardShortcut(.defaultAction)
+                .disabled(!availability.isEmpty && selection.isEmpty)
             }
         }
         .padding(22)
