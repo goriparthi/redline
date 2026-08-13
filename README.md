@@ -39,7 +39,7 @@ everything for Codex and Ollama. You lose only the Claude percentages.
 Codex and Ollama involve no such question. Codex is read entirely from local files, and Ollama
 is your own machine.
 
-If Anthropic publishes a real usage API, this all becomes moot and Redline should move to it.
+If Anthropic publishes a real usage API, this all becomes moot and Redline will move to it.
 
 ## Screenshots
 
