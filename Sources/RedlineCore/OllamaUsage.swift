@@ -1,5 +1,5 @@
-// Reads the JSONL written by scripts/ollama-run.sh. Ollama keeps no usage history of its
-// own, so anything not routed through that wrapper is invisible here by design.
+// Reads the JSONL written by the ollama shim (scripts/ollama-shim.sh). Ollama keeps no usage
+// history of its own, so anything that bypasses the shim is invisible here by design.
 import Foundation
 
 public final class OllamaStore {

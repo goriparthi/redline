@@ -132,7 +132,7 @@ struct FirstRunView: View {
         switch provider {
         case "Claude": return "Tokens and cost from transcripts on disk"
         case "Codex":  return "Limits and tokens, read entirely from disk"
-        case "Ollama": return "Local models, and calls made through the bundled wrapper"
+        case "Ollama": return "Local models, plus token counts once tracking is set up"
         default:       return ""
         }
     }

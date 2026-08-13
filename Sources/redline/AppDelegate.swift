@@ -24,12 +24,13 @@ enum LaunchAgent {
         let bin = Bundle.main.executablePath ?? CommandLine.arguments[0]
         let logs = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs")
-        // KeepAlive keeps the menu bar item present across any unexpected exit
+        // Restart after a crash, but never after a clean exit: KeepAlive=true would
+        // resurrect the app every time the user chose Quit.
         let plist: [String: Any] = [
             "Label": label,
             "ProgramArguments": [bin],
             "RunAtLoad": true,
-            "KeepAlive": true,
+            "KeepAlive": ["SuccessfulExit": false],
             "StandardOutPath": logs.appendingPathComponent("\(binName).log").path,
             "StandardErrorPath": logs.appendingPathComponent("\(binName).err").path,
         ]
@@ -43,9 +44,23 @@ enum LaunchAgent {
         // status item, so loading the agent now would start a second copy and show two icons.
     }
 
+    // Deleting the plist is enough: at next login nothing loads. Booting the job out here
+    // would terminate this very process when launchd is the one running it, so turning the
+    // toggle off would look like the app crashing.
     static func remove() {
-        launchctl("bootout")
         try? FileManager.default.removeItem(at: plistURL)
+    }
+
+    // True when launchd started this process; launchd stamps the job label into the
+    // environment, while a Finder launch gets an "application.…" name instead.
+    static var isLaunchdOwned: Bool {
+        ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] == label
+    }
+
+    // Unloads the job, terminating its process. Only sane as the very last step of an
+    // uninstall, after every other removal has already happened.
+    static func bootout() {
+        launchctl("bootout")
     }
 
     private static func launchctl(_ verb: String) {
@@ -157,42 +172,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // The wrapper ships inside the app so every install route has it. Copying it onto the
+    // The shim ships inside the app so every install route has it. Copying it onto the
     // PATH is on request, not at launch, since writing outside the bundle needs a decision.
-    @objc func installOllamaWrapper(_ sender: Any?) {
+    @objc func installOllamaShim(_ sender: Any?) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        guard let src = Bundle.main.url(forResource: "ollama-run", withExtension: "sh") else {
-            alert.messageText = "Wrapper not found in this build"
-            alert.informativeText = "Run scripts/ollama-run.sh from a clone of the repository "
-                + "instead."
+        guard let src = Bundle.main.url(forResource: "ollama-shim", withExtension: "sh") else {
+            alert.messageText = "Shim not found in this build"
+            alert.informativeText = "Install scripts/ollama-shim.sh from a clone of the "
+                + "repository instead."
             alert.runModal()
             return
         }
-        let binDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".local/bin")
-        let dest = binDir.appendingPathComponent("ollama-run.sh")
+        let fm = FileManager.default
+        let binDir = fm.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin")
+        // Installed under the real command's name, so plain `ollama run` is what gets counted
+        let dest = binDir.appendingPathComponent("ollama")
         do {
-            try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
-            // Replace rather than fail, so this doubles as the way to update the wrapper
-            if FileManager.default.fileExists(atPath: dest.path) {
-                try FileManager.default.removeItem(at: dest)
+            try fm.createDirectory(at: binDir, withIntermediateDirectories: true)
+            // Replace rather than fail, so this doubles as the way to update the shim.
+            // Only ever overwrite our own file: a real binary someone placed here is theirs.
+            if fm.fileExists(atPath: dest.path) {
+                let head = (try? String(contentsOf: dest, encoding: .utf8))?.prefix(300) ?? ""
+                guard head.contains("RedLine ollama shim") else {
+                    alert.messageText = "A different ollama already lives there"
+                    alert.informativeText = "\(dest.path) exists and is not RedLine's shim, "
+                        + "so it was left alone. Remove it yourself if you want the shim there."
+                    alert.runModal()
+                    return
+                }
+                try fm.removeItem(at: dest)
             }
-            try FileManager.default.copyItem(at: src, to: dest)
-            try FileManager.default.setAttributes([.posixPermissions: 0o755],
-                                                  ofItemAtPath: dest.path)
+            try fm.copyItem(at: src, to: dest)
+            try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dest.path)
+            // The predecessor of the shim; superseded, so clear it out quietly
+            try? fm.removeItem(at: binDir.appendingPathComponent("ollama-run.sh"))
         } catch {
-            alert.messageText = "Could not install the wrapper"
+            alert.messageText = "Could not install the shim"
             alert.informativeText = "\(dest.path)\n\n\(error.localizedDescription)"
             alert.runModal()
             return
         }
-        alert.messageText = "Wrapper installed"
+        alert.messageText = "Ollama tracking is set up"
         alert.informativeText = """
             Installed at \(dest.path)
 
-            Call it instead of `ollama run` and RedLine counts the usage. If ~/.local/bin is \
-            not on your PATH, add it:
+            It passes everything through to the real ollama unchanged and records token \
+            counts for plain `ollama run` calls. For it to be found first, ~/.local/bin \
+            must come before the real ollama in your PATH; add this to your shell profile \
+            if it is not already there:
 
             export PATH="$HOME/.local/bin:$PATH"
             """
@@ -352,6 +380,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         home.appendingPathComponent(".local/bin/ollama-run.sh")] {
                 try? fm.removeItem(at: url)
             }
+            // The shim only if it is actually ours; a real binary parked there stays
+            let shim = home.appendingPathComponent(".local/bin/ollama")
+            if let head = try? String(contentsOf: shim, encoding: .utf8).prefix(300),
+               head.contains("RedLine ollama shim") {
+                try? fm.removeItem(at: shim)
+            }
         }
 
         let bundle = Bundle.main.bundleURL
@@ -359,28 +393,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard bundle.pathExtension == "app" else { NSApp.terminate(nil); return }
         NSWorkspace.shared.recycle([bundle]) { _, error in
             DispatchQueue.main.async {
-                guard let error else { NSApp.terminate(nil); return }
-                // macOS can refuse to let an app move its own bundle out of /Applications.
-                // Say so and hand it over, rather than quitting as if the app were gone.
-                let failed = NSAlert()
-                failed.messageText = "Everything except the app itself was removed"
-                failed.informativeText = """
-                    macOS would not let RedLine move its own bundle to the Trash: \
-                    \(error.localizedDescription)
+                if let error {
+                    // macOS can refuse to let an app move its own bundle out of
+                    // /Applications. Say so and hand it over, rather than quitting as if
+                    // the app were gone.
+                    let failed = NSAlert()
+                    failed.messageText = "Everything except the app itself was removed"
+                    failed.informativeText = """
+                        macOS would not let RedLine move its own bundle to the Trash: \
+                        \(error.localizedDescription)
 
-                    Drag \(bundle.lastPathComponent) to the Trash to finish.
-                    """
-                failed.addButton(withTitle: "Show in Finder")
-                failed.addButton(withTitle: "Quit")
-                if failed.runModal() == .alertFirstButtonReturn {
-                    NSWorkspace.shared.activateFileViewerSelecting([bundle])
+                        Drag \(bundle.lastPathComponent) to the Trash to finish.
+                        """
+                    failed.addButton(withTitle: "Show in Finder")
+                    failed.addButton(withTitle: "Quit")
+                    if failed.runModal() == .alertFirstButtonReturn {
+                        NSWorkspace.shared.activateFileViewerSelecting([bundle])
+                    }
                 }
+                // Last on purpose: when launchd runs this process, bootout terminates it,
+                // so everything above must already be finished.
+                LaunchAgent.bootout()
                 NSApp.terminate(nil)
             }
         }
     }
 
-    @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
+    @objc func quit(_ sender: Any?) {
+        // Booting the job out is the only exit launchd never undoes, whatever KeepAlive
+        // policy the plist that started us carried. Plists written before 0.1.0 said
+        // KeepAlive=true, which turns a plain terminate into an instant relaunch.
+        if LaunchAgent.isLaunchdOwned { LaunchAgent.bootout() }
+        NSApp.terminate(nil)
+    }
 
     func menuWillOpen(_ menu: NSMenu) {
         rebuildMenu(menu)
@@ -734,28 +779,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            keyEquivalent: "r")
         r.target = self
         menu.addItem(r)
-        let e = NSMenuItem(title: "Edit Config…", action: #selector(editConfig(_:)),
-                           keyEquivalent: ",")
-        e.target = self
-        menu.addItem(e)
-        // Only offer what is actually installed; a toggle for a missing tool is noise
-        let installed = availability.installed
-        // Pointless unless Ollama is here, so it appears only when it is
-        if installed.contains(where: {
-            $0.caseInsensitiveCompare(OllamaStore.provider) == .orderedSame
-        }) {
-            let w = NSMenuItem(title: "Install Ollama Wrapper…",
-                               action: #selector(installOllamaWrapper(_:)), keyEquivalent: "")
-            w.target = self
-            w.toolTip = "Copies ollama-run.sh to ~/.local/bin so local calls are counted"
-            menu.addItem(w)
-        }
-        // Providers are chosen in one place only, the setup window, which carries the same
-        // switches plus the Claude limits decision that a bare submenu cannot express.
-        let barItem = NSMenuItem(title: "Menu bar shows", action: nil, keyEquivalent: "")
+        menu.addItem(.separator())
+
+        // Settings, most-reached-for first. Providers are chosen in one place only, the
+        // setup window, which also carries the Claude limits decision.
+        let setup = NSMenuItem(title: "Providers & Claude Limits…",
+                               action: #selector(showSetup(_:)), keyEquivalent: "")
+        setup.target = self
+        menu.addItem(setup)
+
+        let barItem = NSMenuItem(title: "Menu Bar Shows", action: nil, keyEquivalent: "")
         let barSub = NSMenu()
         for choice in availability.trackChoices {
-            let title = choice == Config.autoProvider ? "Nearest limit (any provider)" : choice
+            let title = choice == Config.autoProvider ? "Nearest Limit (any provider)" : choice
             let item = NSMenuItem(title: title, action: #selector(pickMenuBarProvider(_:)),
                                   keyEquivalent: "")
             item.target = self
@@ -765,7 +801,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // A provider that is switched off entirely has nothing to report
             if choice != Config.autoProvider, !config.wants(choice) {
                 item.isEnabled = false
-                item.toolTip = "Enable \(choice) under Providers first"
+                item.toolTip = "Enable \(choice) in Providers & Claude Limits first"
             } else if choice == OllamaStore.provider {
                 item.toolTip = "Ollama has no rate limit; shows tokens used today"
             }
@@ -773,6 +809,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         barItem.submenu = barSub
         if availability.hasChoice { menu.addItem(barItem) }
+
+        // Only offered when Ollama is actually installed; a setup step for a missing tool
+        // is noise
+        if availability.installed.contains(where: {
+            $0.caseInsensitiveCompare(OllamaStore.provider) == .orderedSame
+        }) {
+            let w = NSMenuItem(title: "Set Up Ollama Tracking…",
+                               action: #selector(installOllamaShim(_:)), keyEquivalent: "")
+            w.target = self
+            w.toolTip = "Installs a transparent ollama shim in ~/.local/bin so plain "
+                      + "`ollama run` calls are counted"
+            menu.addItem(w)
+        }
+
+        let e = NSMenuItem(title: "Edit Config…", action: #selector(editConfig(_:)),
+                           keyEquivalent: ",")
+        e.target = self
+        menu.addItem(e)
+
+        let l = NSMenuItem(title: "Launch at Login",
+                           action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
+        l.target = self
+        l.state = LaunchAgent.isInstalled ? .on : .off
+        menu.addItem(l)
+
+        if oauth.isSignedIn {
+            let o = NSMenuItem(title: "Sign Out of Claude", action: #selector(signOut(_:)),
+                               keyEquivalent: "")
+            o.target = self
+            menu.addItem(o)
+        }
+        menu.addItem(.separator())
 
         if let updateStatus {
             addInfo(menu, "    \(updateStatus)", secondary: true)
@@ -787,24 +855,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            keyEquivalent: "")
         c.target = self
         menu.addItem(c)
-
-        let setup = NSMenuItem(title: "Providers & Claude Limits…",
-                               action: #selector(showSetup(_:)), keyEquivalent: "")
-        setup.target = self
-        menu.addItem(setup)
-
-        let l = NSMenuItem(title: "Launch at Login",
-                           action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
-        l.target = self
-        l.state = LaunchAgent.isInstalled ? .on : .off
-        menu.addItem(l)
-        if oauth.isSignedIn {
-            let o = NSMenuItem(title: "Sign Out of Claude", action: #selector(signOut(_:)),
-                               keyEquivalent: "")
-            o.target = self
-            menu.addItem(o)
-        }
         menu.addItem(.separator())
+
         let u = NSMenuItem(title: "Uninstall RedLine…", action: #selector(uninstall(_:)),
                            keyEquivalent: "")
         u.target = self

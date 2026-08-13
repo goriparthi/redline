@@ -9,7 +9,7 @@ Sources/RedlineCore/     Pure parsing and aggregation. No AppKit, no network, no
   Limits.swift           LimitWindow plus per-provider limit parsers
   UsageStore.swift       Claude transcript scanner
   CodexSessions.swift    Codex rollout scanner (limits + tokens)
-  OllamaUsage.swift      Ollama wrapper-log scanner
+  OllamaUsage.swift      Ollama shim-log scanner
   CredentialScan.swift   Finds an access token in an undocumented JSON blob
 
 Sources/redline/         The app. AppKit, network and Keychain live here only.
@@ -18,7 +18,7 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
   OAuth.swift            Keychain token storage, CLI-token borrowing, PKCE sign-in
 
 Tests/RedlineCoreTests/  38 tests over the core
-scripts/                 Build, test, bundle, install, DMG, release, Ollama wrapper
+scripts/                 Build, test, bundle, install, DMG, release, Ollama shim
 Casks/redline.rb         Homebrew cask
 ```
 
@@ -109,6 +109,7 @@ Resumed sessions duplicate messages across files, so entries dedupe on
   billing cache reads at the full input rate.
 - `info` is null on some events; those still supply usable `rate_limits`.
 
-**Ollama** (`~/.local/share/redline/ollama.jsonl`): written by `scripts/ollama-run.sh`.
-Ollama persists no usage history, so anything not routed through the wrapper is invisible
+**Ollama** (`~/.local/share/redline/ollama.jsonl`): written by the ollama shim
+(`scripts/ollama-shim.sh`, installed as `~/.local/bin/ollama` from the menu).
+Ollama persists no usage history, so anything that bypasses the shim is invisible
 by design. `prompt_eval_count` maps to input, `eval_count` to output.

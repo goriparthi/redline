@@ -13,9 +13,9 @@ cp "$REPO_ROOT/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 cp "$REPO_ROOT/Resources/Redline.icns" "$APP_BUNDLE/Contents/Resources/"
 cp "$REPO_ROOT/Resources/RedlineTemplate.png" \
    "$REPO_ROOT/Resources/RedlineTemplate@2x.png" "$APP_BUNDLE/Contents/Resources/"
-# The Ollama wrapper ships inside the app so every install route has it, not just a clone
-cp "$REPO_ROOT/scripts/ollama-run.sh" "$APP_BUNDLE/Contents/Resources/"
-chmod 755 "$APP_BUNDLE/Contents/Resources/ollama-run.sh"
+# The Ollama shim ships inside the app so every install route has it, not just a clone
+cp "$REPO_ROOT/scripts/ollama-shim.sh" "$APP_BUNDLE/Contents/Resources/"
+chmod 755 "$APP_BUNDLE/Contents/Resources/ollama-shim.sh"
 plutil -lint "$APP_BUNDLE/Contents/Info.plist" >/dev/null
 
 IDENTITY="$(find_signing_identity)"

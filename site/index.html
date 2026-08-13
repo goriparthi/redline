@@ -449,10 +449,11 @@
 
       <div class="card">
         <div class="card-top"><h3>Ollama</h3><span class="chip">usage</span></div>
-        <p>Ollama keeps no usage history, so a bundled wrapper records each call as you make
-           it. Local inference has no cost, so it is reported in tokens, never dollars.</p>
+        <p>Ollama keeps no usage history, so a transparent shim records each call as you
+           make it. Local inference has no cost, so it is reported in tokens, never
+           dollars.</p>
         <div class="spec">
-          <div><span class="t">Source</span><span class="d">wrapper log</span></div>
+          <div><span class="t">Source</span><span class="d">shim log</span></div>
           <div><span class="t">Sign-in</span><span class="d">none</span></div>
           <div><span class="t">Limits</span><span class="d">none</span></div>
         </div>
@@ -460,24 +461,18 @@
     </div>
 
     <div class="route" style="margin-top:1.25rem">
-      <p class="label">For coding agents</p>
-      <h3>Make the wrapper the default</h3>
-      <p class="note">The wrapper ships inside the app, and <strong>Install Ollama Wrapper</strong>
-         in the dropdown copies it to <code>~/.local/bin</code>. Agents reach for
-         <code>ollama run</code>, and those calls are never counted, so paste this into
-         whatever instruction file yours reads, such as <code>CLAUDE.md</code> or
-         <code>AGENTS.md</code>, and its local calls start showing up in RedLine.</p>
-      <pre><span class="c"># paste into your agent's instruction file</span>
-Route every local Ollama call through the RedLine wrapper, never `ollama run`.
-It records the usage and prints only the model's response, so it is a drop-in
-replacement:
-
-~/.local/bin/ollama-run.sh qwen3-coder:30b &lt;&lt;'PROMPT'
+      <p class="label">One setup step</p>
+      <h3>Plain <code>ollama run</code> is counted</h3>
+      <p class="note"><strong>Set Up Ollama Tracking</strong> in the dropdown installs a
+         transparent shim at <code>~/.local/bin/ollama</code>. Every subcommand passes
+         through to the real binary unchanged; plain <code>ollama run</code> calls are
+         answered over the local API so their token counts land in RedLine. No agent
+         configuration, no habit change. Programs that call Ollama's HTTP API directly
+         bypass the CLI, so those stay uncounted.</p>
+      <pre><span class="c"># you, or your coding agent, exactly as before</span>
+ollama run qwen3-coder:30b &lt;&lt;'PROMPT'
 Summarize this build log.
-PROMPT
-
-If the wrapper is missing, say so rather than falling back to `ollama run`.
-Install it from the RedLine menu with "Install Ollama Wrapper".</pre>
+PROMPT</pre>
     </div>
   </section>
 

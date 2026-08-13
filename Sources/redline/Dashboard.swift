@@ -620,7 +620,7 @@ struct DashboardView: View {
                 .foregroundStyle(Brandkit.steel)
             // Ollama keeps no history of its own, so say how to start collecting it
             if data.focus == OllamaStore.provider {
-                Text("Route calls through scripts/ollama-run.sh to record them")
+                Text("Use Set Up Ollama Tracking in the menu to record calls")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(Brandkit.steel.opacity(0.8))
             }

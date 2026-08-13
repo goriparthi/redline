@@ -9,7 +9,7 @@ exactly what it touches so you can decide whether to trust it, and how to report
 | --- | --- | --- |
 | `~/.claude/projects/**/*.jsonl` | token and cost totals | your Claude Code transcripts |
 | `~/.codex/sessions/**/*.jsonl` | limit windows and token counts | your Codex transcripts |
-| `~/.local/share/redline/ollama.jsonl` | Ollama volume | counts written by the bundled wrapper |
+| `~/.local/share/redline/ollama.jsonl` | Ollama volume | counts written by the ollama shim |
 | `~/.config/redline/config.json` | settings | no credentials |
 | Keychain item `redline` | its own OAuth token, if you sign in | access and refresh token |
 | Keychain item `Claude Code-credentials` | **only if you set `useCLIToken: true`** | the Claude CLI's token |
@@ -27,6 +27,7 @@ and **never stores, copies, or transmits their content**. Only counts reach the 
 | `~/.local/share/redline/ollama.jsonl` | per-call token counts and timings | `0600` |
 | `~/.config/redline/config.json` | your settings | default |
 | `~/Library/Logs/redline.{log,err}` | stdout and stderr, normally empty | default |
+| `~/.local/bin/ollama` | the ollama shim, written only when you run **Set Up Ollama Tracking** and never overwriting a file that is not RedLine's | `0755` |
 
 ## The undocumented endpoint
 
@@ -73,7 +74,7 @@ rejected unless they are `https`.
   app writes a copy of the snapshot into the widget's own container, which a sandboxed process
   can always read. No path exceptions are granted. With a Developer ID cert the App Group is
   used instead.
-- **No prompt content in any log.** The Ollama wrapper passes your prompt to `curl` on stdin
+- **No prompt content in any log.** The Ollama shim passes your prompt to `curl` on stdin
   rather than as an argument or environment variable, because both are readable by other
   processes running as your user.
 

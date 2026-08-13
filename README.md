@@ -145,7 +145,7 @@ in the config. Each is independent; none is required.
 | --- | --- | --- | --- | --- |
 | Claude | `~/.claude/projects/**/*.jsonl` | none for tokens; see below for limits | yes, via API | yes |
 | Codex | `~/.codex/sessions/**/*.jsonl` | none | yes, from disk | yes |
-| Ollama | `~/.local/share/redline/ollama.jsonl` | none | n/a | yes, via wrapper |
+| Ollama | `~/.local/share/redline/ollama.jsonl` | none | n/a | yes, via shim |
 
 ### What works immediately, and what needs a decision
 
@@ -178,46 +178,33 @@ If neither is available the menu bar shows `sign in` rather than a number. It de
 never falls back to showing token counts in the limits slot, because a plausible-looking
 number in that position reads as real limit data.
 
-### Ollama needs a wrapper
+### Ollama needs one setup step
 
-Ollama keeps no usage history, so there is nothing to read retroactively. Route calls
-through the wrapper and it records each one:
+Ollama keeps no usage history, so there is nothing to read retroactively. **Set Up Ollama
+Tracking…** in the dropdown installs a transparent shim at `~/.local/bin/ollama`, ahead of
+the real binary on your `PATH`. After that, plain `ollama run` is counted with no habit
+change, whether you type it or a coding agent does:
 
 ```sh
-ollama-run.sh qwen3-coder:30b <<'PROMPT'
+ollama run qwen3-coder:30b <<'PROMPT'
 Summarize this build log.
 PROMPT
 ```
 
-It prints only the model's response on stdout, so it is a drop-in replacement for
-`ollama run <model>` in a heredoc. Local inference has no dollar cost, so these entries are
-counted as tokens and left out of spend on purpose.
+The shim passes every subcommand through to the real binary untouched. Only two shapes are
+intercepted and answered over the local API so the counts can be recorded: `ollama run MODEL`
+with a piped prompt, and `ollama run MODEL "prompt"`. Interactive chat, flags, and everything
+else behave exactly as without it, and if the API call fails the prompt is replayed through
+the real binary, so the worst case is an uncounted call, never a broken one.
 
-The wrapper ships inside the app, so a DMG or Homebrew install has it too. **Install Ollama
-Wrapper…** in the dropdown copies it to `~/.local/bin/ollama-run.sh` and tells you if that
-directory is not on your `PATH`. The menu item appears only when Ollama is installed, and
-re-running it updates an older copy. From a clone, `scripts/ollama-run.sh` works directly,
-and the copy inside an installed app is at
-`/Applications/Redline.app/Contents/Resources/ollama-run.sh`.
+Honest limits: programs that call Ollama's HTTP API directly never touch the CLI, so the
+shim cannot see them, and interactive chat sessions are passed through uncounted. Local
+inference has no dollar cost, so shim entries are counted as tokens and left out of spend
+on purpose.
 
-### Tell your coding agent about it
-
-Coding agents reach for `ollama run` by default, and those calls are never counted. Paste
-this into whatever instruction file your agent reads (`CLAUDE.md`, `AGENTS.md`, a skill, a
-rules file) and its local calls start showing up in RedLine:
-
-```text
-Route every local Ollama call through the RedLine wrapper, never `ollama run`.
-It records the usage and prints only the model's response, so it is a drop-in
-replacement:
-
-~/.local/bin/ollama-run.sh qwen3-coder:30b <<'PROMPT'
-Summarize this build log.
-PROMPT
-
-If the wrapper is missing, say so rather than falling back to `ollama run`.
-Install it from the RedLine menu with "Install Ollama Wrapper".
-```
+The menu item appears only when Ollama is installed, re-running it updates an older copy,
+and it refuses to overwrite a file it did not create. From a clone, `scripts/ollama-shim.sh`
+is the same script.
 
 ## Configuration
 

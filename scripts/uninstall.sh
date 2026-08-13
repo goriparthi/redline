@@ -26,6 +26,11 @@ if [[ "${1:-}" == "--purge" ]]; then
     # Snapshot and the Ollama usage log, which nothing else records
     rm -rf "${REDLINE_DATA_DIR:-$HOME/.local/share/$BIN_NAME}"
     rm -f "$HOME/.local/bin/ollama-run.sh"
+    # The shim only if it is ours; never delete a real binary someone parked there
+    SHIM="$HOME/.local/bin/ollama"
+    if [[ -f "$SHIM" ]] && head -c 300 "$SHIM" 2>/dev/null | grep -q "RedLine ollama shim"; then
+        rm -f "$SHIM"
+    fi
     info "Purged config, logs and history"
 else
     echo "Config kept at $CONFIG_DIR (use --purge to remove)"
