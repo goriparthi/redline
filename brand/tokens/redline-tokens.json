@@ -1,0 +1,22 @@
+{
+  "brand": "Redline",
+  "color": {
+    "carbon": "#0B0D10",
+    "graphite": "#171A1F",
+    "steel": "#818792",
+    "chalk": "#F4F1EA",
+    "signal": "#FF3B30",
+    "amber": "#FF9F0A",
+    "clear": "#32D74B"
+  },
+  "radius": { "small": 8, "medium": 12, "large": 18 },
+  "type": {
+    "ui": "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+    "metrics": "ui-monospace, 'SF Mono', monospace"
+  },
+  "motion": {
+    "quickMs": 120,
+    "standardMs": 200,
+    "usageSweepMs": 500
+  }
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">Redline symbol</title>
+  <rect width="256" height="256" rx="56" fill="#0B0D10"/>
+  <path d="M48 65C92 65 108 108 139 125" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
+  <path d="M48 128H178" fill="none" stroke="#818792" stroke-width="14" stroke-linecap="round"/>
+  <path d="M48 191C92 191 108 148 139 131" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
+  <path d="M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139" fill="none" stroke="#818792" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M163 143L207 199" fill="none" stroke="#818792" stroke-width="20" stroke-linecap="round"/>
+  <path d="M126 128H214" fill="none" stroke="#FF3B30" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="48" cy="65" r="9" fill="#F4F1EA"/>
+  <circle cx="48" cy="128" r="7" fill="#818792"/>
+  <circle cx="48" cy="191" r="9" fill="#F4F1EA"/>
+</svg>

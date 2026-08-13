@@ -1,0 +1,82 @@
+# XcodeGen manifest. Generates Redline.xcodeproj, which builds the app plus the widget
+# extension. SwiftPM cannot build app extensions, which is why this project exists.
+#
+# RedlineCore is a framework target here, compiled from the SAME files as the SwiftPM
+# target. A local package at the repo root confuses Xcode ("Missing package product"), and
+# duplicating the source list would let the two build systems drift. Package.swift stays
+# the source of truth for `make test`.
+name: Redline
+options:
+  bundleIdPrefix: com.goriparthi
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+    # Empty by default so a clone builds without belonging to anyone's team. Set
+    # REDLINE_TEAM_ID before `make xcodeproj` to sign with your own.
+    DEVELOPMENT_TEAM: ${REDLINE_TEAM_ID}
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "0.2.0"
+
+targets:
+  RedlineCore:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/RedlineCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.goriparthi.redline.core
+        PRODUCT_NAME: RedlineCore
+        DEFINES_MODULE: YES
+        # An embedded framework must carry an Info.plist with a bundle id prefixed by the
+        # host app's, so it is written explicitly rather than synthesized
+        INFOPLIST_FILE: Resources/RedlineCore-Info.plist
+
+  Redline:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/redline
+      # Same loose brand assets the SwiftPM path uses, so there is one icon mechanism
+      - path: Resources/Redline.icns
+        buildPhase: resources
+      - path: Resources/RedlineTemplate.png
+        buildPhase: resources
+      - path: Resources/RedlineTemplate@2x.png
+        buildPhase: resources
+    dependencies:
+      - target: RedlineCore
+        embed: true
+      - target: RedlineWidget
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.goriparthi.redline
+        PRODUCT_NAME: Redline
+        # Bundle is Redline.app but the binary stays lowercase, matching both
+        # CFBundleExecutable and the SwiftPM build. Otherwise the two paths only agree
+        # by accident on a case-insensitive filesystem.
+        EXECUTABLE_NAME: redline
+        INFOPLIST_FILE: Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Resources/Redline.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+
+  RedlineWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Sources/RedlineWidget
+    dependencies:
+      - target: RedlineCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.goriparthi.redline.widget
+        PRODUCT_NAME: RedlineWidget
+        INFOPLIST_FILE: Sources/RedlineWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Sources/RedlineWidget/RedlineWidget.entitlements
+        ENABLE_HARDENED_RUNTIME: YES

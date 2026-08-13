@@ -1,0 +1,49 @@
+name: Deploy site
+
+# Publishes site/ to GitHub Pages at https://goriparthi.github.io/redline/
+# Requires Settings > Pages > Source = "GitHub Actions". Pages on a private repo needs a
+# paid plan; on a public repo it works on the free tier.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never leave a half-finished deploy: queue rather than cancel a running one
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the page is self-contained
+        run: |
+          set -euo pipefail
+          test -f site/index.html
+          # No external hosts: the page must render with no network beyond the origin
+          if grep -nEo '(src|href)="https?://[^"]+' site/index.html \
+              | grep -vE 'https://github\.com/goriparthi/redline'; then
+            echo "unexpected external reference above" >&2
+            exit 1
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,460 @@
+<meta charset="utf-8">
+<title>Redline: AI usage monitor for macOS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Redline is a private macOS usage monitor for Claude, Codex, and Ollama. See usage, remaining capacity, and reset times without breaking focus.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%230B0D10'/%3E%3Cpath d='M48 65C92 65 108 108 139 125' fill='none' stroke='%23F4F1EA' stroke-width='18' stroke-linecap='round'/%3E%3Cpath d='M48 128H178' fill='none' stroke='%23818792' stroke-width='14' stroke-linecap='round'/%3E%3Cpath d='M48 191C92 191 108 148 139 131' fill='none' stroke='%23F4F1EA' stroke-width='18' stroke-linecap='round'/%3E%3Cpath d='M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139' fill='none' stroke='%23818792' stroke-width='19' stroke-linecap='round'/%3E%3Cpath d='M163 143L207 199' fill='none' stroke='%23818792' stroke-width='20' stroke-linecap='round'/%3E%3Cpath d='M126 128H214' fill='none' stroke='%23FF3B30' stroke-width='8' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  /* Tokens are verbatim from brand/tokens/redline-tokens.json. Redline's identity is
+     dark-first (Carbon is the main background), so this page commits to one visual world
+     rather than theming, and paints every colour explicitly so it holds on any host ground. */
+  :root {
+    --carbon:   #0B0D10;
+    --graphite: #171A1F;
+    --steel:    #818792;
+    --chalk:    #F4F1EA;
+    --signal:   #FF3B30;
+    --amber:    #FF9F0A;
+    --clear:    #32D74B;
+
+    /* Derived neutrals, mixed from the tokens rather than invented */
+    --hairline: #22262C;
+    --raised:   #1E2228;
+
+    --r-sm: 8px;
+    --r-md: 12px;
+    --r-lg: 18px;
+
+    --quick: 120ms;
+    --standard: 200ms;
+    --sweep: 500ms;
+
+    --ui: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    --metrics: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--carbon);
+    color: var(--chalk);
+    font-family: var(--ui);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 2.5rem); }
+
+  h1, h2, h3 { margin: 0; text-wrap: balance; color: var(--chalk); }
+  h2 { font-size: clamp(1.5rem, 3vw, 2.125rem); font-weight: 680; letter-spacing: -.022em; }
+  h3 { font-size: 1rem; font-weight: 650; letter-spacing: -.008em; }
+  p { margin: 0; }
+
+  .metric { font-family: var(--metrics); font-variant-numeric: tabular-nums; }
+  .label {
+    font-family: var(--metrics);
+    font-size: .6875rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--steel);
+  }
+
+  a { color: var(--chalk); text-decoration-color: var(--hairline); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--signal); }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { display: flex; align-items: center; gap: .75rem; padding: 1.75rem 0; }
+  .masthead svg { width: 34px; height: 34px; display: block; }
+  /* Wordmark type specs match brand/logo/redline-wordmark-dark.svg exactly */
+  .wordmark {
+    font-family: var(--ui);
+    font-size: 1.6rem;
+    font-weight: 680;
+    letter-spacing: -.06em;
+    color: var(--chalk);
+    line-height: 1;
+  }
+  .masthead .spacer { margin-left: auto; }
+  /* Target the links directly: they are siblings of .spacer, not children of it */
+  .masthead a {
+    font-size: .875rem;
+    color: var(--steel);
+    text-decoration: none;
+    transition: color var(--quick) ease;
+  }
+  .masthead a + a { margin-left: 1.25rem; }
+  .masthead a:hover { color: var(--chalk); }
+
+  /* ---------- hero ---------- */
+
+  header.hero { padding: clamp(2rem, 6vw, 4.5rem) 0 clamp(2rem, 5vw, 3.5rem); }
+  .hero-copy { display: flex; flex-direction: column; gap: 1.25rem; max-width: 30ch; }
+  .hero-copy h1 {
+    font-size: clamp(2.25rem, 5.5vw, 3.5rem);
+    font-weight: 680;
+    letter-spacing: -.035em;
+    line-height: 1.02;
+  }
+  /* The one place red carries meaning in the type: the limit itself */
+  .hero-copy h1 .line { color: var(--signal); }
+  .hero-copy p.sub { color: var(--steel); font-size: clamp(1rem, 1.5vw, 1.125rem); max-width: 42ch; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: .625rem; }
+  .btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font: 620 .9375rem/1 var(--ui);
+    text-decoration: none;
+    padding: .72rem 1.1rem;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+    transition: background-color var(--standard) ease, border-color var(--standard) ease,
+                color var(--standard) ease;
+  }
+  .btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+  /* Chalk, not red: the palette reserves Signal for the limit, capped near 5% of a screen */
+  .btn-primary { background: var(--chalk); color: var(--carbon); }
+  .btn-primary:hover { background: #FFFFFF; }
+  .btn-quiet { border-color: var(--hairline); color: var(--chalk); }
+  .btn-quiet:hover { border-color: var(--steel); }
+
+  /* ---------- threshold panel: three streams, one limit ---------- */
+
+  .panel {
+    margin-top: clamp(2rem, 5vw, 3rem);
+    background: var(--graphite);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+    display: flex; flex-direction: column; gap: 1.25rem;
+  }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+  .tracks { display: flex; flex-direction: column; gap: .875rem; }
+  .track-row { display: grid; grid-template-columns: 11rem 1fr auto; gap: 1rem; align-items: center; }
+  @media (max-width: 700px) {
+    .track-row { grid-template-columns: 1fr auto; }
+    .track-row .rail-wrap { grid-column: 1 / -1; order: 3; }
+  }
+  .track-name { font-size: .875rem; color: var(--chalk); }
+  .track-name span { color: var(--steel); }
+
+  /* The rail is the mark's idea in one dimension: a stream running at a fixed limit line */
+  .rail-wrap { position: relative; display: block; }
+  .rail {
+    /* Must be block: an inline span ignores height and the bar collapses */
+    display: block;
+    position: relative;
+    height: 10px;
+    background: var(--raised);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .fill {
+    position: absolute; inset: 0 auto 0 0;
+    width: 0;
+    border-radius: 999px;
+    transition: width var(--sweep) cubic-bezier(.22,.61,.36,1);
+  }
+  /* The limit line sits at the end of every rail: the shared threshold */
+  .rail-wrap.no-limit::after { display: none; }
+  .rail-wrap::after {
+    content: "";
+    position: absolute; top: -5px; bottom: -5px; right: -1px;
+    width: 2px; border-radius: 1px;
+    background: var(--signal);
+  }
+  .track-val { font-family: var(--metrics); font-variant-numeric: tabular-nums; font-size: .8125rem; min-width: 15.5rem; text-align: right; }
+  .track-val em { font-style: normal; color: var(--steel); }
+
+  .totals { display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; padding-top: 1.125rem; border-top: 1px solid var(--hairline); }
+  .total { display: flex; flex-direction: column; gap: .15rem; }
+  .total .v { font-family: var(--metrics); font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 600; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: clamp(2.5rem, 6vw, 4rem) 0; border-top: 1px solid var(--hairline); }
+  .sec-head { display: flex; flex-direction: column; gap: .625rem; margin-bottom: clamp(1.5rem, 3vw, 2rem); }
+  .sec-head p { color: var(--steel); max-width: 62ch; }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(1rem, 2.5vw, 1.5rem); }
+  @media (max-width: 820px) { .grid3 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--graphite);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    padding: 1.25rem;
+    display: flex; flex-direction: column; gap: .875rem;
+  }
+  .card p { color: var(--steel); font-size: .9375rem; }
+  .sec-head strong { color: var(--chalk); font-weight: 620; }
+  .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+  .chip {
+    font-family: var(--metrics); font-size: .625rem; letter-spacing: .1em; text-transform: uppercase;
+    padding: .2rem .5rem; border-radius: 999px; white-space: nowrap;
+    border: 1px solid var(--hairline); color: var(--steel);
+  }
+  .spec { display: flex; flex-direction: column; gap: .3rem; margin-top: auto; }
+  .spec div { display: flex; justify-content: space-between; gap: 1rem; padding-top: .35rem; border-top: 1px solid var(--hairline); }
+  .spec .t { font-size: .8125rem; color: var(--steel); }
+  .spec .d { font-family: var(--metrics); font-size: .8125rem; color: var(--chalk); }
+
+  .rule-item { display: flex; flex-direction: column; gap: .5rem; padding-left: .9rem; border-left: 2px solid var(--hairline); }
+  .rule-item p { color: var(--steel); font-size: .9375rem; }
+  code {
+    font-family: var(--metrics); font-size: .85em;
+    background: var(--raised); color: var(--chalk);
+    padding: .12em .38em; border-radius: 5px;
+  }
+
+  pre {
+    margin: 0;
+    background: var(--graphite);
+    border: 1px solid var(--hairline);
+    color: var(--chalk);
+    font-family: var(--metrics);
+    font-size: .8125rem;
+    line-height: 1.75;
+    padding: 1rem 1.1rem;
+    border-radius: var(--r-md);
+    overflow-x: auto;
+  }
+  pre .c { color: var(--steel); }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1rem, 2.5vw, 1.5rem); }
+  @media (max-width: 820px) { .cols2 { grid-template-columns: 1fr; } }
+  .cols2 > div { display: flex; flex-direction: column; gap: .75rem; }
+  .note { font-size: .875rem; color: var(--steel); max-width: 62ch; }
+
+  footer {
+    border-top: 1px solid var(--hairline);
+    padding: 2rem 0 3rem;
+    display: flex; flex-wrap: wrap; gap: .5rem 1.5rem;
+    align-items: baseline; justify-content: space-between;
+    color: var(--steel); font-size: .8125rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fill { transition: none; }
+  }
+</style>
+
+<div class="wrap">
+  <div class="masthead">
+    <!-- brand/logo/redline-symbol.svg, unmodified geometry -->
+    <svg viewBox="0 0 256 256" role="img" aria-label="Redline">
+      <path d="M48 65C92 65 108 108 139 125" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
+      <path d="M48 128H178" fill="none" stroke="#818792" stroke-width="14" stroke-linecap="round"/>
+      <path d="M48 191C92 191 108 148 139 131" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
+      <path d="M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139" fill="none" stroke="#818792" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M163 143L207 199" fill="none" stroke="#818792" stroke-width="20" stroke-linecap="round"/>
+      <path d="M126 128H214" fill="none" stroke="#FF3B30" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="48" cy="65" r="9" fill="#F4F1EA"/>
+      <circle cx="48" cy="128" r="7" fill="#818792"/>
+      <circle cx="48" cy="191" r="9" fill="#F4F1EA"/>
+    </svg>
+    <span class="wordmark">Redline</span>
+    <span class="spacer"></span>
+    <a href="https://github.com/goriparthi/redline/blob/main/SECURITY.md">Security</a>
+    <a href="https://github.com/goriparthi/redline">GitHub</a>
+  </div>
+
+  <header class="hero">
+    <div class="hero-copy">
+      <h1>Every model.<br>One clear <span class="line">line</span>.</h1>
+      <p class="sub">Claude, Codex, and Ollama usage in a quiet macOS menu-bar app.
+         Know what remains before your flow gets interrupted.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/goriparthi/redline/releases/latest">Download for macOS</a>
+        <a class="btn btn-quiet" href="https://github.com/goriparthi/redline">View source</a>
+      </div>
+      <p class="label">macOS 14 or later · menu bar and desktop widget · MIT</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <p class="label">Usage</p>
+        <p class="label">Menu bar: nearest limit, or pick one</p>
+      </div>
+
+      <div class="tracks" id="tracks">
+        <div class="track-row">
+          <span class="track-name">Claude <span>· session, 5h</span></span>
+          <span class="rail-wrap"><span class="rail"><span class="fill" data-pct="13" style="background:var(--clear)"></span></span></span>
+          <span class="track-val">13% used <em>· 87% left · 2:29 PM</em></span>
+        </div>
+        <div class="track-row">
+          <span class="track-name">Claude <span>· week</span></span>
+          <span class="rail-wrap"><span class="rail"><span class="fill" data-pct="3" style="background:var(--clear)"></span></span></span>
+          <span class="track-val">3% used <em>· 97% left · Tue</em></span>
+        </div>
+        <div class="track-row">
+          <span class="track-name">Codex <span>· week</span></span>
+          <span class="rail-wrap"><span class="rail"><span class="fill" data-pct="17" style="background:var(--clear)"></span></span></span>
+          <span class="track-val">17% used <em>· 83% left · Sun</em></span>
+        </div>
+        <div class="track-row">
+          <span class="track-name">Ollama <span>· local</span></span>
+          <span class="rail-wrap no-limit"><span class="rail"></span></span>
+          <span class="track-val">unlimited <em>· runs locally</em></span>
+        </div>
+      </div>
+
+      <div class="totals">
+        <span class="total"><span class="label">Today</span><span class="v">203K tokens</span></span>
+        <span class="total"><span class="label">Estimated cost</span><span class="v">$102.36</span></span>
+        <span class="total"><span class="label">Last 7 days</span><span class="v">6.8M tokens</span></span>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <p class="label">Sources</p>
+      <h2>It reads what your tools already write</h2>
+      <p>Each provider is independent and optional, switched on and off from the menu. When
+         several are active, the menu bar shows whichever is nearest its limit, because that
+         is the one that will interrupt you first. Prefer to watch just one? Pick it under
+         <strong>Menu bar shows</strong> and the dropdown still reports them all.</p>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>Claude Code</h3><span class="chip">usage · resets</span></div>
+        <p>Token and cost totals come from transcripts already on disk, with no sign-in.
+           Remaining capacity needs a token: either borrow the CLI's, which is opt-in, or
+           sign in separately.</p>
+        <div class="spec">
+          <div><span class="t">Source</span><span class="d">~/.claude</span></div>
+          <div><span class="t">Sign-in for usage</span><span class="d">none</span></div>
+          <div><span class="t">Sign-in for limits</span><span class="d">opt-in</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>Codex</h3><span class="chip">usage · resets</span></div>
+        <p>Codex records both its limit windows and its per-turn token counts locally, so
+           Redline reads them with no sign-in and no network call at all.</p>
+        <div class="spec">
+          <div><span class="t">Source</span><span class="d">~/.codex</span></div>
+          <div><span class="t">Sign-in</span><span class="d">none</span></div>
+          <div><span class="t">Windows</span><span class="d">5h · 7d</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>Ollama</h3><span class="chip">usage</span></div>
+        <p>Ollama keeps no usage history, so a bundled wrapper records each call as you make
+           it. Local inference has no cost, so it is reported in tokens, never dollars.</p>
+        <div class="spec">
+          <div><span class="t">Source</span><span class="d">wrapper log</span></div>
+          <div><span class="t">Sign-in</span><span class="d">none</span></div>
+          <div><span class="t">Limits</span><span class="d">none</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="label">Private by default</p>
+      <h2>It reads your machine, and reports to no one</h2>
+      <p>Everything is computed locally from files your tools already write. There is no
+         analytics, no telemetry, no crash reporting, and no update check.
+         <a href="https://github.com/goriparthi/redline/blob/main/SECURITY.md">SECURITY.md</a>
+         lists every path read and written.</p>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>Transcripts stay put</h3><span class="chip">local</span></div>
+        <p>Your Claude and Codex transcripts are parsed for token counts and nothing else.
+           Their content is never copied, stored, or sent anywhere. Prompts never reach a log.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Three hosts, all Anthropic's</h3><span class="chip">opt-in</span></div>
+        <p>The only network calls fetch Claude rate limits, and only if you enable them.
+           Codex and Ollama are read entirely from disk. Endpoint overrides must be HTTPS.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Credentials you control</h3><span class="chip">keychain</span></div>
+        <p>Sign-in uses OAuth with PKCE and a loopback listener bound to localhost. Borrowing
+           the Claude CLI's own token is off by default and requires your explicit consent.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="label">How it reports</p>
+      <h2>It would rather show nothing than show something wrong</h2>
+      <p>Redline exists because an earlier version displayed <span class="metric">0 $0.00</span>
+         for a day. The figure was accurate and still misleading: the sign-in had lapsed.
+         Three rules came out of that.</p>
+    </div>
+
+    <div class="grid3">
+      <div class="rule-item">
+        <h3>Nothing stands in for a limit</h3>
+        <p>When usage is unavailable the menu bar says <code>Connect</code>. It never
+           substitutes a token count, because a plausible figure where a percentage belongs
+           reads as a real limit.</p>
+      </div>
+      <div class="rule-item">
+        <h3>Costs are estimates, and say so</h3>
+        <p>Pricing is yours to configure. A model with no entry is counted in tokens and left
+           out of the estimate, with the total marked <code>+</code>, rather than priced at a
+           guessed tier.</p>
+      </div>
+      <div class="rule-item">
+        <h3>Old readings are discarded</h3>
+        <p>Limits read from disk can be days old. A window whose reset time has passed is
+           dropped, and the widget reports when it last updated rather than implying the
+           number is live.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="label">Install</p>
+      <h2>Two minutes, no account</h2>
+    </div>
+    <div class="cols2">
+      <div>
+        <h3>Homebrew</h3>
+        <pre><span class="c"># from the repo, no tap required</span>
+brew install --cask ./Casks/redline.rb</pre>
+      </div>
+      <div>
+        <h3>From source</h3>
+        <pre>git clone https://github.com/goriparthi/redline
+cd redline
+make install          <span class="c"># menu bar</span>
+WIDGET=1 make install <span class="c"># and the widget</span></pre>
+      </div>
+    </div>
+    <p class="note" style="margin-top:1.25rem">
+      Builds are ad-hoc signed rather than notarized, so a downloaded copy stays quarantined
+      by Gatekeeper. Clear it with
+      <code>xattr -dr com.apple.quarantine /Applications/Redline.app</code>, or build from
+      source and avoid it entirely.
+    </p>
+  </section>
+
+  <footer>
+    <span>MIT licensed. Not affiliated with Anthropic, OpenAI, or Ollama.</span>
+    <span><a href="https://github.com/goriparthi/redline">github.com/goriparthi/redline</a></span>
+  </footer>
+</div>
+
+<script>
+  // Fills sweep in once at the token's usageSweepMs. Reduced motion keeps the end state.
+  (function () {
+    const fills = document.querySelectorAll('.fill');
+    const paint = () => fills.forEach(f => { f.style.width = f.dataset.pct + '%'; });
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { paint(); return; }
+    requestAnimationFrame(() => requestAnimationFrame(paint));
+  })();
+</script>

@@ -1,0 +1,29 @@
+#!/bin/bash
+# Assembles dist/Redline.app from the release binary and signs it.
+source "$(dirname "$0")/lib/common.sh"
+
+"$REPO_ROOT/scripts/build.sh"
+
+info "Assembling $APP_BUNDLE"
+rm -rf "$APP_BUNDLE"
+mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
+cp "$BUILD_DIR/release/$BIN_NAME" "$APP_BUNDLE/Contents/MacOS/$BIN_NAME"
+cp "$REPO_ROOT/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
+# Brand assets: app icon plus the template mark the status item loads by name
+cp "$REPO_ROOT/Resources/Redline.icns" "$APP_BUNDLE/Contents/Resources/"
+cp "$REPO_ROOT/Resources/RedlineTemplate.png" \
+   "$REPO_ROOT/Resources/RedlineTemplate@2x.png" "$APP_BUNDLE/Contents/Resources/"
+plutil -lint "$APP_BUNDLE/Contents/Info.plist" >/dev/null
+
+IDENTITY="$(find_signing_identity)"
+if [[ -n "$IDENTITY" ]]; then
+    info "Signing with: $IDENTITY"
+    # Hardened runtime is required for notarization
+    codesign --force --options runtime --timestamp \
+        --sign "$IDENTITY" "$APP_BUNDLE"
+else
+    warn "No Developer ID Application cert found; signing ad-hoc."
+    warn "Ad-hoc builds run locally but downloads stay Gatekeeper-quarantined."
+    codesign --force --sign - --identifier "$BUNDLE_ID" "$APP_BUNDLE"
+fi
+codesign --verify --strict "$APP_BUNDLE" && info "Signature verified"

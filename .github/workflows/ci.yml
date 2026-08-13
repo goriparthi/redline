@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    # macOS runner: the app links AppKit and the tests need XCTest from Xcode
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      # The committed project is written by whatever Xcode generated it, and a runner with an
+      # older Xcode cannot open a newer project format. Regenerating from project.yml here
+      # makes CI independent of that entirely.
+      - name: Regenerate the Xcode project for this runner
+        run: |
+          brew install xcodegen
+          make xcodeproj
+
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: make test
+
+      # Proves the bundle assembles and signs (ad-hoc on CI, which has no Developer ID).
+      # Catches Info.plist and bundle-layout regressions before a release is cut.
+      - name: Bundle
+        run: make bundle
+
+      # Smoke build of the Xcode project so a widget or project.yml regression is caught.
+      # Unsigned: CI has no Apple ID, and the App Group entitlement needs a real profile.
+      - name: Build app with widget (unsigned)
+        run: SIGN=no make widget
+
+      - name: Verify widget is embedded
+        run: test -d dist/Redline.app/Contents/PlugIns/RedlineWidget.appex
+
+      - name: Verify bundle identity
+        run: |
+          set -euo pipefail
+          plutil -lint dist/Redline.app/Contents/Info.plist
+          codesign --verify --strict dist/Redline.app
+          test -x dist/Redline.app/Contents/MacOS/redline
+          dist/Redline.app/Contents/MacOS/redline --version
