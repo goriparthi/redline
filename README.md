@@ -7,8 +7,7 @@ been used, what remains, and when limits reset, in the menu bar and an optional 
 widget.
 
 Brand assets, tokens, and voice rules live in [brand/](brand/); `brand/BRAND.md` is the
-source of truth for colour, type, and copy. Note that it explicitly rules out racing
-metaphors and fear language, so keep the wording calm and factual.
+source of truth for colour, type, and copy.
 
 > **Not affiliated with, endorsed by, or supported by Anthropic, OpenAI, or Ollama.**
 
@@ -235,7 +234,7 @@ Guessing a price tier would silently misreport spend, so it does not.
 
 ```sh
 make help       # list targets
-make test       # 46 tests
+make test       # 117 tests
 make build      # release binary
 make bundle     # dist/Redline.app, signed
 make widget     # app + desktop widget via Xcode
@@ -277,9 +276,9 @@ main thread with a progress state.
 Notification Centre. It shows the worst session and week gauges, and on the large size the
 token and cost totals.
 
-The widget renders a snapshot the menu bar app publishes to a shared App Group container.
-It never parses transcripts itself, because a widget process has a hard time and memory
-budget. Two consequences worth knowing:
+The widget renders a snapshot the menu bar app writes into the widget extension's own
+container. It never parses transcripts itself, because a widget process has a hard time and
+memory budget. Two consequences worth knowing:
 
 - **It is not live.** WidgetKit decides when to reload. The view labels itself stale when
   the snapshot is over 15 minutes old rather than implying the number is current.
@@ -301,10 +300,11 @@ Codex, and one for Ollama.
 The large size adds a per-window breakdown. Ollama state travels in the snapshot rather than
 being fetched by the widget, so the extension needs no network access of its own.
 
-No Apple ID is needed to run it locally: the build ad-hoc signs the bundle with the App
-Group entitlement, which macOS honours on this machine. Distributing the widget to anyone
-else does require a Developer ID Application certificate, and the build switches to real
-signing automatically once one exists.
+No Apple ID is needed to run it locally: the build ad-hoc signs the bundle, which macOS
+accepts on this machine. There is no App Group, because a capability entitlement needs a
+provisioning profile and that would make the build unnotarizable. Distributing the widget to
+anyone else does require a Developer ID Application certificate, and the build switches to
+real signing automatically once one exists.
 
 ## Site
 
