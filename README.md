@@ -113,7 +113,8 @@ where you can read what you are about to run.
 ### Which providers to read
 
 On first launch RedLine asks which of Claude, Codex, and Ollama to read, listing only what it
-finds installed. Change it later from **Choose Providers…** in the menu.
+finds installed. Change it later from **Providers & Claude Limits…** in the menu, which
+reopens the same window.
 
 RedLine works with any one of them. With a single tool installed the provider pickers
 disappear, since there is nothing to choose between.
@@ -129,7 +130,7 @@ make install`.
 
 ## Providers
 
-Pick which ones to read from the **Providers** submenu in the dropdown, or set `providers`
+Pick which ones to read from **Providers & Claude Limits…** in the dropdown, or set `providers`
 in the config. Each is independent; none is required.
 
 | Provider | Source | Auth | Rate limits | Tokens |

@@ -37,9 +37,8 @@ enum LaunchAgent {
         guard let data = try? PropertyListSerialization.data(
             fromPropertyList: plist, format: .xml, options: 0) else { return }
         do { try data.write(to: plistURL) } catch { return }
-        // Load it now so the toggle takes effect immediately rather than at next login
-        launchctl("bootout")
-        launchctl("bootstrap")
+        // Deliberately not bootstrapped here. This process is already running and owns the
+        // status item, so loading the agent now would start a second copy and show two icons.
     }
 
     static func remove() {
@@ -227,31 +226,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         claudeLimits = []
         limitsStatus = nil
         updateTitle()
-    }
-
-    // Toggling a provider persists to the config so the choice survives a restart
-    @objc func toggleProvider(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        var next = config.providers
-        if let idx = next.firstIndex(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
-            next.remove(at: idx)
-        } else {
-            next.append(name)
-        }
-        // An empty list means "all" in Config.apply, so refuse to turn the last one off
-        guard !next.isEmpty else {
-            limitsStatus = "Keep at least one provider enabled"
-            if let menu = statusItem.menu { rebuildMenu(menu) }
-            return
-        }
-        guard Config.setProviders(next) else {
-            limitsStatus = "Could not write config"
-            return
-        }
-        config.providers = next
-        if !config.wants(UsageStore.provider) { claudeLimits = [] }
-        if !config.wants(CodexStore.provider) { codexLimits = [] }
-        refresh()
     }
 
     @objc func openDashboard(_ sender: Any?) {
@@ -654,8 +628,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                    action: #selector(signIn(_:)), keyEquivalent: "")
                 s.target = self
                 menu.addItem(s)
+            } else if !config.useCLIToken {
+                // Actionable instead of a config instruction: the same decision lives in the
+                // setup window, and borrowing the CLI's token needs no client id at all.
+                let s = NSMenuItem(title: "Show Claude Limits…",
+                                   action: #selector(showSetup(_:)), keyEquivalent: "")
+                s.target = self
+                menu.addItem(s)
             } else {
-                addInfo(menu, "    set oauth.clientId in config to enable Sign In")
+                addInfo(menu, "    No token yet: grant access to Claude Code-credentials "
+                            + "in Keychain Access")
             }
         }
         menu.addItem(.separator())
@@ -697,23 +679,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             w.toolTip = "Copies ollama-run.sh to ~/.local/bin so local calls are counted"
             menu.addItem(w)
         }
-        let providersItem = NSMenuItem(title: "Providers to read", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-        for name in installed.isEmpty ? Config.knownProviders : installed {
-            let item = NSMenuItem(title: name, action: #selector(toggleProvider(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = name
-            item.state = config.wants(name) ? .on : .off
-            // Ollama has no history unless calls go through the wrapper
-            if name == OllamaStore.provider, !ollamaStore.isConfigured {
-                item.toolTip = "No data yet; use Install Ollama Wrapper and call that instead"
-            }
-            sub.addItem(item)
-        }
-        providersItem.submenu = sub
-        if availability.hasChoice { menu.addItem(providersItem) }
-
+        // Providers are chosen in one place only, the setup window, which carries the same
+        // switches plus the Claude limits decision that a bare submenu cannot express.
         let barItem = NSMenuItem(title: "Menu bar shows", action: nil, keyEquivalent: "")
         let barSub = NSMenu()
         for choice in availability.trackChoices {
@@ -750,8 +717,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         c.target = self
         menu.addItem(c)
 
-        let setup = NSMenuItem(title: "Choose Providers…", action: #selector(showSetup(_:)),
-                               keyEquivalent: "")
+        let setup = NSMenuItem(title: "Providers & Claude Limits…",
+                               action: #selector(showSetup(_:)), keyEquivalent: "")
         setup.target = self
         menu.addItem(setup)
 
