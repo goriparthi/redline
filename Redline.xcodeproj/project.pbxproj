@@ -24,6 +24,7 @@
 		8A37C1B9C476E667D3C7626E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594A59204E47A19AF9380F42 /* AppDelegate.swift */; };
 		90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C70F9EB19961D2896832675D /* Trends.swift */; };
 		9BD597547539A0FF0DD27053 /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
+		A2F8176D7A87DA509C090D13 /* ollama-run.sh in Resources */ = {isa = PBXBuildFile; fileRef = E6CE7ED965070BD9ECF6C2AA /* ollama-run.sh */; };
 		B05F25F924C6CEDA04D1CAFB /* RedlineTemplate@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 9D59182E56BE7254764382E5 /* RedlineTemplate@2x.png */; };
 		B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B28FA77D5BF771D09A8333 /* Ollama.swift */; };
 		B0C07761E587F08B6AE9CE9A /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
@@ -115,6 +116,7 @@
 		BCFB67C592C32CEC96CB61C6 /* OAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuth.swift; sourceTree = "<group>"; };
 		C70F9EB19961D2896832675D /* Trends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trends.swift; sourceTree = "<group>"; };
 		DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedlineWidget.swift; sourceTree = "<group>"; };
+		E6CE7ED965070BD9ECF6C2AA /* ollama-run.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "ollama-run.sh"; sourceTree = "<group>"; };
 		EF2D39E506526264BDC08DB4 /* CodexSessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSessions.swift; sourceTree = "<group>"; };
 		F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaUsage.swift; sourceTree = "<group>"; };
 		F243DEA3F6D6C090FFF94EF1 /* Availability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Availability.swift; sourceTree = "<group>"; };
@@ -160,6 +162,14 @@
 				78FE2F26BDB6366C0D7C1974 /* RedlineWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5427E107E20AD0BCA2B644CC /* scripts */ = {
+			isa = PBXGroup;
+			children = (
+				E6CE7ED965070BD9ECF6C2AA /* ollama-run.sh */,
+			);
+			path = scripts;
 			sourceTree = "<group>";
 		};
 		5A03863A9D964D119767A485 /* RedlineWidget */ = {
@@ -222,6 +232,7 @@
 			isa = PBXGroup;
 			children = (
 				3DF505AC9EA16193B0513596 /* Resources */,
+				5427E107E20AD0BCA2B644CC /* scripts */,
 				5B2A7CD7D4D06BBF900687E9 /* Sources */,
 				4707618540E3D744E35D6824 /* Products */,
 			);
@@ -341,6 +352,7 @@
 				85B47DCDD9A67C95AA0FAC73 /* Redline.icns in Resources */,
 				C0B7F2FB9DD287E1BF05F920 /* RedlineTemplate.png in Resources */,
 				B05F25F924C6CEDA04D1CAFB /* RedlineTemplate@2x.png in Resources */,
+				A2F8176D7A87DA509C090D13 /* ollama-run.sh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

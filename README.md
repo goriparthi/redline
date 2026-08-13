@@ -173,10 +173,10 @@ number in that position reads as real limit data.
 ### Ollama needs a wrapper
 
 Ollama keeps no usage history, so there is nothing to read retroactively. Route calls
-through the bundled wrapper and it records each one:
+through the wrapper and it records each one:
 
 ```sh
-scripts/ollama-run.sh qwen3-coder:30b <<'PROMPT'
+ollama-run.sh qwen3-coder:30b <<'PROMPT'
 Summarize this build log.
 PROMPT
 ```
@@ -184,6 +184,13 @@ PROMPT
 It prints only the model's response on stdout, so it is a drop-in replacement for
 `ollama run <model>` in a heredoc. Local inference has no dollar cost, so these entries are
 counted as tokens and left out of spend on purpose.
+
+The wrapper ships inside the app, so a DMG or Homebrew install has it too. **Install Ollama
+Wrapper…** in the dropdown copies it to `~/.local/bin/ollama-run.sh` and tells you if that
+directory is not on your `PATH`. The menu item appears only when Ollama is installed, and
+re-running it updates an older copy. From a clone, `scripts/ollama-run.sh` works directly,
+and the copy inside an installed app is at
+`/Applications/Redline.app/Contents/Resources/ollama-run.sh`.
 
 ### Tell your coding agent about it
 
@@ -196,11 +203,12 @@ Route every local Ollama call through the Redline wrapper, never `ollama run`.
 It records the usage and prints only the model's response, so it is a drop-in
 replacement:
 
-/path/to/redline/scripts/ollama-run.sh qwen3-coder:30b <<'PROMPT'
+~/.local/bin/ollama-run.sh qwen3-coder:30b <<'PROMPT'
 Summarize this build log.
 PROMPT
 
 If the wrapper is missing, say so rather than falling back to `ollama run`.
+Install it from the Redline menu with "Install Ollama Wrapper".
 ```
 
 ## Configuration

@@ -156,6 +156,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // The wrapper ships inside the app so every install route has it. Copying it onto the
+    // PATH is on request, not at launch, since writing outside the bundle needs a decision.
+    @objc func installOllamaWrapper(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        guard let src = Bundle.main.url(forResource: "ollama-run", withExtension: "sh") else {
+            alert.messageText = "Wrapper not found in this build"
+            alert.informativeText = "Run scripts/ollama-run.sh from a clone of the repository "
+                + "instead."
+            alert.runModal()
+            return
+        }
+        let binDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/bin")
+        let dest = binDir.appendingPathComponent("ollama-run.sh")
+        do {
+            try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
+            // Replace rather than fail, so this doubles as the way to update the wrapper
+            if FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.removeItem(at: dest)
+            }
+            try FileManager.default.copyItem(at: src, to: dest)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755],
+                                                  ofItemAtPath: dest.path)
+        } catch {
+            alert.messageText = "Could not install the wrapper"
+            alert.informativeText = "\(dest.path)\n\n\(error.localizedDescription)"
+            alert.runModal()
+            return
+        }
+        alert.messageText = "Wrapper installed"
+        alert.informativeText = """
+            Installed at \(dest.path)
+
+            Call it instead of `ollama run` and Redline counts the usage. If ~/.local/bin is \
+            not on your PATH, add it:
+
+            export PATH="$HOME/.local/bin:$PATH"
+            """
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Show in Finder")
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSWorkspace.shared.activateFileViewerSelecting([dest])
+        }
+    }
+
     @objc func toggleLaunchAtLogin(_ sender: Any?) {
         if LaunchAgent.isInstalled {
             LaunchAgent.remove()
@@ -641,6 +687,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(e)
         // Only offer what is actually installed; a toggle for a missing tool is noise
         let installed = availability.installed
+        // Pointless unless Ollama is here, so it appears only when it is
+        if installed.contains(where: {
+            $0.caseInsensitiveCompare(OllamaStore.provider) == .orderedSame
+        }) {
+            let w = NSMenuItem(title: "Install Ollama Wrapper…",
+                               action: #selector(installOllamaWrapper(_:)), keyEquivalent: "")
+            w.target = self
+            w.toolTip = "Copies ollama-run.sh to ~/.local/bin so local calls are counted"
+            menu.addItem(w)
+        }
         let providersItem = NSMenuItem(title: "Providers to read", action: nil, keyEquivalent: "")
         let sub = NSMenu()
         for name in installed.isEmpty ? Config.knownProviders : installed {
@@ -649,9 +705,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             item.representedObject = name
             item.state = config.wants(name) ? .on : .off
-            // Ollama has no history unless calls go through scripts/ollama-run.sh
+            // Ollama has no history unless calls go through the wrapper
             if name == OllamaStore.provider, !ollamaStore.isConfigured {
-                item.toolTip = "No data yet; route calls through scripts/ollama-run.sh"
+                item.toolTip = "No data yet; use Install Ollama Wrapper and call that instead"
             }
             sub.addItem(item)
         }

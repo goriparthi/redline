@@ -49,6 +49,9 @@ targets:
         buildPhase: resources
       - path: Resources/RedlineTemplate@2x.png
         buildPhase: resources
+      # Shipped so a DMG or cask install has the Ollama wrapper too, not just a clone
+      - path: scripts/ollama-run.sh
+        buildPhase: resources
     dependencies:
       - target: RedlineCore
         embed: true
