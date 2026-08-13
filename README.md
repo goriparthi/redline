@@ -128,6 +128,14 @@ network requests unless you opt into Claude limits.
 Installed with Homebrew? `brew upgrade --cask redline`. Built from source? `git pull &&
 make install`.
 
+### Uninstalling
+
+**Uninstall RedLine…** at the bottom of the dropdown moves the app to the Trash and removes
+the login item and its Keychain token, with an optional tick to delete settings, logs and
+history as well. Your Claude, Codex and Ollama files are never touched. From a clone,
+`make uninstall` and `make purge` do the same thing, and a Homebrew install is removed with
+`brew uninstall --cask redline`.
+
 ## Providers
 
 Pick which ones to read from **Providers & Claude Limits…** in the dropdown, or set `providers`
@@ -241,6 +249,7 @@ make bundle     # dist/Redline.app, signed
 make widget     # app + desktop widget via Xcode
 make dmg        # dist/Redline-<version>.dmg
 make uninstall  # remove app, LaunchAgent and Keychain token
+make purge      # the same, and delete config, logs and history
 ```
 
 Tests need XCTest, which ships with Xcode rather than the Command Line Tools.

@@ -10,6 +10,8 @@ import WidgetKit
 // the --install-launch-agent / --uninstall-launch-agent flags.
 enum LaunchAgent {
     static let label = "com.goriparthi.redline"
+    // Names the log files and the config and data directories, all of which stay lowercase
+    static let binName = "redline"
     static var plistURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/\(label).plist")
@@ -28,8 +30,8 @@ enum LaunchAgent {
             "ProgramArguments": [bin],
             "RunAtLoad": true,
             "KeepAlive": true,
-            "StandardOutPath": logs.appendingPathComponent("redline.log").path,
-            "StandardErrorPath": logs.appendingPathComponent("redline.err").path,
+            "StandardOutPath": logs.appendingPathComponent("\(binName).log").path,
+            "StandardErrorPath": logs.appendingPathComponent("\(binName).err").path,
         ]
         try? FileManager.default.createDirectory(
             at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -319,6 +321,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func openUpdate(_ sender: Any?) {
         guard let updateURL else { return }
         NSWorkspace.shared.open(updateURL)
+    }
+
+    // The same removal scripts/uninstall.sh performs, plus the bundle itself. The app goes to
+    // the Trash rather than being deleted outright, so a misclick stays recoverable.
+    @objc func uninstall(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        let purge = NSButton(checkboxWithTitle: "Also remove settings, logs and history",
+                             target: nil, action: nil)
+        let alert = NSAlert()
+        alert.messageText = "Uninstall RedLine?"
+        alert.informativeText = """
+            Moves RedLine to the Trash and removes the login item and its Keychain token. \
+            Your Claude, Codex and Ollama files are never touched.
+            """
+        alert.accessoryView = purge
+        alert.addButton(withTitle: "Uninstall")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        LaunchAgent.remove()
+        oauth.signOut()
+        if purge.state == .on {
+            let fm = FileManager.default
+            let home = fm.homeDirectoryForCurrentUser
+            for url in [Config.configURL.deletingLastPathComponent(),
+                        home.appendingPathComponent("Library/Logs/\(LaunchAgent.binName).log"),
+                        home.appendingPathComponent("Library/Logs/\(LaunchAgent.binName).err"),
+                        home.appendingPathComponent(".local/share/\(LaunchAgent.binName)"),
+                        home.appendingPathComponent(".local/bin/ollama-run.sh")] {
+                try? fm.removeItem(at: url)
+            }
+        }
+
+        let bundle = Bundle.main.bundleURL
+        // A development build runs straight from .build, where there is no bundle to move
+        guard bundle.pathExtension == "app" else { NSApp.terminate(nil); return }
+        NSWorkspace.shared.recycle([bundle]) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     @objc func quit(_ sender: Any?) { NSApp.terminate(nil) }
@@ -734,6 +775,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(o)
         }
         menu.addItem(.separator())
+        let u = NSMenuItem(title: "Uninstall RedLine…", action: #selector(uninstall(_:)),
+                           keyEquivalent: "")
+        u.target = self
+        menu.addItem(u)
         let q = NSMenuItem(title: "Quit", action: #selector(quit(_:)), keyEquivalent: "q")
         q.target = self
         menu.addItem(q)
