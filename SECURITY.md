@@ -1,6 +1,6 @@
 # Security
 
-Redline reads local files and, optionally, one Anthropic endpoint. This document states
+RedLine reads local files and, optionally, one Anthropic endpoint. This document states
 exactly what it touches so you can decide whether to trust it, and how to report a problem.
 
 ## What it reads
@@ -14,7 +14,7 @@ exactly what it touches so you can decide whether to trust it, and how to report
 | Keychain item `redline` | its own OAuth token, if you sign in | access and refresh token |
 | Keychain item `Claude Code-credentials` | **only if you set `useCLIToken: true`** | the Claude CLI's token |
 
-Transcripts contain your prompts and model output. Redline parses them for `usage` fields
+Transcripts contain your prompts and model output. RedLine parses them for `usage` fields
 and **never stores, copies, or transmits their content**. Only counts reach the snapshot.
 
 ## What it writes
@@ -31,12 +31,12 @@ and **never stores, copies, or transmits their content**. Only counts reach the 
 ## The undocumented endpoint
 
 `https://api.anthropic.com/api/oauth/usage` is not a published API. It is what the Claude Code
-CLI uses internally for its own limit display. Redline calls it only when you enable Claude
+CLI uses internally for its own limit display. RedLine calls it only when you enable Claude
 rate limits, and only with a token you already hold.
 
 There is no published permission for third-party use, so it may fall outside Anthropic's terms.
 That is a decision for the person running the software, and the README states it plainly before
-install. Everything else Redline shows is derived from local files.
+install. Everything else RedLine shows is derived from local files.
 
 ## Where it connects
 
@@ -57,9 +57,9 @@ rejected unless they are `https`.
 - Sign-in uses OAuth 2.0 with PKCE (`S256`). The `state` parameter is verified on the
   callback, and the loopback listener binds `127.0.0.1` only, so it is unreachable from the
   network.
-- **`useCLIToken` is off by default.** Turning it on lets Redline read the Claude CLI's
+- **`useCLIToken` is off by default.** Turning it on lets RedLine read the Claude CLI's
   Keychain item, which is another application's credential. macOS requires you to grant
-  that access explicitly, once. Redline uses the token only as a bearer token against the
+  that access explicitly, once. RedLine uses the token only as a bearer token against the
   usage endpoint above; it never copies it anywhere.
 - No `client_id` ships with the app. Sign-in stays disabled until you set one, because this
   project is not registered with Anthropic.

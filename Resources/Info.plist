@@ -5,9 +5,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.goriparthi.redline</string>
     <key>CFBundleName</key>
-    <string>Redline</string>
+    <string>RedLine</string>
     <key>CFBundleDisplayName</key>
-    <string>Redline</string>
+    <string>RedLine</string>
     <key>CFBundleExecutable</key>
     <string>redline</string>
     <key>CFBundlePackageType</key>

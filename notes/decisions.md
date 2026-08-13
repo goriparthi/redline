@@ -309,11 +309,11 @@ badges instead, for two reasons worth keeping:
 
 `TrackGlyph` maps each track to generic iconography that belongs to nobody: a ring with a
 satellite dot for a hosted endpoint (Claude), opposed chevrons for source code (Codex), stacked
-bars for weights held locally (Ollama), and the Redline mark itself for "all providers". Each
+bars for weights held locally (Ollama), and the RedLine mark itself for "all providers". Each
 sits in a tile tinted with the provider colour already used in the menu and charts, so colour
 and glyph reinforce each other.
 
-The Redline mark stays in every widget header at reduced opacity, as the signature rather than
+The RedLine mark stays in every widget header at reduced opacity, as the signature rather than
 the subject: the track is what the reader needs first.
 
 Badges are shared from `BrandUI`, so the widget, the dashboard limit rows, the model mix, the

@@ -1,10 +1,10 @@
 <meta charset="utf-8">
-<title>Redline: AI usage monitor for macOS</title>
+<title>RedLine: AI usage monitor for macOS</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Redline is a private macOS usage monitor for Claude, Codex, and Ollama. See usage, remaining capacity, and reset times without breaking focus.">
+<meta name="description" content="RedLine is a private macOS usage monitor for Claude, Codex, and Ollama. See usage, remaining capacity, and reset times without breaking focus.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%230B0D10'/%3E%3Cpath d='M48 65C92 65 108 108 139 125' fill='none' stroke='%23F4F1EA' stroke-width='18' stroke-linecap='round'/%3E%3Cpath d='M48 128H178' fill='none' stroke='%23818792' stroke-width='14' stroke-linecap='round'/%3E%3Cpath d='M48 191C92 191 108 148 139 131' fill='none' stroke='%23F4F1EA' stroke-width='18' stroke-linecap='round'/%3E%3Cpath d='M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139' fill='none' stroke='%23818792' stroke-width='19' stroke-linecap='round'/%3E%3Cpath d='M163 143L207 199' fill='none' stroke='%23818792' stroke-width='20' stroke-linecap='round'/%3E%3Cpath d='M126 128H214' fill='none' stroke='%23FF3B30' stroke-width='8' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
-  /* Tokens are verbatim from brand/tokens/redline-tokens.json. Redline's identity is
+  /* Tokens are verbatim from brand/tokens/redline-tokens.json. RedLine's identity is
      dark-first (Carbon is the main background), so this page commits to one visual world
      rather than theming, and paints every colour explicitly so it holds on any host ground. */
   :root {
@@ -310,7 +310,7 @@
 <div class="wrap">
   <div class="masthead">
     <!-- brand/logo/redline-symbol.svg, unmodified geometry -->
-    <svg viewBox="0 0 256 256" role="img" aria-label="Redline">
+    <svg viewBox="0 0 256 256" role="img" aria-label="RedLine">
       <path d="M48 65C92 65 108 108 139 125" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
       <path d="M48 128H178" fill="none" stroke="#818792" stroke-width="14" stroke-linecap="round"/>
       <path d="M48 191C92 191 108 148 139 131" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
@@ -321,7 +321,7 @@
       <circle cx="48" cy="128" r="7" fill="#818792"/>
       <circle cx="48" cy="191" r="9" fill="#F4F1EA"/>
     </svg>
-    <span class="wordmark">Redline</span>
+    <span class="wordmark">RedLine</span>
     <span class="spacer"></span>
     <a href="https://github.com/goriparthi/redline/blob/main/SECURITY.md">Security</a>
     <a href="https://github.com/goriparthi/redline">GitHub</a>
@@ -439,7 +439,7 @@
       <div class="card">
         <div class="card-top"><h3>Codex</h3><span class="chip">usage · resets</span></div>
         <p>Codex records both its limit windows and its per-turn token counts locally, so
-           Redline reads them with no sign-in and no network call at all.</p>
+           RedLine reads them with no sign-in and no network call at all.</p>
         <div class="spec">
           <div><span class="t">Source</span><span class="d">~/.codex</span></div>
           <div><span class="t">Sign-in</span><span class="d">none</span></div>
@@ -466,9 +466,9 @@
          in the dropdown copies it to <code>~/.local/bin</code>. Agents reach for
          <code>ollama run</code>, and those calls are never counted, so paste this into
          whatever instruction file yours reads, such as <code>CLAUDE.md</code> or
-         <code>AGENTS.md</code>, and its local calls start showing up in Redline.</p>
+         <code>AGENTS.md</code>, and its local calls start showing up in RedLine.</p>
       <pre><span class="c"># paste into your agent's instruction file</span>
-Route every local Ollama call through the Redline wrapper, never `ollama run`.
+Route every local Ollama call through the RedLine wrapper, never `ollama run`.
 It records the usage and prints only the model's response, so it is a drop-in
 replacement:
 
@@ -477,7 +477,7 @@ Summarize this build log.
 PROMPT
 
 If the wrapper is missing, say so rather than falling back to `ollama run`.
-Install it from the Redline menu with "Install Ollama Wrapper".</pre>
+Install it from the RedLine menu with "Install Ollama Wrapper".</pre>
     </div>
   </section>
 
@@ -514,7 +514,7 @@ Install it from the Redline menu with "Install Ollama Wrapper".</pre>
     <div class="sec-head">
       <p class="label">How it reports</p>
       <h2>It would rather show nothing than show something wrong</h2>
-      <p>Redline exists because an earlier version displayed <span class="metric">0 $0.00</span>
+      <p>RedLine exists because an earlier version displayed <span class="metric">0 $0.00</span>
          for a day. The figure was accurate and still misleading: the sign-in had lapsed.
          Three rules came out of that.</p>
     </div>
@@ -600,7 +600,7 @@ codesign -dv --verbose=2 /Applications/Redline.app</pre>
     </div>
 
     <p class="note" style="margin-top:1.25rem">
-      On first launch Redline asks which providers to read, listing only what it finds
+      On first launch RedLine asks which providers to read, listing only what it finds
       installed. It works with any one of them, and the pickers disappear when there is only
       one track. <strong>Check for Updates…</strong> in the menu runs only when you ask, so
       the no-network default holds.
@@ -611,7 +611,7 @@ codesign -dv --verbose=2 /Applications/Redline.app</pre>
     <div class="sec-head">
       <p class="label">Plainly</p>
       <h2>What this is not</h2>
-      <p>Redline is not a service. Nothing is hosted, no account is created, and nothing
+      <p>RedLine is not a service. Nothing is hosted, no account is created, and nothing
          leaves your Mac except the optional Claude rate-limit call. That is why there are no
          terms to accept: the MIT licence governs, and it disclaims warranty and liability.</p>
     </div>

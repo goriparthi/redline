@@ -190,7 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.informativeText = """
             Installed at \(dest.path)
 
-            Call it instead of `ollama run` and Redline counts the usage. If ~/.local/bin is \
+            Call it instead of `ollama run` and RedLine counts the usage. If ~/.local/bin is \
             not on your PATH, add it:
 
             export PATH="$HOME/.local/bin:$PATH"
@@ -279,7 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             contentRect: NSRect(x: 0, y: 0, width: 860, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
-        window.title = "Redline Usage"
+        window.title = "RedLine Usage"
         window.contentView = NSHostingView(rootView: view)
         window.isReleasedWhenClosed = false
         window.center()
@@ -313,7 +313,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 470, height: 460),
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
-        window.title = "Set up Redline"
+        window.title = "Set up RedLine"
         window.contentView = NSHostingView(rootView: view)
         window.isReleasedWhenClosed = false
         window.center()
@@ -628,7 +628,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                  by: { $0.provider })
         if availability.isEmpty {
             addInfo(menu, "No supported tool found")
-            addInfo(menu, "    Redline reads Claude Code, Codex, or Ollama", secondary: true)
+            addInfo(menu, "    RedLine reads Claude Code, Codex, or Ollama", secondary: true)
         } else if grouped.isEmpty {
             addInfo(menu, "Rate limits:")
             addInfo(menu, "    none available", secondary: true)

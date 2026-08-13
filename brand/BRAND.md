@@ -1,6 +1,6 @@
-# Redline brand kit
+# RedLine brand kit
 
-Redline is a macOS usage monitor for Claude, Codex, and Ollama.
+RedLine is a macOS usage monitor for Claude, Codex, and Ollama.
 
 ## Brand idea
 
@@ -8,7 +8,7 @@ Three model streams converge on one threshold. The result is an abstract **R**: 
 
 ## Messaging
 
-- **Name:** Redline
+- **Name:** RedLine
 - **Category:** AI usage monitor for macOS
 - **Primary tagline:** Know your limit.
 - **Product descriptor:** Claude, Codex, and Ollama usage at a glance.

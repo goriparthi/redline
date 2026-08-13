@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
-  <title id="title">Redline symbol</title>
+  <title id="title">RedLine symbol</title>
   <rect width="256" height="256" rx="56" fill="#0B0D10"/>
   <path d="M48 65C92 65 108 108 139 125" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
   <path d="M48 128H178" fill="none" stroke="#818792" stroke-width="14" stroke-linecap="round"/>

@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 256" role="img" aria-label="Redline">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 256" role="img" aria-label="RedLine">
   <rect width="780" height="256" rx="34" fill="#0B0D10"/>
   <g transform="translate(24 24) scale(.8125)">
     <path d="M48 65C92 65 108 108 139 125M48 191C92 191 108 148 139 131" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
     <path d="M48 128H178M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139M163 143L207 199" fill="none" stroke="#818792" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M126 128H214" fill="none" stroke="#FF3B30" stroke-width="8" stroke-linecap="round"/>
   </g>
-  <text x="266" y="161" fill="#F4F1EA" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="108" font-weight="680" letter-spacing="-4">Redline</text>
+  <text x="266" y="161" fill="#F4F1EA" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="108" font-weight="680" letter-spacing="-4">RedLine</text>
 </svg>

@@ -5,6 +5,9 @@
 set -euo pipefail
 
 APP_NAME="Redline"
+# Bundle, target and file names keep the plain spelling; DISPLAY_NAME is the brand as a
+# person reads it, used for anything user-facing such as the DMG volume.
+DISPLAY_NAME="RedLine"
 BIN_NAME="redline"
 BUNDLE_ID="com.goriparthi.redline"
 LAUNCH_LABEL="com.goriparthi.redline"

@@ -30,7 +30,7 @@ if [[ -d /Applications/Xcode.app ]] \
 fi
 
 info "Creating $DMG"
-hdiutil create -volname "$APP_NAME $VERSION" -srcfolder "$STAGE" \
+hdiutil create -volname "$DISPLAY_NAME $VERSION" -srcfolder "$STAGE" \
     -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"
 

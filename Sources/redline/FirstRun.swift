@@ -1,4 +1,4 @@
-// Shown once, on the first launch, so the user chooses what Redline reads rather than having
+// Shown once, on the first launch, so the user chooses what RedLine reads rather than having
 // every provider switched on by default. Nothing here reaches the network.
 import RedlineCore
 import SwiftUI
@@ -24,7 +24,7 @@ struct FirstRunView: View {
             HStack(spacing: 11) {
                 RedlineMark(size: 34)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Redline")
+                    Text("RedLine")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(BrandUI.chalk)
                     Text("Know your limit.")
@@ -39,15 +39,15 @@ struct FirstRunView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(BrandUI.chalk)
                 Text("""
-                     Redline reads Claude Code, Codex, and Ollama. None of them appear to be \
+                     RedLine reads Claude Code, Codex, and Ollama. None of them appear to be \
                      installed for this user, so there is nothing to report yet. Install one \
-                     and reopen Redline.
+                     and reopen RedLine.
                      """)
                     .font(.system(size: 13))
                     .foregroundStyle(BrandUI.steel)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("What should Redline read?")
+                Text("What should RedLine read?")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(BrandUI.chalk)
                 Text("""

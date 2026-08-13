@@ -1,8 +1,8 @@
-# Redline voice and copy
+# RedLine voice and copy
 
 ## Positioning
 
-Redline gives developers one calm, native view of Claude, Codex, and Ollama usage—what has been used, what remains, and when limits reset.
+RedLine gives developers one calm, native view of Claude, Codex, and Ollama usage: what has been used, what remains, and when limits reset.
 
 ## Launch copy
 
@@ -12,7 +12,7 @@ Redline gives developers one calm, native view of Claude, Codex, and Ollama usag
 
 ### One sentence
 
-Redline is a private macOS usage monitor for Claude, Codex, and Ollama.
+RedLine is a private macOS usage monitor for Claude, Codex, and Ollama.
 
 ### Short description
 
@@ -42,4 +42,4 @@ AI usage at a glance
 
 ## Personality
 
-Redline is composed under pressure. It reports facts early, uses plain language, and never scolds. Prefer “approaching your limit” over “danger,” and “temporarily unavailable” over “failed” when retry is expected.
+RedLine is composed under pressure. It reports facts early, uses plain language, and never scolds. Prefer “approaching your limit” over “danger,” and “temporarily unavailable” over “failed” when retry is expected.

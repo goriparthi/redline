@@ -134,7 +134,7 @@ private struct Header: View {
                     .foregroundStyle(BrandUI.steel)
                     .lineLimit(1)
             }
-            // Redline's own mark stays, quietly, as the signature on the panel
+            // RedLine's own mark stays, quietly, as the signature on the panel
             RedlineMark(size: m.markSize - 2)
                 .opacity(0.55)
         }
@@ -253,7 +253,7 @@ private struct Unavailable: View {
             Text("Usage unavailable")
                 .font(.system(size: m.title + 1, weight: .semibold))
                 .foregroundStyle(BrandUI.chalk)
-            Text("Open Redline to refresh")
+            Text("Open RedLine to refresh")
                 .font(.system(size: m.label))
                 .foregroundStyle(BrandUI.steel)
                 .multilineTextAlignment(.center)
@@ -524,7 +524,7 @@ struct RedlineUsageWidget: Widget {
             RedlineWidgetView(entry: entry)
                 .containerBackground(BrandUI.carbon, for: .widget)
         }
-        .configurationDisplayName("Redline")
+        .configurationDisplayName("RedLine")
         .description("Claude, Codex, and Ollama usage at a glance. Add one per track.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }

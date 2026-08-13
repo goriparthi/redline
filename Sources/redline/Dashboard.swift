@@ -634,7 +634,7 @@ struct DashboardView: View {
                 RedlineMark(size: 31)
                 VStack(alignment: .leading, spacing: 1) {
                     // Wordmark specs follow brand/logo/redline-wordmark-dark.svg
-                    Text("Redline")
+                    Text("RedLine")
                         .font(.system(size: 24, weight: .bold))
                         .tracking(-0.7)
                         .foregroundStyle(Brandkit.chalk)

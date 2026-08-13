@@ -1,8 +1,8 @@
-# Redline
+# RedLine
 
 **Know your limit.**
 
-Redline is a private macOS usage monitor for Claude, Codex, and Ollama. It shows what has
+RedLine is a private macOS usage monitor for Claude, Codex, and Ollama. It shows what has
 been used, what remains, and when limits reset, in the menu bar and an optional desktop
 widget.
 
@@ -14,10 +14,10 @@ metaphors and fear language, so keep the wording calm and factual.
 
 ## Read this before you install
 
-Redline's **token and cost totals** come from transcript files those tools already write to
+RedLine's **token and cost totals** come from transcript files those tools already write to
 your disk. That part uses no API and no credentials.
 
-Redline's **Claude rate-limit percentages** are different, and you should understand what you
+RedLine's **Claude rate-limit percentages** are different, and you should understand what you
 are opting into:
 
 - They come from `https://api.anthropic.com/api/oauth/usage`, which is **not a documented or
@@ -28,18 +28,18 @@ are opting into:
 - Reading the Claude CLI's stored OAuth token (`useCLIToken`, off by default) means using
   **your own credential** in a way Anthropic has not documented or endorsed.
 - The endpoint can change, start refusing requests, or disappear without notice. It already
-  rate-limits aggressively, and Redline backs off when it does.
+  rate-limits aggressively, and RedLine backs off when it does.
 
 **You are responsible for deciding whether that is acceptable for your account.** If you would
-rather not touch it at all, Redline is still useful: leave `useCLIToken` false and
-`oauth.clientId` empty, which is the shipped default. In that state Redline makes **no network
+rather not touch it at all, RedLine is still useful: leave `useCLIToken` false and
+`oauth.clientId` empty, which is the shipped default. In that state RedLine makes **no network
 requests whatsoever** and still reports tokens, cost, model mix, and history for Claude, plus
 everything for Codex and Ollama. You lose only the Claude percentages.
 
 Codex and Ollama involve no such question. Codex is read entirely from local files, and Ollama
 is your own machine.
 
-If Anthropic publishes a real usage API, this all becomes moot and Redline will move to it.
+If Anthropic publishes a real usage API, this all becomes moot and RedLine will move to it.
 
 ## Screenshots
 
@@ -113,16 +113,16 @@ where you can read what you are about to run.
 
 ### Which providers to read
 
-On first launch Redline asks which of Claude, Codex, and Ollama to read, listing only what it
+On first launch RedLine asks which of Claude, Codex, and Ollama to read, listing only what it
 finds installed. Change it later from **Choose Providers…** in the menu.
 
-Redline works with any one of them. With a single tool installed the provider pickers
+RedLine works with any one of them. With a single tool installed the provider pickers
 disappear, since there is nothing to choose between.
 
 ### Updates
 
 **Check for Updates…** in the menu compares your version against the latest release. It runs
-only when you ask, because a background poll would break the promise that Redline makes no
+only when you ask, because a background poll would break the promise that RedLine makes no
 network requests unless you opt into Claude limits.
 
 Installed with Homebrew? `brew upgrade --cask redline`. Built from source? `git pull &&
@@ -196,10 +196,10 @@ and the copy inside an installed app is at
 
 Coding agents reach for `ollama run` by default, and those calls are never counted. Paste
 this into whatever instruction file your agent reads (`CLAUDE.md`, `AGENTS.md`, a skill, a
-rules file) and its local calls start showing up in Redline:
+rules file) and its local calls start showing up in RedLine:
 
 ```text
-Route every local Ollama call through the Redline wrapper, never `ollama run`.
+Route every local Ollama call through the RedLine wrapper, never `ollama run`.
 It records the usage and prints only the model's response, so it is a drop-in
 replacement:
 
@@ -208,7 +208,7 @@ Summarize this build log.
 PROMPT
 
 If the wrapper is missing, say so rather than falling back to `ollama run`.
-Install it from the Redline menu with "Install Ollama Wrapper".
+Install it from the RedLine menu with "Install Ollama Wrapper".
 ```
 
 ## Configuration
@@ -265,7 +265,7 @@ window with charts built from the same data the menu bar summarises:
 Focusing **Ollama** adds a control panel: server status and version, models loaded in memory
 with their size and how much sits on the GPU, every downloaded model, and Start / Stop for
 each. Stop unloads from memory with `keep_alive: 0`; it never deletes a download, and nothing
-in Redline removes model weights.
+in RedLine removes model weights.
 
 History needs no extra recording: transcript entries already carry timestamps, so the range is
 derived from files already on disk. A 30 day scan touches a lot of them, so it runs off the
@@ -285,7 +285,7 @@ budget. Two consequences worth knowing:
   the snapshot is over 15 minutes old rather than implying the number is current.
 - **If the menu bar app is not running, the snapshot goes stale** and the widget says so.
 
-Install it with `WIDGET=1 make install`, then add Redline from the desktop widget gallery.
+Install it with `WIDGET=1 make install`, then add RedLine from the desktop widget gallery.
 
 The widget is **configurable**: right-click it, choose **Edit Widget**, and pick a track. Add
 it more than once to watch several at the same time, for example one for Claude, one for
@@ -317,7 +317,7 @@ The project homepage is at https://goriparthi.github.io/redline/.
 
 Each provider carries an original badge and colour, used identically in the menu, the dashboard
 and the widgets: a ring and satellite for Claude (a hosted endpoint), chevrons for Codex
-(source code), stacked bars for Ollama (weights held locally), and the Redline mark for all
+(source code), stacked bars for Ollama (weights held locally), and the RedLine mark for all
 providers at once.
 
 These are deliberately **not** vendor logos. Anthropic, OpenAI and Ollama all restrict
@@ -326,14 +326,14 @@ mark be reproduced unaltered.
 
 ## Security
 
-[SECURITY.md](SECURITY.md) lists every path Redline reads and writes, the three Anthropic
+[SECURITY.md](SECURITY.md) lists every path RedLine reads and writes, the three Anthropic
 hosts it can reach, and how credentials are handled. In short: transcripts are parsed for
 token counts and never copied or transmitted, there is no telemetry, and reading the Claude
 CLI's Keychain token is opt-in.
 
 ## Disclaimer
 
-There is no Terms of Service here, and none is needed: Redline is not a service. Nothing is
+There is no Terms of Service here, and none is needed: RedLine is not a service. Nothing is
 hosted, no account is created, and no data leaves your Mac except the optional Claude
 rate-limit call. The **MIT licence is the governing document**, and it already disclaims
 warranty and liability in the usual terms.
@@ -360,7 +360,7 @@ Code is MIT. See [LICENSE](LICENSE).
 
 The contents of `brand/` (the mark, wordmark, app icon, and colour tokens) are original
 artwork for this project and are **not** covered by the MIT grant. Fork the code freely; please
-use your own name and mark rather than shipping something that looks like Redline.
+use your own name and mark rather than shipping something that looks like RedLine.
 
 Track badges in the UI are original iconography, deliberately not vendor logos. Anthropic,
 OpenAI, and Ollama all restrict third-party use of their marks.

@@ -1,4 +1,4 @@
-# Extending Redline
+# Extending RedLine
 
 Written for whoever picks this up next, including an agent with no memory of the original
 session. Read [ARCHITECTURE.md](ARCHITECTURE.md) first; it explains *why* the seams are

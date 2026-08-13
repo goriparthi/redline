@@ -1,6 +1,6 @@
 // Manual update check against the GitHub releases API.
 //
-// Deliberately not automatic: the shipped promise is that Redline makes no network requests
+// Deliberately not automatic: the shipped promise is that RedLine makes no network requests
 // unless you ask for Claude limits, and a background poll would quietly break that. This runs
 // only when the user picks Check for Updates.
 import Foundation

@@ -76,7 +76,7 @@ public struct RedlineMark: View {
                     style: StrokeStyle(lineWidth: size * 8 / 256, lineCap: .round))
         }
         .frame(width: size, height: size)
-        .accessibilityLabel("Redline")
+        .accessibilityLabel("RedLine")
     }
 }
 
@@ -137,7 +137,7 @@ public enum TrackGlyph: String, CaseIterable {
 }
 
 /// A tinted tile carrying the track glyph. Sits beside the title so the track is readable at a
-/// glance, with the Redline mark kept separate as the app's own signature.
+/// glance, with the RedLine mark kept separate as the app's own signature.
 public struct TrackBadge: View {
     private let glyph: TrackGlyph
     private let tint: Color

@@ -1,6 +1,6 @@
 # Signing and notarizing
 
-Redline ships ad-hoc signed by default, which works locally but makes macOS block every
+RedLine ships ad-hoc signed by default, which works locally but makes macOS block every
 download. With a paid Apple Developer membership you can sign and notarize properly, and the
 build picks it up automatically.
 
@@ -117,4 +117,4 @@ xcrun stapler validate dist/Redline-*.dmg            # expect: validate action w
 Notarization is an automated malware scan, not a review. Apple does not inspect which APIs an
 app calls or adjudicate another company's terms of service, so the undocumented Claude endpoint
 described in the README is unaffected either way. App Store review is a different process with
-different rules, which is why Redline does not target it.
+different rules, which is why RedLine does not target it.

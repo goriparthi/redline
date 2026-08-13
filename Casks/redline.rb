@@ -1,4 +1,4 @@
-# Homebrew cask for Redline.
+# Homebrew cask for RedLine.
 #
 # Install straight from this repo without a tap:
 #   brew install --cask ./Casks/redline.rb
@@ -12,7 +12,7 @@ cask "redline" do
   sha256 "c16a57d5118a0463db7b2b8dced6ca5072581cf52cc3f438e4633700412ba3bf"
 
   url "https://github.com/goriparthi/redline/releases/download/v#{version}/Redline-#{version}.dmg"
-  name "Redline"
+  name "RedLine"
   desc "Menu bar monitor for AI coding agent usage and rate limits"
   homepage "https://github.com/goriparthi/redline"
 

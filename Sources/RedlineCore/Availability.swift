@@ -1,4 +1,4 @@
-// Which providers this machine actually has. Redline is useful with any one of them, so the
+// Which providers this machine actually has. RedLine is useful with any one of them, so the
 // UI adapts rather than showing controls for tools that are not installed.
 import Foundation
 
