@@ -6,6 +6,8 @@ RedLine is a private macOS usage monitor for Claude, Codex, and Ollama. It shows
 been used, what remains, and when limits reset, in the menu bar and an optional desktop
 widget.
 
+**Homepage: [goriparthi.github.io/redline](https://goriparthi.github.io/redline/)**
+
 Brand assets, tokens, and voice rules live in [brand/](brand/); `brand/BRAND.md` is the
 source of truth for colour, type, and copy.
 
