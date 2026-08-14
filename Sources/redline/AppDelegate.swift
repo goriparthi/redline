@@ -110,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var allLimits: [LimitWindow] { claudeLimits + codexLimits }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        buildMainMenu()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let mark = NSImage(named: "RedlineTemplate") {
             mark.isTemplate = true
@@ -130,6 +131,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(wokeUp),
             name: NSWorkspace.didWakeNotification, object: nil)
+    }
+
+    // An accessory app draws no menu bar, but key equivalents still route through
+    // NSApp.mainMenu. Without one, ⌘Q and ⌘W are dead in every window and ⌘V cannot paste
+    // into the setup window's client id field.
+    private func buildMainMenu() {
+        let main = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(NSMenuItem(
+            title: "About RedLine",
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: ""))
+        appMenu.addItem(.separator())
+        let q = NSMenuItem(title: "Quit RedLine", action: #selector(quit(_:)), keyEquivalent: "q")
+        q.target = self
+        appMenu.addItem(q)
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)),
+                     keyEquivalent: "a")
+        editItem.submenu = edit
+        main.addItem(editItem)
+
+        let windowItem = NSMenuItem()
+        let window = NSMenu(title: "Window")
+        window.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)),
+                       keyEquivalent: "w")
+        window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)),
+                       keyEquivalent: "m")
+        windowItem.submenu = window
+        main.addItem(windowItem)
+
+        NSApp.mainMenu = main
     }
 
     // Double-clicking the app in Finder previously looked like nothing happened, because a
@@ -328,6 +373,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.setupWindow = nil
             // The browser flow is the one thing Start cannot finish on its own
             if choice == .browser, !self.oauth.isSignedIn { self.signIn(nil) }
+            if choice == .cliToken {
+                // Same choice re-asserted still means "try again", not "keep the old failure"
+                self.oauth.resetCLIProbe()
+                self.verifyCLITokenReadable()
+            }
             self.refresh()
         }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 470, height: 460),
@@ -346,7 +396,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // its own processes, let a helper swap the bundle, and relaunch. Finder cannot, which
     // is the "RedLine.app is in use" error when dragging a new DMG over a live install.
     @objc func installUpdate(_ sender: Any?) {
-        guard !updateInFlight, let dmg = updateDMG, let version = updateVersion else { return }
+        guard !updateInFlight, updateDMG != nil, let version = updateVersion else { return }
         let target = Bundle.main.bundleURL
         guard target.pathExtension == "app" else {
             updateStatus = "Development build; update with git pull instead"
@@ -363,7 +413,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.addButton(withTitle: "Install and Relaunch")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        beginUpdateInstall()
+    }
 
+    // The flow after consent; the update-available dialog enters here directly so the user
+    // is not asked twice in a row
+    private func beginUpdateInstall() {
+        guard !updateInFlight, let dmg = updateDMG, let version = updateVersion else { return }
+        let target = Bundle.main.bundleURL
+        guard target.pathExtension == "app" else {
+            updateStatus = "Development build; update with git pull instead"
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
         updateInFlight = true
         Updates.stage(dmg: dmg, replacing: target, status: { [weak self] s in
             DispatchQueue.main.async {
@@ -391,22 +453,81 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         })
     }
 
+    // Enabling the CLI token either works right now or needs the user to act, and both
+    // deserve to be said out loud while they are still looking, not buried in a menu line.
+    // The Keychain read can block on the consent prompt, so it stays off the main thread.
+    private func verifyCLITokenReadable() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let token = CLICredentials.accessToken()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard token == nil else { self.refresh(); return }
+                NSApp.activate(ignoringOtherApps: true)
+                let alert = NSAlert()
+                alert.messageText = "Could not read the Claude CLI's token"
+                alert.informativeText = """
+                    The percentages stay hidden until RedLine can read the Keychain item \
+                    "Claude Code-credentials".
+
+                    If macOS just asked and you clicked Deny, or it never asked: open \
+                    Keychain Access, search for "Claude Code-credentials", open Access \
+                    Control, and add RedLine.
+
+                    If Claude Code is not signed in, run `claude` once and sign in first.
+                    """
+                alert.addButton(withTitle: "Open Keychain Access")
+                alert.addButton(withTitle: "OK")
+                if alert.runModal() == .alertFirstButtonReturn {
+                    NSWorkspace.shared.open(URL(fileURLWithPath:
+                        "/System/Applications/Utilities/Keychain Access.app"))
+                }
+            }
+        }
+    }
+
     @objc func checkForUpdates(_ sender: Any?) {
         updateStatus = "Checking…"
         if let menu = statusItem.menu { rebuildMenu(menu) }
         Updates.check(currentVersion: Updates.bundleVersion) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
+                // The user asked; the answer is a dialog, not a line to hunt for in the menu
+                NSApp.activate(ignoringOtherApps: true)
+                let alert = NSAlert()
                 switch result {
                 case .upToDate:
                     self.updateStatus = "Up to date (\(Updates.bundleVersion))"
+                    alert.messageText = "You're up to date"
+                    alert.informativeText = "RedLine \(Updates.bundleVersion) is the latest release."
+                    alert.runModal()
                 case .available(let version, let url, let dmg):
                     self.updateStatus = "Update available: \(version)"
                     self.updateURL = url
                     self.updateDMG = dmg
                     self.updateVersion = version
+                    alert.messageText = "RedLine \(version) is available"
+                    alert.informativeText = "You have \(Updates.bundleVersion)."
+                    if dmg != nil {
+                        alert.addButton(withTitle: "Install and Relaunch")
+                        alert.addButton(withTitle: "Open Release Page")
+                        alert.addButton(withTitle: "Later")
+                        switch alert.runModal() {
+                        case .alertFirstButtonReturn: self.beginUpdateInstall()
+                        case .alertSecondButtonReturn: NSWorkspace.shared.open(url)
+                        default: break
+                        }
+                    } else {
+                        alert.addButton(withTitle: "Open Release Page")
+                        alert.addButton(withTitle: "Later")
+                        if alert.runModal() == .alertFirstButtonReturn {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
                 case .failed(let message):
                     self.updateStatus = message
+                    alert.messageText = "Update check failed"
+                    alert.informativeText = message
+                    alert.runModal()
                 }
                 if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
             }

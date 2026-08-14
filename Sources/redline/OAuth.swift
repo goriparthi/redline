@@ -159,8 +159,23 @@ final class OAuthManager {
     }
 
     func update(settings: OAuthSettings, useCLIToken: Bool) {
+        let changed = useCLIToken != self.useCLIToken
+            || settings.clientId != self.settings.clientId
         self.settings = settings
         self.useCLIToken = useCLIToken
+        // A changed choice must probe fresh. Without this, a denied Keychain prompt or a
+        // single 401 latched cliRejected until relaunch, so re-enabling the toggle in the
+        // setup window silently did nothing.
+        if changed { resetCLIProbe() }
+    }
+
+    /// Forget any cached or rejected CLI-token state so the next fetch reads the Keychain
+    /// again. Called when the user re-asserts the CLI-token choice in the setup window.
+    func resetCLIProbe() {
+        lock.lock()
+        cliProbe = nil
+        cliRejected = false
+        lock.unlock()
     }
 
     // Reads only the cached probe; the Keychain itself is touched on probeQueue
