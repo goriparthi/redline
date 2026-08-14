@@ -127,6 +127,13 @@ disappear, since there is nothing to choose between.
 only when you ask, because a background poll would break the promise that RedLine makes no
 network requests unless you opt into Claude limits.
 
+When a newer release exists, **Install Update…** replaces the app in place: it downloads the
+DMG, verifies it is notarized and signed by this project's Developer ID team (anything else
+is refused), then quits, swaps the bundle, and relaunches. That self-swap exists because
+nothing else can do it: dragging a new DMG over a running install fails with
+"RedLine.app is in use", since the menu bar app and the widget hold the old bundle. If you
+prefer the manual route, quit RedLine first and the drag works.
+
 Installed with Homebrew? `brew upgrade --cask redline`. Built from source? `git pull &&
 make install`.
 

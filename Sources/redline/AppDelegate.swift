@@ -95,6 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var limitsStatus: String?
     private var updateStatus: String?
     private var updateURL: URL?
+    private var updateDMG: URL?
+    private var updateVersion: String?
+    private var updateInFlight = false
     private var claudeLimitsAt: Date?
     private var ollamaSection: Snapshot.Ollama?
     // Recomputed on each refresh so a provider installed later shows up without a restart
@@ -339,6 +342,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupWindow = window
     }
 
+    // The only way to replace a running menu bar app is for the app to do it itself: quit
+    // its own processes, let a helper swap the bundle, and relaunch. Finder cannot, which
+    // is the "RedLine.app is in use" error when dragging a new DMG over a live install.
+    @objc func installUpdate(_ sender: Any?) {
+        guard !updateInFlight, let dmg = updateDMG, let version = updateVersion else { return }
+        let target = Bundle.main.bundleURL
+        guard target.pathExtension == "app" else {
+            updateStatus = "Development build; update with git pull instead"
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Install RedLine \(version)?"
+        alert.informativeText = """
+            Downloads the release, verifies it is notarized and signed by this project, \
+            then quits, replaces \(target.lastPathComponent) in place, and relaunches.
+            """
+        alert.addButton(withTitle: "Install and Relaunch")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        updateInFlight = true
+        Updates.stage(dmg: dmg, replacing: target, status: { [weak self] s in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.updateStatus = "\(s) (\(version))"
+                if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+            }
+        }, completion: { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.updateInFlight = false
+                switch result {
+                case .failed(let message):
+                    self.updateStatus = message
+                    if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+                case .ready(let swap):
+                    self.updateStatus = "Relaunching…"
+                    swap()
+                    // Same exit path as Quit, so launchd never resurrects the old bundle
+                    // out from under the helper
+                    if LaunchAgent.isLaunchdOwned { LaunchAgent.bootout() }
+                    NSApp.terminate(nil)
+                }
+            }
+        })
+    }
+
     @objc func checkForUpdates(_ sender: Any?) {
         updateStatus = "Checking…"
         if let menu = statusItem.menu { rebuildMenu(menu) }
@@ -348,9 +400,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 switch result {
                 case .upToDate:
                     self.updateStatus = "Up to date (\(Updates.bundleVersion))"
-                case .available(let version, let url):
+                case .available(let version, let url, let dmg):
                     self.updateStatus = "Update available: \(version)"
                     self.updateURL = url
+                    self.updateDMG = dmg
+                    self.updateVersion = version
                 case .failed(let message):
                     self.updateStatus = message
                 }
@@ -859,6 +913,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if let updateStatus {
             addInfo(menu, "    \(updateStatus)", secondary: true)
+        }
+        if updateDMG != nil, let updateVersion {
+            let i = NSMenuItem(title: "Install Update to \(updateVersion)…",
+                               action: #selector(installUpdate(_:)), keyEquivalent: "")
+            i.target = self
+            i.isEnabled = !updateInFlight
+            menu.addItem(i)
         }
         if updateURL != nil {
             let u = NSMenuItem(title: "Open Release Page…", action: #selector(openUpdate(_:)),
