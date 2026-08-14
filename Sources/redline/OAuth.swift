@@ -198,14 +198,25 @@ final class OAuthManager {
     private func refreshCLIProbe() {
         guard useCLIToken else { return }
         lock.lock()
-        let stale = cliProbe.map { Date().timeIntervalSince($0.at) >= 60 } ?? true
+        let have = cliProbe != nil
         let rejected = cliRejected
         lock.unlock()
-        guard !rejected, stale else { return }
+        guard !rejected, !have else { return }
+        // One Keychain read, kept until something invalidates it. A time-based re-read
+        // fired the macOS consent prompt on every menu open for anyone who clicked plain
+        // Allow, which grants a single read.
         let token = CLICredentials.accessToken()
         lock.lock()
         cliProbe = (token, Date())
         lock.unlock()
+    }
+
+    /// One deliberate Keychain read, for the moment the user enables the CLI token: warms
+    /// the same probe the fetch path uses, so enabling costs exactly one consent prompt.
+    /// Blocks on that prompt, so never call from the main thread.
+    func probeCLIToken() -> Bool {
+        refreshCLIProbe()
+        return cachedCLIToken() != nil
     }
 
     // Exponential backoff capped at 30 minutes, reported in the brand's wording
@@ -409,10 +420,17 @@ final class OAuthManager {
                 guard let data,
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       (200..<300).contains(status) else {
-                    // The CLI token may not carry the scope this endpoint needs, so stop
-                    // preferring it and retry once with this app's own grant.
-                    if usingCLI, allowRetry, status == 401 || status == 403 {
-                        self.rejectCLIToken()
+                    // The CLI rotates its token underneath us, so a refusal usually just
+                    // means ours is stale: read the Keychain once more before giving up
+                    // on it. If the fresh token is refused too, the next pass falls back
+                    // to this app's own grant via the rejection latch.
+                    if usingCLI, status == 401 || status == 403 {
+                        if allowRetry {
+                            self.resetCLIProbe()
+                            self.refreshCLIProbe()
+                        } else {
+                            self.rejectCLIToken()
+                        }
                         self.loadLimits(allowRetry: false, completion: completion)
                         return
                     }

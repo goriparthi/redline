@@ -14,15 +14,23 @@ enum Brandkit {
     static let amber = BrandUI.amber
     static let clear = BrandUI.clear
 
-    // Menu rows are drawn on the translucent menu background, so both tones are lifted well
-    // clear of Steel, which reads as disabled text at this size.
-    static let menuPrimary = NSColor(Brand.chalk)
-    static let menuSecondary = NSColor(white: 0.72, alpha: 1)
+    // Menus follow the system theme and cannot be painted, so these two resolve per
+    // appearance: chalk on dark menus, carbon on light ones. Fixed chalk was invisible on
+    // light Macs. Every other surface paints Carbon and keeps the fixed brand tones.
+    static let menuPrimary = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(Brand.chalk) : NSColor(Brand.carbon)
+    }
+    static let menuSecondary = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(white: 0.72, alpha: 1) : NSColor(white: 0.35, alpha: 1)
+    }
 
-    // AppKit counterpart for the menu, from the same tokens
+    // AppKit counterpart for the menu, from the same tokens. Claude's chalk flips with the
+    // theme like the primary text; the saturated tones read on both.
     static func nsColor(for provider: String) -> NSColor {
         switch provider {
-        case UsageStore.provider:  return NSColor(Brand.chalk)
+        case UsageStore.provider:  return menuPrimary
         case CodexStore.provider:  return NSColor(Brand.steel)
         case OllamaStore.provider: return NSColor(Brand.clear)
         default:                   return NSColor(Brand.amber)

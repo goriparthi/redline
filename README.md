@@ -176,8 +176,9 @@ Both routes live in **Providers & Claude Limits…**, and both are off by defaul
 
 1. **Borrow the CLI's token** (`useCLIToken: true`). Needs Claude Code installed and signed
    in. Off by default, because that Keychain item belongs to another application and reading
-   it should never be a silent default. Once enabled, macOS asks for permission; a background
-   agent is denied silently rather than prompted, so grant it once in Keychain Access.app:
+   it should never be a silent default. When macOS asks, click **Always Allow**: plain Allow
+   grants a single read and the prompt returns on the next refresh. If you denied it, or the
+   app runs as a background agent that is refused silently, grant it in Keychain Access.app:
    find `Claude Code-credentials`, open **Access Control**, and add `Redline.app`.
 2. **Sign in with your Claude account in a browser.** This is the route for people who use
    the claude.ai app or website rather than Claude Code: the percentages cover the whole
@@ -188,6 +189,16 @@ Both routes live in **Providers & Claude Limits…**, and both are off by defaul
 
 Chat-only users get percentages but no token or cost tables, since those are read from
 Claude Code's transcripts and there are none to read.
+
+### The two permission prompts, explained
+
+- **"RedLine would like to access data from other apps"**: reading Claude Code's and
+  Codex's transcript files is the product, and this is macOS asking you to approve exactly
+  that. One **Allow** should hold. If it reappears on every launch, you are probably running
+  a translocated copy (launched straight from the DMG or Downloads); move RedLine.app to
+  Applications with Finder and launch it from there.
+- **The Keychain prompt** for `Claude Code-credentials` appears only with `useCLIToken` on,
+  and **Always Allow** is the answer that makes it permanent.
 
 If neither is available the menu bar shows `sign in` rather than a number. It deliberately
 never falls back to showing token counts in the limits slot, because a plausible-looking

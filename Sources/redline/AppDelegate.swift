@@ -485,10 +485,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // The Keychain read can block on the consent prompt, so it stays off the main thread.
     private func verifyCLITokenReadable() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let token = CLICredentials.accessToken()
+            // Warms the same probe the fetch path reuses: one read, one prompt
+            let readable = self?.oauth.probeCLIToken() ?? false
             DispatchQueue.main.async {
                 guard let self else { return }
-                guard token == nil else { self.refresh(); return }
+                guard !readable else { self.refresh(); return }
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()
                 alert.messageText = "Could not read the Claude CLI's token"
@@ -496,9 +497,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     The percentages stay hidden until RedLine can read the Keychain item \
                     "Claude Code-credentials".
 
-                    If macOS just asked and you clicked Deny, or it never asked: open \
-                    Keychain Access, search for "Claude Code-credentials", open Access \
-                    Control, and add RedLine.
+                    When macOS asks, click "Always Allow". Plain Allow grants a single \
+                    read, so the prompt returns on every refresh.
+
+                    If you clicked Deny, or macOS never asked: open Keychain Access, \
+                    search for "Claude Code-credentials", open Access Control, and add \
+                    RedLine.
 
                     If Claude Code is not signed in, run `claude` once and sign in first.
                     """
