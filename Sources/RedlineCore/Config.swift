@@ -43,6 +43,15 @@ public struct Config {
     public var pricing: [String: ModelPrice] = Config.defaultPricing
     public var oauth = OAuthSettings()
 
+    // Menu bar style, all pick-and-choose so the readout can be as compact as one number
+    public var showMenuIcon = true
+    public var showResetTimes = true
+    /// Which limit windows the menu bar and dropdown report: "all", "session", or "week"
+    public var limitWindows = "all"
+    // Off by default: the shipped promise is no network unless asked, and a background
+    // update poll is a network request. Enabling it is one click in the menu.
+    public var autoCheckUpdates = false
+
     public init() {}
 
     // Fable/Mythos default to Opus tier as an estimate; override in config if needed
@@ -86,6 +95,11 @@ public struct Config {
         if let n = num(json["limitYellowPct"]), n > 0, n <= 100 { cfg.limitYellowPct = n }
         if let n = num(json["limitRedPct"]), n > 0, n <= 100 { cfg.limitRedPct = n }
         if let b = json["useCLIToken"] as? Bool { cfg.useCLIToken = b }
+        if let b = json["showMenuIcon"] as? Bool { cfg.showMenuIcon = b }
+        if let b = json["showResetTimes"] as? Bool { cfg.showResetTimes = b }
+        if let w = json["limitWindows"] as? String,
+           ["all", "session", "week"].contains(w) { cfg.limitWindows = w }
+        if let b = json["autoCheckUpdates"] as? Bool { cfg.autoCheckUpdates = b }
         if let p = json["providers"] as? [String], !p.isEmpty { cfg.providers = p }
         if let m = json["menuBarProvider"] as? String,
            let match = menuBarProviderChoices.first(where: {

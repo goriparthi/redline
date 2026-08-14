@@ -124,8 +124,10 @@ disappear, since there is nothing to choose between.
 ### Updates
 
 **Check for Updates…** in the menu compares your version against the latest release. It runs
-only when you ask, because a background poll would break the promise that RedLine makes no
-network requests unless you opt into Claude limits.
+only when you ask, because an unasked background poll would break the promise that RedLine
+makes no network requests you did not opt into. **Check Twice a Day** in the menu is that
+opt-in: enabled, RedLine polls the GitHub releases API every 12 hours and pops up only when
+an update actually exists; a quiet check never interrupts.
 
 When a newer release exists, **Install Update…** replaces the app in place: it downloads the
 DMG, verifies it is notarized and signed by this project's Developer ID team (anything else
@@ -249,6 +251,10 @@ poll, so edits apply without a restart. **Edit Config…** in the dropdown opens
 | `providers` | all three | Which sources to read |
 | `useCLIToken` | `false` | Read the Claude CLI's Keychain token instead of signing in |
 | `menuBarProvider` | `auto` | Which provider the menu bar reports: `auto`, `Claude`, `Codex`, `Ollama` |
+| `showMenuIcon` | `true` | The mark in the menu bar; off leaves just the numbers |
+| `showResetTimes` | `true` | Reset times in the menu bar and dropdown |
+| `limitWindows` | `all` | Which limit windows to report: `all`, `session`, `week` |
+| `autoCheckUpdates` | `false` | Poll for updates twice a day and pop up when one exists |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
 | `oauth.clientId` | empty | Required for the app's own Sign In |
 

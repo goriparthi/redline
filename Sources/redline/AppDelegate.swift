@@ -98,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var updateDMG: URL?
     private var updateVersion: String?
     private var updateInFlight = false
+    private var updateTimer: Timer?
     private var claudeLimitsAt: Date?
     private var ollamaSection: Snapshot.Ollama?
     // Recomputed on each refresh so a provider installed later shows up without a restart
@@ -112,18 +113,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let mark = NSImage(named: "RedlineTemplate") {
-            mark.isTemplate = true
-            mark.size = NSSize(width: 18, height: 18)
-            statusItem.button?.image = mark
-            statusItem.button?.imagePosition = .imageLeading
-        }
+        applyMenuBarIcon()
         statusItem.button?.title = ""
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
         let firstRun = Config.isFirstRun()
         scheduleTimer()
+        scheduleUpdateTimer()
         refresh()
         if CommandLine.arguments.contains("--dashboard") { openDashboard(nil) }
         // Ask once what to read, rather than switching every provider on by default
@@ -187,6 +184,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func wokeUp() { refresh() }
 
+    // The icon is a preference: with it off, the readout is just the numbers
+    private func applyMenuBarIcon() {
+        guard config.showMenuIcon, let mark = NSImage(named: "RedlineTemplate") else {
+            statusItem.button?.image = nil
+            return
+        }
+        mark.isTemplate = true
+        mark.size = NSSize(width: 18, height: 18)
+        statusItem.button?.image = mark
+        statusItem.button?.imagePosition = .imageLeading
+    }
+
+    // MARK: - Menu bar style toggles
+
+    @objc func toggleMenuIcon(_ sender: Any?) {
+        setStyle(["showMenuIcon": !config.showMenuIcon])
+        applyMenuBarIcon()
+    }
+
+    @objc func toggleResetTimes(_ sender: Any?) {
+        setStyle(["showResetTimes": !config.showResetTimes])
+    }
+
+    @objc func pickLimitWindows(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? String else { return }
+        setStyle(["limitWindows": choice])
+    }
+
+    private func setStyle(_ values: [String: Any]) {
+        guard Config.write(values) else {
+            limitsStatus = "Could not write config"
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
+        config = Config.load()
+        updateTitle()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
     private func scheduleTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: config.pollIntervalSeconds,
@@ -199,9 +235,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func reloadConfig() {
         let old = config.pollIntervalSeconds
+        let oldAuto = config.autoCheckUpdates
         config = Config.load()
         oauth.update(settings: config.oauth, useCLIToken: config.useCLIToken)
         if config.pollIntervalSeconds != old { scheduleTimer() }
+        if config.autoCheckUpdates != oldAuto { scheduleUpdateTimer() }
+        applyMenuBarIcon()
     }
 
     // MARK: - Actions
@@ -516,13 +555,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // Twice a day, only when the user switched it on: the shipped promise is no network
+    // unless asked for, so the poll is opt-in and stays silent unless there is news.
+    private func scheduleUpdateTimer() {
+        updateTimer?.invalidate()
+        updateTimer = nil
+        guard config.autoCheckUpdates else { return }
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 12 * 3600,
+                                           repeats: true) { [weak self] _ in
+            self?.runUpdateCheck(interactive: false)
+        }
+        // One check now, so enabling it does not mean waiting half a day for the first look
+        runUpdateCheck(interactive: false)
+    }
+
+    @objc func toggleAutoUpdates(_ sender: Any?) {
+        guard Config.write(["autoCheckUpdates": !config.autoCheckUpdates]) else { return }
+        config = Config.load()
+        scheduleUpdateTimer()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
     @objc func checkForUpdates(_ sender: Any?) {
         updateStatus = "Checking…"
         if let menu = statusItem.menu { rebuildMenu(menu) }
+        runUpdateCheck(interactive: true)
+    }
+
+    // interactive: the user asked, so every outcome is a dialog. Background: only an
+    // available update earns a popup; "no news" must never interrupt anyone.
+    private func runUpdateCheck(interactive: Bool) {
         Updates.check(currentVersion: Updates.bundleVersion) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
-                // The user asked; the answer is a dialog, not a line to hunt for in the menu
+                if case .available = result {} else if !interactive {
+                    if case .upToDate = result {
+                        self.updateStatus = "Up to date (\(Updates.bundleVersion))"
+                    }
+                    if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+                    return
+                }
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()
                 switch result {
@@ -839,19 +911,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func pct(_ w: LimitWindow) -> Int { Int(w.utilization.rounded()) }
 
+    // Style preferences: which windows the readout reports, and how much text rides along
+    private var wantsSessionWindow: Bool { config.limitWindows != "week" }
+    private var wantsWeekWindow: Bool { config.limitWindows != "session" }
+    private func wantsWindow(_ w: LimitWindow) -> Bool {
+        if w.key.hasPrefix("five_hour") { return wantsSessionWindow }
+        if w.key.hasPrefix("seven_day") { return wantsWeekWindow }
+        return true
+    }
+
     private func limitsTitle() -> NSAttributedString? {
-        let session = worst(in: ["five_hour"])
-        let week = worst(in: ["seven_day"])
+        let session = wantsSessionWindow ? worst(in: ["five_hour"]) : nil
+        let week = wantsWeekWindow ? worst(in: ["seven_day"]) : nil
         guard session != nil || week != nil else { return nil }
         var parts: [(String, NSColor?)] = []
         if let s = session {
             parts.append(("\(pct(s))%", limitColor(s.utilization)))
-            if let r = fmtResetShort(s.resetsAt) { parts.append((" \(r)", .labelColor)) }
+            if config.showResetTimes, let r = fmtResetShort(s.resetsAt) {
+                parts.append((" \(r)", .labelColor))
+            }
         }
         if session != nil && week != nil { parts.append((" | ", .tertiaryLabelColor)) }
         if let w = week {
             parts.append(("\(pct(w))%", limitColor(w.utilization)))
-            if let r = fmtResetShort(w.resetsAt) { parts.append((" \(r)", .labelColor)) }
+            if config.showResetTimes, let r = fmtResetShort(w.resetsAt) {
+                parts.append((" \(r)", .labelColor))
+            }
         }
         return coloredTitle(parts)
     }
@@ -946,11 +1031,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         for provider in grouped.keys.sorted() {
             addInfo(menu, "\(provider) limits:\(staleSuffix(for: provider))")
-            for w in LimitParser.sorted(grouped[provider] ?? []) {
+            for w in LimitParser.sorted(grouped[provider] ?? []) where wantsWindow(w) {
+                let reset = config.showResetTimes ? fmtReset(w.resetsAt) : ""
                 addStatic(menu, coloredTitle([
                     ("    ● ", limitColor(w.utilization)),
-                    ("\(w.displayName): \(pct(w))%\(fmtReset(w.resetsAt))",
-                     Brandkit.menuPrimary),
+                    ("\(w.displayName): \(pct(w))%\(reset)", Brandkit.menuPrimary),
                 ]))
             }
         }
@@ -1042,6 +1127,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         barItem.submenu = barSub
         if availability.hasChoice { menu.addItem(barItem) }
 
+        // Compactness is taste, so every element is a choice rather than a mode
+        let styleItem = NSMenuItem(title: "Menu Bar Style", action: nil, keyEquivalent: "")
+        let style = NSMenu()
+        let icon = NSMenuItem(title: "Show Icon", action: #selector(toggleMenuIcon(_:)),
+                              keyEquivalent: "")
+        icon.target = self
+        icon.state = config.showMenuIcon ? .on : .off
+        style.addItem(icon)
+        let resets = NSMenuItem(title: "Show Reset Times",
+                                action: #selector(toggleResetTimes(_:)), keyEquivalent: "")
+        resets.target = self
+        resets.state = config.showResetTimes ? .on : .off
+        style.addItem(resets)
+        style.addItem(.separator())
+        for (title, value) in [("All Limits", "all"), ("Session Only", "session"),
+                               ("Week Only", "week")] {
+            let item = NSMenuItem(title: title, action: #selector(pickLimitWindows(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = config.limitWindows == value ? .on : .off
+            style.addItem(item)
+        }
+        styleItem.submenu = style
+        menu.addItem(styleItem)
+
         // Only offered when Ollama is actually installed; a setup step for a missing tool
         // is noise
         if availability.installed.contains(where: {
@@ -1094,6 +1205,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            keyEquivalent: "")
         c.target = self
         menu.addItem(c)
+        let auto = NSMenuItem(title: "Check Twice a Day",
+                              action: #selector(toggleAutoUpdates(_:)), keyEquivalent: "")
+        auto.target = self
+        auto.state = config.autoCheckUpdates ? .on : .off
+        auto.toolTip = "Polls the GitHub releases API every 12 hours and pops up only "
+                     + "when an update exists. Off by default: RedLine promises no network "
+                     + "requests you did not ask for."
+        menu.addItem(auto)
         menu.addItem(.separator())
 
         let u = NSMenuItem(title: "Uninstall RedLine…", action: #selector(uninstall(_:)),
