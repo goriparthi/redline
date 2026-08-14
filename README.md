@@ -198,7 +198,11 @@ Claude Code's transcripts and there are none to read.
   a translocated copy (launched straight from the DMG or Downloads); move RedLine.app to
   Applications with Finder and launch it from there.
 - **The Keychain prompt** for `Claude Code-credentials` appears only with `useCLIToken` on,
-  and **Always Allow** is the answer that makes it permanent.
+  and **Always Allow** is the answer that makes it stick. One caveat is inherent to
+  borrowing another app's credential: when Claude Code signs in again it recreates that
+  Keychain item, and a recreated item forgets who was allowed, so expect one fresh prompt
+  after a CLI login. If that bothers you, the browser sign-in route uses RedLine's own
+  Keychain item and never prompts.
 
 If neither is available the menu bar shows `sign in` rather than a number. It deliberately
 never falls back to showing token counts in the limits slot, because a plausible-looking
