@@ -123,12 +123,18 @@ enum Updates {
             .map({ (mount as NSString).appendingPathComponent($0) })
         else { return fail("No app inside the downloaded image") }
 
-        // Both checks must pass: notarized by Apple, and signed by this project's team
+        // Both checks must pass: notarized by Apple, and signed by this project's team.
+        // The team is enforced as a codesign requirement, so the match is cryptographic;
+        // grepping codesign's text output would be spoofable by the app's own filename,
+        // which the DMG author chooses and which appears in that output.
         guard run("/usr/sbin/spctl", ["-a", "-t", "install", app]).status == 0 else {
             return fail("Update rejected: not accepted by Gatekeeper")
         }
-        let sig = run("/usr/bin/codesign", ["-dv", "--verbose=2", app])
-        guard sig.output.contains("TeamIdentifier=\(expectedTeamID)") else {
+        let requirement = "anchor apple generic and certificate leaf[subject.OU] = "
+            + "\"\(expectedTeamID)\""
+        guard run("/usr/bin/codesign",
+                  ["--verify", "--deep", "--strict", "-R=\(requirement)", app]).status == 0
+        else {
             return fail("Update rejected: unexpected signing identity")
         }
 
