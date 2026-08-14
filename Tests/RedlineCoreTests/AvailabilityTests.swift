@@ -25,6 +25,19 @@ final class AvailabilityTests: XCTestCase {
         XCTAssertFalse(a.hasChoice)
     }
 
+    // A claude.ai user with no CLI has nothing under ~/.claude, but a signed-in account
+    // still has rate limits worth showing
+    func testClaudeAccountCountsWithNothingLocal() {
+        let a = ProviderAvailability.detect(home: home, claudeAccount: true)
+        XCTAssertTrue(a.has("Claude"))
+        XCTAssertFalse(a.has("Codex"))
+    }
+
+    func testNoClaudeAccountAndNothingLocalMeansNoClaude() {
+        let a = ProviderAvailability.detect(home: home, claudeAccount: false)
+        XCTAssertFalse(a.has("Claude"))
+    }
+
     func testSingleProviderNeedsNoAllOption() throws {
         try make(".codex/sessions")
         let a = ProviderAvailability.detect(home: home)

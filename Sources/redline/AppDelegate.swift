@@ -303,15 +303,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         let detected = ProviderAvailability.detect(
-            ollamaReachable: ollamaSection?.reachable ?? false)
-        let view = FirstRunView(availability: detected) { [weak self] providers, useCLI in
+            ollamaReachable: ollamaSection?.reachable ?? false,
+            claudeAccount: oauth.isSignedIn || config.oauth.isConfigured)
+        let view = FirstRunView(availability: detected,
+                                currentProviders: config.providers,
+                                useCLIToken: config.useCLIToken,
+                                oauthClientId: config.oauth.clientId) {
+            [weak self] providers, choice, clientId in
             guard let self else { return }
             if !providers.isEmpty { Config.setProviders(providers) }
-            Config.write(["useCLIToken": useCLI])
+            Config.write(["useCLIToken": choice == .cliToken])
+            if choice == .browser { Config.setOAuthClientId(clientId) }
+            // Off means off: keeping a signed-in token would leave the percentages showing
+            if choice == .off, self.oauth.isSignedIn, !self.oauth.usingCLIToken {
+                self.oauth.signOut()
+                self.claudeLimits = []
+            }
             self.config = Config.load()
             self.oauth.update(settings: self.config.oauth, useCLIToken: self.config.useCLIToken)
             self.setupWindow?.close()
             self.setupWindow = nil
+            // The browser flow is the one thing Start cannot finish on its own
+            if choice == .browser, !self.oauth.isSignedIn { self.signIn(nil) }
             self.refresh()
         }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 470, height: 460),
@@ -446,7 +459,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // network entitlement at all.
     private func refreshAvailability() {
         let reachable = ollamaSection?.reachable ?? false
-        let next = ProviderAvailability.detect(ollamaReachable: reachable)
+        let next = ProviderAvailability.detect(
+            ollamaReachable: reachable,
+            claudeAccount: oauth.isSignedIn || config.oauth.isConfigured)
         guard next != availability else { return }
         availability = next
         if let menu = statusItem.menu { rebuildMenu(menu) }

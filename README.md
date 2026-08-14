@@ -164,17 +164,23 @@ The percentages are the only part that needs the undocumented endpoint described
 ### Claude rate limits need a token
 
 Token and cost totals come from transcripts on disk and need no credentials. The
-**rate-limit percentages** come from an undocumented endpoint that requires an OAuth token,
-obtained one of two ways:
+**rate-limit percentages** come from an undocumented endpoint that requires an OAuth token.
+Both routes live in **Providers & Claude Limits…**, and both are off by default:
 
-1. **Borrow the CLI's token** by setting `useCLIToken: true`. **Off by default**, because
-   that Keychain item belongs to another application and reading it should never be a silent
-   default. Once enabled, macOS asks for permission; a background agent is denied silently
-   rather than prompted, so grant it once in Keychain Access.app: find
-   `Claude Code-credentials`, open **Access Control**, and add `Redline.app`.
-2. **Its own sign-in.** Requires `oauth.clientId` in the config. **No client id ships by
-   default** and Sign In stays disabled until you set one, because this project is not
-   registered with Anthropic and shipping someone else's client id is not ours to do.
+1. **Borrow the CLI's token** (`useCLIToken: true`). Needs Claude Code installed and signed
+   in. Off by default, because that Keychain item belongs to another application and reading
+   it should never be a silent default. Once enabled, macOS asks for permission; a background
+   agent is denied silently rather than prompted, so grant it once in Keychain Access.app:
+   find `Claude Code-credentials`, open **Access Control**, and add `Redline.app`.
+2. **Sign in with your Claude account in a browser.** This is the route for people who use
+   the claude.ai app or website rather than Claude Code: the percentages cover the whole
+   account, so they work with no transcripts on disk at all. It requires an OAuth client id
+   (`oauth.clientId`, or paste it into the setup window). **No client id ships by default**,
+   because this project is not registered with Anthropic and shipping someone else's client
+   id is not ours to do.
+
+Chat-only users get percentages but no token or cost tables, since those are read from
+Claude Code's transcripts and there are none to read.
 
 If neither is available the menu bar shows `sign in` rather than a number. It deliberately
 never falls back to showing token counts in the limits slot, because a plausible-looking

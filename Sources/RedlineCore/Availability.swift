@@ -24,9 +24,11 @@ public struct ProviderAvailability: Equatable {
 
     /// A provider is considered installed when the directory its tool writes to exists.
     /// Ollama also counts when the app has seen it running, since a fresh install may have
-    /// no data directory yet.
+    /// no data directory yet. Claude also counts with a signed-in account and nothing local:
+    /// a claude.ai user has rate limits to show even though there are no transcripts to read.
     public static func detect(home: URL? = nil,
-                              ollamaReachable: Bool = false) -> ProviderAvailability {
+                              ollamaReachable: Bool = false,
+                              claudeAccount: Bool = false) -> ProviderAvailability {
         let fm = FileManager.default
         let root = home ?? fm.homeDirectoryForCurrentUser
         var found: [String] = []
@@ -35,7 +37,9 @@ public struct ProviderAvailability: Equatable {
             fm.fileExists(atPath: root.appendingPathComponent(path).path)
         }
 
-        if exists(".claude/projects") || exists(".claude") { found.append("Claude") }
+        if exists(".claude/projects") || exists(".claude") || claudeAccount {
+            found.append("Claude")
+        }
         if exists(".codex/sessions") || exists(".codex") { found.append("Codex") }
         if ollamaReachable || exists(".ollama") || exists(".local/share/redline/ollama.jsonl") {
             found.append("Ollama")

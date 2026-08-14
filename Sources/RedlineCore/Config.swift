@@ -186,6 +186,20 @@ public struct Config {
 
     // Rewrites only the given keys so hand-edited notes and pricing survive
     @discardableResult
+    /// Patches oauth.clientId in place, preserving the rest of the oauth block. write()
+    /// merges at the top level only, so a plain write would drop the sibling URLs.
+    public static func setOAuthClientId(_ id: String, at url: URL? = nil) -> Bool {
+        let url = url ?? configURL
+        var oauth: [String: Any] = [:]
+        if let data = try? Data(contentsOf: url),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let block = existing["oauth"] as? [String: Any] {
+            oauth = block
+        }
+        oauth["clientId"] = id
+        return write(["oauth": oauth], at: url)
+    }
+
     public static func write(_ values: [String: Any], at url: URL? = nil) -> Bool {
         let url = url ?? configURL
         var json: [String: Any] = [:]
