@@ -360,7 +360,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             [weak self] providers, choice, clientId in
             guard let self else { return }
             if !providers.isEmpty { Config.setProviders(providers) }
-            Config.write(["useCLIToken": choice == .cliToken])
+            if !Config.write(["useCLIToken": choice == .cliToken]) {
+                self.limitsStatus = "Could not write config"
+            }
             if choice == .browser { Config.setOAuthClientId(clientId) }
             // Off means off: keeping a signed-in token would leave the percentages showing
             if choice == .off, self.oauth.isSignedIn, !self.oauth.usingCLIToken {
@@ -451,6 +453,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         })
+    }
+
+    // One-click enable from the menu: persist the choice, probe immediately, and either
+    // show data or say exactly what is in the way
+    @objc func enableCLIToken(_ sender: Any?) {
+        guard Config.write(["useCLIToken": true]) else {
+            limitsStatus = "Could not write config"
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
+        config = Config.load()
+        oauth.update(settings: config.oauth, useCLIToken: true)
+        oauth.resetCLIProbe()
+        verifyCLITokenReadable()
+    }
+
+    // The browser route: straight to sign-in when a client id exists, otherwise the setup
+    // window, which is where one gets pasted
+    @objc func browserSignIn(_ sender: Any?) {
+        if oauth.canSignIn { signIn(nil) } else { showSetup(nil) }
+    }
+
+    @objc func fixKeychainAccess(_ sender: Any?) {
+        oauth.resetCLIProbe()
+        verifyCLITokenReadable()
     }
 
     // Enabling the CLI token either works right now or needs the user to act, and both
@@ -928,22 +955,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             addInfo(menu, "    Reading limits with the Claude CLI's token", secondary: true)
         }
 
-        if !oauth.isSignedIn {
-            if oauth.canSignIn {
-                let s = NSMenuItem(title: "Sign In to Claude (show limits)…",
-                                   action: #selector(signIn(_:)), keyEquivalent: "")
-                s.target = self
-                menu.addItem(s)
-            } else if !config.useCLIToken {
-                // Actionable instead of a config instruction: the same decision lives in the
-                // setup window, and borrowing the CLI's token needs no client id at all.
-                let s = NSMenuItem(title: "Show Claude Limits…",
-                                   action: #selector(showSetup(_:)), keyEquivalent: "")
-                s.target = self
-                menu.addItem(s)
+        // Percentages that are off or broken must say so where the user is looking, with
+        // the enable actions one click away. A setting that only lives in another window
+        // reads as a silent failure.
+        if config.wants(UsageStore.provider), !oauth.isSignedIn {
+            if config.useCLIToken {
+                addInfo(menu, "    Percentages on, but the CLI token is unreadable")
+                let f = NSMenuItem(title: "Fix Keychain Access…",
+                                   action: #selector(fixKeychainAccess(_:)), keyEquivalent: "")
+                f.target = self
+                menu.addItem(f)
             } else {
-                addInfo(menu, "    No token yet: grant access to Claude Code-credentials "
-                            + "in Keychain Access")
+                addInfo(menu, "    Claude percentages are off", secondary: true)
+                let parent = NSMenuItem(title: "Show Claude Percentages",
+                                        action: nil, keyEquivalent: "")
+                let sub = NSMenu()
+                let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
+                                     action: #selector(enableCLIToken(_:)), keyEquivalent: "")
+                cli.target = self
+                cli.toolTip = "Reads Claude Code's token from your Keychain; macOS asks once"
+                sub.addItem(cli)
+                let b = NSMenuItem(title: "Sign In with Browser…",
+                                   action: #selector(browserSignIn(_:)), keyEquivalent: "")
+                b.target = self
+                b.toolTip = "For claude.ai users without Claude Code"
+                sub.addItem(b)
+                parent.submenu = sub
+                menu.addItem(parent)
             }
         }
         menu.addItem(.separator())
