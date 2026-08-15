@@ -67,15 +67,22 @@ public struct Snapshot: Codable, Equatable {
         public let running: [Running]
         public let downloadedCount: Int
         public let downloadedBytes: Int64
+        /// Downloaded models that run on Ollama Cloud rather than this machine. Optional
+        /// so snapshots written before the field existed still decode.
+        public let cloudCount: Int?
 
         public init(reachable: Bool, version: String?, running: [Running],
-                    downloadedCount: Int, downloadedBytes: Int64) {
+                    downloadedCount: Int, downloadedBytes: Int64, cloudCount: Int? = nil) {
             self.reachable = reachable
             self.version = version
             self.running = running
             self.downloadedCount = downloadedCount
             self.downloadedBytes = downloadedBytes
+            self.cloudCount = cloudCount
         }
+
+        /// Models actually stored on this disk, with cloud entries taken back out
+        public var localCount: Int { downloadedCount - (cloudCount ?? 0) }
     }
 
     public let updatedAt: Date

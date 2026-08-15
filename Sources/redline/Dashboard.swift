@@ -40,32 +40,81 @@ enum Brandkit {
     static func color(for provider: String) -> Color {
         BrandUI.color(forProvider: provider)
     }
+
+    // Chart series colors, distinct from the track identity tones on purpose: chalk and
+    // steel are near-neutrals that read as one gray mass in a chart. This triple passes
+    // the categorical checks (lightness band, chroma floor, CVD separation, contrast) on
+    // Carbon; the legend ties names to colors so identity is never color alone.
+    static func chartColor(for provider: String) -> Color {
+        switch provider {
+        case UsageStore.provider:  return Color(red: 0.725, green: 0.510, blue: 0.165) // B9822A
+        case CodexStore.provider:  return Color(red: 0.357, green: 0.553, blue: 0.910) // 5B8DE8
+        case OllamaStore.provider: return Color(red: 0.137, green: 0.651, blue: 0.235) // 23A63C
+        default:                   return steel
+        }
+    }
+
+    /// Vertical fade for bar and area fills: full color at the data end, quieter at the
+    /// baseline, so stacks stay separable without extra strokes
+    static func chartFill(for provider: String) -> LinearGradient {
+        let c = chartColor(for: provider)
+        return LinearGradient(colors: [c, c.opacity(0.55)],
+                              startPoint: .top, endPoint: .bottom)
+    }
 }
 
-// One provider's health as its operator reports it: dot, name, phrase, and the raw
-// description for the detail column
+// One provider's health as its operator reports it: a drawn glyph instead of words, with
+// the words and the check time waiting in the hover tooltip
 struct ServiceStatusRow: View {
     let provider: String
+    let indicator: String
     let phrase: String
     let detail: String
-    let color: Color
+    let checkedAt: Date?
+
+    private var symbol: String {
+        switch indicator {
+        case "none", "local": return "checkmark.circle.fill"
+        case "minor": return "exclamationmark.triangle.fill"
+        case "major", "critical": return "exclamationmark.octagon.fill"
+        case "local-down": return "bolt.slash.circle.fill"
+        default: return "questionmark.circle.fill"
+        }
+    }
+
+    private var color: Color {
+        switch indicator {
+        case "none", "local": return Brandkit.clear
+        case "minor": return Brandkit.amber
+        case "major", "critical": return Brandkit.signal
+        default: return Brandkit.steel
+        }
+    }
+
+    private var tooltip: String {
+        let when = checkedAt.map {
+            "last checked " + DateFormatter.localizedString(
+                from: $0, dateStyle: .none, timeStyle: .short)
+        } ?? "not checked yet"
+        return "\(phrase) · \(when)"
+    }
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(color).frame(width: 8, height: 8)
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(color)
             TrackBadge(provider: provider, size: 16)
             Text(provider)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Brandkit.chalk)
-            Text(phrase)
-                .font(.system(size: 12))
-                .foregroundStyle(color)
             Spacer()
             Text(detail)
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(Brandkit.steel)
                 .lineLimit(1)
         }
+        .help(tooltip)
     }
 }
 
@@ -78,6 +127,7 @@ struct DashboardData {
     var models: [ModelShare] = []
     var limits: [LimitWindow] = []
     var services: [Snapshot.Service] = []
+    var servicesCheckedAt: Date?
     var visibleServices: [Snapshot.Service] { services.filter { matches($0.provider) } }
     var today = Agg()
     var week = Agg()
@@ -128,6 +178,8 @@ struct DashboardData {
 // changes are dispatched to main explicitly instead, which SwiftUI requires.
 final class DashboardModel: ObservableObject {
     @Published var data = DashboardData()
+    /// Set by the app: forces a status re-fetch past the 15 minute throttle
+    var onStatusRefresh: (() -> Void)?
     private let claude = UsageStore()
     private let codex = CodexStore()
     private let ollama = OllamaStore()
@@ -303,10 +355,11 @@ private struct DailyTokensChart: View {
         Chart(rows) { r in
             BarMark(x: .value("Day", r.start, unit: .day),
                     y: .value("Tokens", r.io))
-                .foregroundStyle(Brandkit.color(for: r.provider))
+                .foregroundStyle(by: .value("Provider", r.provider))
+                .cornerRadius(4)
         }
         .chartForegroundStyleScale(domain: trends.map(\.provider),
-                                   range: trends.map { Brandkit.color(for: $0.provider) })
+                                   range: trends.map { Brandkit.chartFill(for: $0.provider) })
         .chartLegend(position: .top, alignment: .leading, spacing: 8)
         .chartYAxis {
             AxisMarks(position: .leading) { value in
@@ -353,12 +406,17 @@ private struct DailyCostChart: View {
         Chart(rows) { r in
             AreaMark(x: .value("Day", r.start, unit: .day),
                      y: .value("Estimated cost", r.cost))
-                .foregroundStyle(Brandkit.color(for: r.provider).opacity(0.18))
+                .foregroundStyle(Brandkit.chartColor(for: r.provider).opacity(0.22))
+                .interpolationMethod(.monotone)
             LineMark(x: .value("Day", r.start, unit: .day),
                      y: .value("Estimated cost", r.cost))
-                .foregroundStyle(Brandkit.color(for: r.provider))
+                .foregroundStyle(by: .value("Provider", r.provider))
+                .lineStyle(StrokeStyle(lineWidth: 2))
                 .interpolationMethod(.monotone)
         }
+        .chartForegroundStyleScale(domain: trends.map(\.provider),
+                                   range: trends.map { Brandkit.chartColor(for: $0.provider) })
+        .chartLegend(position: .top, alignment: .leading, spacing: 8)
         .chartYAxis {
             AxisMarks(position: .leading) { value in
                 AxisGridLine().foregroundStyle(Brandkit.steel.opacity(0.15))
@@ -403,8 +461,12 @@ private struct HourlyChart: View {
         Chart(rows) { r in
             BarMark(x: .value("Hour", r.start, unit: .hour),
                     y: .value("Tokens", r.io))
-                .foregroundStyle(Brandkit.color(for: r.provider))
+                .foregroundStyle(by: .value("Provider", r.provider))
+                .cornerRadius(3)
         }
+        .chartForegroundStyleScale(domain: trends.map(\.provider),
+                                   range: trends.map { Brandkit.chartFill(for: $0.provider) })
+        .chartLegend(position: .top, alignment: .leading, spacing: 8)
         .chartYAxis {
             AxisMarks(position: .leading) { value in
                 AxisGridLine().foregroundStyle(Brandkit.steel.opacity(0.15))
@@ -459,6 +521,24 @@ private struct ModelMix: View {
                         .foregroundStyle(m.priced ? Brandkit.chalk : Brandkit.steel)
                         .frame(width: 78, alignment: .trailing)
                 }
+            }
+            // The list answers "which model"; this row answers "how much altogether"
+            Divider().overlay(Brandkit.steel.opacity(0.25))
+            HStack(spacing: 8) {
+                Text("Total")
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Brandkit.chalk)
+                    .frame(width: 231, alignment: .leading)
+                Spacer()
+                Text(fmtTokens(models.reduce(0) { $0 + $1.io }))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Brandkit.chalk)
+                    .frame(width: 68, alignment: .trailing)
+                Text(fmtCost(models.filter(\.priced).reduce(0) { $0 + $1.cost })
+                     + (models.contains { !$0.priced } ? "+" : ""))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Brandkit.chalk)
+                    .frame(width: 78, alignment: .trailing)
             }
             if models.contains(where: { !$0.priced }) {
                 Text("— means no pricing entry, so it is counted in tokens only")
@@ -614,14 +694,29 @@ struct DashboardView: View {
                         Panel(title: "Service status", note: "as reported by each operator") {
                             VStack(alignment: .leading, spacing: 10) {
                                 ForEach(data.visibleServices, id: \.provider) { s in
-                                    ServiceStatusRow(
-                                        provider: s.provider, phrase: s.phrase,
-                                        detail: s.description,
-                                        color: s.indicator == "none" || s.indicator == "local"
-                                             ? Brandkit.clear
-                                             : s.indicator == "minor" ? Brandkit.amber
-                                             : s.indicator == "local-down" ? Brandkit.steel
-                                             : Brandkit.signal)
+                                    ServiceStatusRow(provider: s.provider,
+                                                     indicator: s.indicator,
+                                                     phrase: s.phrase,
+                                                     detail: s.description,
+                                                     checkedAt: data.servicesCheckedAt)
+                                }
+                                HStack(spacing: 8) {
+                                    Button {
+                                        model.onStatusRefresh?()
+                                    } label: {
+                                        Label("Check now", systemImage: "arrow.clockwise")
+                                            .font(.system(size: 11))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(Brandkit.steel)
+                                    .help("Re-check every status immediately")
+                                    if let at = data.servicesCheckedAt {
+                                        Text("last checked " + DateFormatter.localizedString(
+                                            from: at, dateStyle: .none, timeStyle: .short))
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundStyle(Brandkit.steel)
+                                    }
+                                    Spacer()
                                 }
                             }
                         }

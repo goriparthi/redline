@@ -102,7 +102,10 @@ final class OllamaService: ObservableObject {
                                version: v?["version"] as? String,
                                running: running,
                                downloadedCount: models.count,
-                               downloadedBytes: models.reduce(0) { $0 + $1.sizeBytes })
+                               downloadedBytes: models.reduce(0) { $0 + $1.sizeBytes },
+                               cloudCount: models.filter {
+                                   OllamaLocality.isCloud($0.name)
+                               }.count)
     }
 
     // MARK: - Transport

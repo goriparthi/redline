@@ -117,6 +117,8 @@ private struct Header: View {
     /// nil shows the app mark, a provider shows that track's badge
     var provider: String? = nil
     var trailing: String? = nil
+    /// Service health as a dot beside the title: present at every size, never words
+    var statusColor: Color? = nil
 
     var body: some View {
         HStack(spacing: 7) {
@@ -127,6 +129,9 @@ private struct Header: View {
                 .foregroundStyle(BrandUI.chalk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+            if let statusColor {
+                Circle().fill(statusColor).frame(width: 6, height: 6)
+            }
             Spacer(minLength: 2)
             if let trailing {
                 Text(trailing)
@@ -334,15 +339,25 @@ private struct OllamaBody: View {
     private func layout(_ detail: Detail) -> some View {
         VStack(alignment: .leading, spacing: m.spacing) {
             Header(title: "Ollama", m: m, provider: "Ollama",
-                   trailing: detail == .full ? o?.version.map { "v\($0)" } : nil)
+                   trailing: detail == .full ? o?.version.map { "v\($0)" } : nil,
+                   statusColor: (o?.reachable ?? false) ? BrandUI.clear : BrandUI.steel)
 
             if let o, o.reachable {
-                // The counts are the glanceable part, so they carry the type weight
+                // The counts are the glanceable part, so they carry the type weight.
+                // Local and cloud are separate counts on purpose: which machine a model
+                // runs on is a fact, not a detail.
                 HStack(alignment: .firstTextBaseline, spacing: 14) {
                     CountBlock(value: "\(o.running.count)", label: "loaded", m: m,
                                tint: o.running.isEmpty ? BrandUI.steel : BrandUI.clear)
-                    CountBlock(value: "\(o.downloadedCount)", label: "on disk", m: m,
-                               tint: BrandUI.chalk)
+                    if family == .systemSmall || (o.cloudCount ?? 0) == 0 {
+                        CountBlock(value: "\(o.downloadedCount)", label: "on disk", m: m,
+                                   tint: BrandUI.chalk)
+                    } else {
+                        CountBlock(value: "\(o.localCount)", label: "local", m: m,
+                                   tint: BrandUI.chalk)
+                        CountBlock(value: "\(o.cloudCount ?? 0)", label: "☁ cloud", m: m,
+                                   tint: BrandUI.steel)
+                    }
                     if family != .systemSmall {
                         CountBlock(value: fmtBytes(o.downloadedBytes), label: "size", m: m,
                                    tint: BrandUI.chalk, scale: 0.5)
@@ -409,7 +424,12 @@ private struct OllamaBody: View {
                 Spacer(minLength: 0)
             }
             Spacer(minLength: 0)
-            if detail == .full { StaleNote(snapshot: snapshot, m: m) }
+            if detail == .full {
+                HStack(spacing: 8) {
+                    ServiceLine(snapshot: snapshot, provider: "Ollama", m: m)
+                    StaleNote(snapshot: snapshot, m: m)
+                }
+            }
         }
     }
 }
@@ -462,6 +482,21 @@ private struct UsageBody: View {
         provider.map { snapshot.windows(for: $0) } ?? snapshot.limits
     }
 
+    // The title dot: this provider's report, or for the all track the worst anyone has.
+    // nil when status was never published, so nothing is claimed that was not checked.
+    private var headerStatusColor: Color? {
+        guard let services = snapshot.services, !services.isEmpty else { return nil }
+        let relevant = provider.map { p in services.filter { $0.provider == p } } ?? services
+        guard !relevant.isEmpty else { return nil }
+        if relevant.contains(where: { ["major", "critical"].contains($0.indicator) }) {
+            return BrandUI.signal
+        }
+        if relevant.contains(where: { ["minor", "local-down"].contains($0.indicator) }) {
+            return BrandUI.amber
+        }
+        return BrandUI.clear
+    }
+
     var body: some View {
         // Measured by the system rather than guessed: the previous fixed layout clipped its
         // header and last row once the type grew.
@@ -475,7 +510,8 @@ private struct UsageBody: View {
         VStack(alignment: .leading, spacing: m.spacing) {
             Header(title: title, m: m, provider: provider,
                    trailing: detail == .full && provider == nil && !snapshot.limits.isEmpty
-                       ? "nearest" : nil)
+                       ? "nearest" : nil,
+                   statusColor: headerStatusColor)
 
             if session == nil && week == nil {
                 Spacer(minLength: 0)

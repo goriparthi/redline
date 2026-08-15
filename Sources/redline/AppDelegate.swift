@@ -122,6 +122,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
         let firstRun = Config.isFirstRun()
+        // The dashboard's "Check now" button: past the throttle, straight to the feeds
+        dashboardModel.onStatusRefresh = { [weak self] in
+            guard let self else { return }
+            self.serviceStatusAt = nil
+            self.refreshServiceStatus()
+        }
         scheduleTimer()
         scheduleUpdateTimer()
         refresh()
@@ -213,6 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.claudeService = report
                 self.publishSnapshot()
                 self.dashboardModel.data.services = self.snapshotServices()
+                self.dashboardModel.data.servicesCheckedAt = Date()
                 if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
             }
         }
@@ -222,6 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.codexService = report
                 self.publishSnapshot()
                 self.dashboardModel.data.services = self.snapshotServices()
+                self.dashboardModel.data.servicesCheckedAt = Date()
                 if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
             }
         }
@@ -270,6 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // leave stale status rows on the dashboard and widgets, which read as the toggle
         // doing nothing at all
         dashboardModel.data.services = snapshotServices()
+                dashboardModel.data.servicesCheckedAt = Date()
         publishSnapshot()
         refreshServiceStatus()
         if let menu = statusItem.menu { rebuildMenu(menu) }
@@ -878,6 +887,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // The dashboard renders these; stale defaults here painted "not reachable"
                 // while ollama was answering prompts in the next window
                 self.dashboardModel.data.services = self.snapshotServices()
+                self.dashboardModel.data.servicesCheckedAt = Date()
                 self.dashboardModel.data.ollamaReachableHint = section?.reachable ?? false
                 if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
             }
