@@ -541,14 +541,24 @@ PROMPT</pre>
   <section>
     <div class="sec-head">
       <p class="label">Install</p>
-      <h2>Three routes, and one of them is better</h2>
-      <p>Downloads are signed and notarized. Building from source is still the honest
-         recommendation, and the reason is worth a minute of your time.</p>
+      <h2>Three routes</h2>
+      <p>Downloads are signed, notarized, and update themselves in place. Prefer to read
+         what you run? The source route is below, and the code is all here.</p>
     </div>
 
     <div class="install-grid">
+      <div class="route route-best">
+        <p class="label">Option 1 · recommended</p>
+        <h3>Download the DMG</h3>
+        <pre><a href="https://github.com/goriparthi/redline/releases/latest">Latest release</a> → open the DMG
+→ drag RedLine to Applications</pre>
+        <p class="note">Signed and notarized, so it opens normally, and future updates
+           install in place from the menu, verified against this project's signing
+           identity. Verification steps below.</p>
+      </div>
+
       <div class="route">
-        <p class="label">Option 1</p>
+        <p class="label">Option 2</p>
         <h3>Homebrew</h3>
         <pre>git clone https://github.com/goriparthi/redline.git
 cd redline
@@ -556,24 +566,16 @@ brew install --cask ./Casks/redline.rb</pre>
         <p class="note">Update later with <code>brew upgrade --cask redline</code>.</p>
       </div>
 
-      <div class="route route-best">
-        <p class="label">Option 2 · recommended</p>
+      <div class="route">
+        <p class="label">Option 3 · for source readers</p>
         <h3>Build from source</h3>
         <pre>git clone https://github.com/goriparthi/redline.git
 cd redline
 make install            <span class="c"># menu bar</span>
 WIDGET=1 make install   <span class="c"># and the widget</span></pre>
-        <p class="note">You run a binary you compiled from source you can read. Needs Xcode
-           for the widget; the menu bar app builds with the Command Line Tools alone.</p>
-      </div>
-
-      <div class="route">
-        <p class="label">Option 3</p>
-        <h3>Download the DMG</h3>
-        <pre><a href="https://github.com/goriparthi/redline/releases/latest">Latest release</a> → open the DMG
-→ drag Redline.app to Applications</pre>
-        <p class="note">Signed and notarized, so it opens normally. Verification steps
-           below.</p>
+        <p class="note">You run a binary you compiled from source you can read, which is
+           the strongest trust there is. Needs Xcode for the widget, and updates are
+           <code>git pull</code>, not automatic.</p>
       </div>
     </div>
 

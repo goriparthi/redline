@@ -72,9 +72,18 @@ Widgets, one per track, configurable from the widget's own settings:
 
 ## Install
 
-Three routes. **Building from source is the one to prefer**, and the reason is below.
+Three routes. **The DMG is the one to prefer**: it is signed, notarized, and updates
+itself in place from the menu, verified against this project's signing identity. Building
+from source remains the strongest-trust option for anyone who wants to read what they run.
 
-### 1. Homebrew, from this repo
+### 1. Download the DMG (recommended)
+
+[Latest release](https://github.com/goriparthi/redline/releases/latest) → open the DMG → drag
+**RedLine** to Applications → launch it. It opens normally: releases are **signed with a
+Developer ID certificate and notarized by Apple**, so Gatekeeper lets them through without any
+workaround. Future updates install in place from **Check for Updates…** in the menu.
+
+### 2. Homebrew, from this repo
 
 ```sh
 git clone https://github.com/goriparthi/redline.git
@@ -82,7 +91,7 @@ cd redline
 brew install --cask ./Casks/redline.rb
 ```
 
-### 2. From source (recommended)
+### 3. From source, for source readers
 
 ```sh
 git clone https://github.com/goriparthi/redline.git
@@ -92,14 +101,10 @@ WIDGET=1 make install   # menu bar app and the desktop widget
 ```
 
 Needs Xcode for the widget; the menu bar app alone builds with the Command Line Tools. You
-end up running a binary you compiled from source you can read, which is the whole point.
+end up running a binary you compiled from source you can read. Updates are `git pull &&
+make install`, not automatic.
 
-### 3. Download the DMG
-
-[Latest release](https://github.com/goriparthi/redline/releases/latest) → open the DMG → drag
-**Redline.app** to Applications → launch it. It opens normally: releases are **signed with a
-Developer ID certificate and notarized by Apple**, so Gatekeeper lets them through without any
-workaround.
+### Verifying a download
 
 Verifying is still worth a moment, and here it actually tells you something:
 
