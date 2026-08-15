@@ -56,6 +56,13 @@ Widgets, one per track, configurable from the widget's own settings:
 | --- | --- | --- |
 | <img src="site/img/claude-widget.png" alt="Claude widget showing session and week percentages, tokens, cost, and the reported service health" width="230"> | <img src="site/img/codex-widget.png" alt="Codex widget showing the week percentage, tokens, cost, and service health" width="230"> | <img src="site/img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" width="230"> |
 
+All three sizes carry the same reading, cut to fit rather than truncated: the medium drops
+the totals, the small keeps the window nearest its limit.
+
+| Medium | Small |
+| --- | --- |
+| <img src="site/img/usage-widget-medium.png" alt="Medium widget showing session and week percentages for the nearest provider" width="300"> | <img src="site/img/usage-widget-small.png" alt="Small widget showing the session percentage for the nearest provider" width="150"> |
+
 ## What it shows
 
 - **Usage and remaining capacity** per provider for the session and week windows, coloured by the brand thresholds (Clear, Amber, Signal).

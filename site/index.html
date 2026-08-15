@@ -243,12 +243,19 @@
     margin-top: clamp(1.25rem, 3vw, 2rem);
   }
   .shots-three { grid-template-columns: repeat(3, 1fr); }
+  /* Medium is twice the width of small, so this row keeps their real proportions rather
+     than stretching both into equal columns */
+  .shots-sizes {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    max-width: min(720px, 100%);
+    align-items: start;
+  }
   /* The menu is tall and narrow, so cap it rather than letting it set the row height */
   .shot-menu { max-width: min(520px, 40vw); margin-top: clamp(1.25rem, 3vw, 2rem); }
   @media (max-width: 700px) { .shot-menu { max-width: 100%; } }
   .shot-hero { margin: 0; }
   @media (max-width: 820px) {
-    .shots, .shots-three { grid-template-columns: 1fr; }
+    .shots, .shots-three, .shots-sizes { grid-template-columns: 1fr; }
   }
   .shot { margin: 0; display: flex; flex-direction: column; gap: .6rem; }
   .shot img {
@@ -404,6 +411,17 @@
       <figure class="shot">
         <img src="img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" loading="lazy">
         <figcaption>Ollama</figcaption>
+      </figure>
+    </div>
+
+    <div class="shots shots-sizes">
+      <figure class="shot">
+        <img src="img/usage-widget-medium.png" alt="Medium widget showing session and week percentages for the nearest provider" loading="lazy">
+        <figcaption>Medium: both windows, no totals.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/usage-widget-small.png" alt="Small widget showing the session percentage for the nearest provider" loading="lazy">
+        <figcaption>Small: the window nearest its limit.</figcaption>
       </figure>
     </div>
 
