@@ -522,7 +522,20 @@ struct RedlineUsageWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: SelectTrackIntent.self,
                                provider: Provider()) { entry in
             RedlineWidgetView(entry: entry)
-                .containerBackground(BrandUI.carbon, for: .widget)
+                // Carbon base with a soft wash of the track's own colour, so widgets tell
+                // themselves apart at a glance. The wash stays quiet on purpose: colour
+                // identifies the track, it never shouts about it.
+                .containerBackground(for: .widget) {
+                    let tint = entry.track.provider.map { BrandUI.color(forProvider: $0) }
+                        ?? BrandUI.steel
+                    LinearGradient(
+                        stops: [
+                            .init(color: BrandUI.carbon, location: 0),
+                            .init(color: tint.opacity(0.16), location: 1),
+                        ],
+                        startPoint: .bottomLeading, endPoint: .topTrailing)
+                        .background(BrandUI.carbon)
+                }
         }
         .configurationDisplayName("RedLine")
         .description("Claude, Codex, and Ollama usage at a glance. Add one per track.")
