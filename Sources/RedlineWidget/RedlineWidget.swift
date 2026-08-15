@@ -528,11 +528,17 @@ private struct UsageBody: View {
                     WindowLine(label: "Week", window: week, m: m)
                 }
             } else {
+                // A provider with one window gets the full width for it; an empty
+                // "Session" column beside Codex's week just looked broken
                 HStack(alignment: .top, spacing: 16) {
-                    WindowBlock(label: "Session · 5h", window: session, m: m,
-                                showsReset: detail != .lean)
-                    WindowBlock(label: "Week", window: week, m: m,
-                                showsReset: detail != .lean)
+                    if session != nil || week == nil {
+                        WindowBlock(label: "Session · 5h", window: session, m: m,
+                                    showsReset: detail != .lean)
+                    }
+                    if week != nil {
+                        WindowBlock(label: "Week", window: week, m: m,
+                                    showsReset: detail != .lean)
+                    }
                 }
             }
 
