@@ -242,7 +242,8 @@ Claude Code's transcripts and there are none to read.
   well find this waiting for you in the morning, since a refresh often lands overnight.
   RedLine cannot hold the grant open: the item belongs to Claude Code, and only its owner
   decides who may read it. What RedLine does do is open its dropdown on the problem, with
-  **Fix Keychain Access…** as the first thing in the menu, which asks again in one click.
+  **Reconnect Claude usage…** in amber as the first thing in the menu, which asks again in
+  one click.
   If the repetition bothers you, the browser sign-in route uses RedLine's own Keychain item,
   which nothing else rewrites, and never prompts again.
 

@@ -1204,19 +1204,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func addTokenTrouble(_ menu: NSMenu) {
         guard config.wants(UsageStore.provider), !oauth.isSignedIn, config.useCLIToken
         else { return }
-        let title = NSMutableAttributedString()
-        title.append(symbolRun(ServiceGlyph.symbol(for: "minor"),
-                               color: contrasted(Brandkit.nsTone(.warning)),
-                               size: NSFont.systemFontSize))
-        title.append(monoTitle([(" Claude percentages are off: the Keychain token "
-                                 + "is unreadable", Brandkit.menuPrimary)], mono: false))
-        addStatic(menu, title)
-        let fix = NSMenuItem(title: "Fix Keychain Access…",
+        // The loud row is the one you can click. An inert warning line above a plain action
+        // read as decoration and got scrolled past.
+        // Named for what the user gets back, not for the macOS machinery that broke. The
+        // amber carries the same meaning it does on a limit rail: this needs you.
+        let attention = contrasted(Brandkit.nsTone(.warning))
+        let fix = NSMenuItem(title: "Reconnect Claude usage…",
                              action: #selector(fixKeychainAccess(_:)), keyEquivalent: "")
         fix.target = self
-        fix.toolTip = "Claude Code rewrote its Keychain item, which forgets who was allowed. "
-                    + "This asks again; choose Always Allow."
+        let label = NSMutableAttributedString()
+        label.append(symbolRun(ServiceGlyph.symbol(for: "minor"),
+                               color: attention, size: NSFont.systemFontSize))
+        label.append(NSAttributedString(
+            string: "  Reconnect Claude usage…",
+            attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize,
+                                                  weight: .semibold),
+                         .foregroundColor: attention]))
+        fix.attributedTitle = label
+        fix.toolTip = "Claude Code refreshed its token, and macOS forgets who was allowed to "
+                    + "read it. This asks again; choose Always Allow."
         menu.addItem(fix)
+        addInfo(menu, "    Percentages are paused until you allow it again", secondary: true)
         menu.addItem(.separator())
     }
 
