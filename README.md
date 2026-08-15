@@ -54,7 +54,7 @@ Widgets, one per track, configurable from the widget's own settings:
 
 | Claude | Codex | Ollama |
 | --- | --- | --- |
-| <img src="site/img/claude-widget.png" alt="Claude widget showing session and week percentages" width="230"> | <img src="site/img/codex-widget.png" alt="Codex widget showing week percentage" width="230"> | <img src="site/img/ollama-widget.png" alt="Ollama widget showing loaded and downloaded models" width="230"> |
+| <img src="site/img/claude-widget.png" alt="Claude widget showing session and week percentages, tokens, cost, and the reported service health" width="230"> | <img src="site/img/codex-widget.png" alt="Codex widget showing the week percentage, tokens, cost, and service health" width="230"> | <img src="site/img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" width="230"> |
 
 ## What it shows
 
