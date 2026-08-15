@@ -66,9 +66,11 @@ Widgets, one per track, configurable from the widget's own settings:
   provider and relative weight is visible without reading the numbers.
 - **Service status**, opt-in via **Show Service Status**: the menu, dashboard, and widgets
   report each provider's health from its public status page (Claude and Codex), polled
-  every 15 minutes, with **Refresh Now** checking immediately. Ollama is probed locally
-  with no network at all; Ollama Cloud publishes no status feed or usage API yet, so there
-  is nothing to read for it. Cloud models are marked with ☁ wherever models are listed.
+  every 15 minutes. **Refresh Now** in the menu and **Check now** on the dashboard check
+  immediately, and the dashboard shows glyphs with the wording and last-checked time on
+  hover. Ollama is probed locally with no network at all; Ollama Cloud publishes no status
+  feed or usage API yet, so there is nothing to read for it. Cloud models are marked with
+  ☁ wherever models are listed, and the Ollama widget counts local and cloud separately.
 
 ## Install
 
