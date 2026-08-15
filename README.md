@@ -44,6 +44,8 @@ If Anthropic publishes a real usage API, this all becomes moot and RedLine will 
 
 ## Screenshots
 
+<img src="site/img/dashboard.gif" alt="The dashboard switching between light, dark and the OS theme, then between 7, 14 and 30 day ranges" width="720">
+
 | Menu bar | Dashboard |
 | --- | --- |
 | <img src="site/img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits and a per provider usage table" width="420"> | <img src="site/img/dashboard.png" alt="Dashboard window with limit rails and tokens per day chart" width="420"> |
