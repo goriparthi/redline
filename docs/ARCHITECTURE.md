@@ -85,9 +85,16 @@ Constraints that shaped the implementation:
 - **The probe caches misses as well as hits** for 60s, so a denied prompt is not re-asked
   on every poll.
 - **A background `LSUIElement` agent is denied silently** rather than prompted, so failure
-  here is expected until access is granted once in Keychain Access.app.
+  here is expected until access is granted in Keychain Access.app.
+- **The grant does not last.** Claude Code rewrites `Claude Code-credentials` every time it
+  refreshes its token, and the rewrite drops RedLine from the item's access list, so the
+  consent prompt returns roughly daily. Nothing on this side changes that; the menu surfaces
+  it as **Reconnect Claude usage…**. A Developer ID signature does keep the grant across
+  RedLine's own rebuilds, which was verified by replacing the bundle repeatedly while access
+  held.
 - **A 401/403 while using the CLI token** marks it unusable and retries once with the app's
-  own grant, in case the CLI token lacks the needed scope.
+  own grant. The endpoint requires the OAuth scope `user:profile`; only the token Claude Code
+  writes at `/login` carries it, which is why `claude setup-token` output is rejected.
 - **`invalid_grant` on refresh is terminal.** The dead token is cleared so the app falls
   back to offering Sign In. Without this it stays "signed in" and retries a dead token
   forever, which is exactly the bug that motivated this work.

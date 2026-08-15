@@ -331,3 +331,59 @@ If vendor marks are ever wanted, get written permission first and add the real S
 - Nothing outstanding on identity: this repo commits as
   `Prashanth Goriparthi <github@goriparthi.com>` via repo-local git config, matching the
   other personal projects. History was rewritten once to remove a work address.
+
+## 2026-08-15: the Keychain re-grant, and why the percentages stay
+
+Woke to `Connect` in the menu bar. Diagnosed with timestamps rather than guesswork: the
+`Claude Code-credentials` item's `mdat` was 02:29 that morning while `cdat` was still March,
+so the item was **rewritten in place, not recreated**, and RedLine's read broke at exactly
+that moment. The grant had been working hours earlier against the same bundle, and replacing
+RedLine's bundle repeatedly did not break it, which rules out RedLine's own code identity and
+leaves the CLI's rewrite as the cause.
+
+**Claude Code rewriting its credential on token refresh clears the item's access list.** One
+consent prompt per refresh is therefore the floor for the borrowing approach; no amount of
+caching, read-timing, or token reuse on this side lowers it. Documented in ARCHITECTURE.md
+and EXTENDING.md, which previously claimed a Developer ID cert "stops the re-prompting".
+
+Three escapes were investigated and all are closed:
+
+- **Clone the access token into RedLine's own item.** Useless: the copy expires at the same
+  moment the CLI refreshes, because expiry is why the CLI refreshes.
+- **Clone the refresh token and refresh independently.** Mechanically possible, rejected. If
+  Anthropic rotates refresh tokens (RedLine's own code already handles rotation, implying they
+  do), whichever side refreshes last owns the session and the other is logged out — a menu bar
+  app that randomly ends your Claude Code session. It also means presenting Claude Code's
+  client id as if RedLine were Claude Code.
+- **`claude setup-token`, the documented one-year token.** Tested against the endpoint:
+  `403 · OAuth token does not meet scope requirement user:profile`. It is scoped to model
+  requests. Only the `/login` token carries `user:profile`.
+
+**Anthropic's position is published.** Since February 2026 the authentication policy states
+that Free/Pro/Max OAuth credentials are for Claude Code and Claude.ai, that products should
+use a Console API key, and that misrepresenting identity to Anthropic's servers is prohibited;
+server-side enforcement has rejected subscription credentials outside Claude Code since
+January 2026. Anthropic does not register OAuth clients for third-party apps, so RedLine's
+browser sign-in route — complete, PKCE, requesting `user:profile` — cannot be used by anyone.
+It stays in the tree because it is the correct design the day a client id exists.
+
+Decision: **keep the percentages and disclose plainly.** They remain opt-in, off by default,
+read-only, and consume no quota. The README's "nobody here has a ruling either way" was
+retired as no longer true. The alternative considered and rejected was dropping the Claude
+percentages entirely; everything else in the app is local files and would have been unaffected.
+
+Also rejected: caching the last reading to survive the gap. The dead menu bar is the honest
+signal, and `Connect` is preferable to a number whose provenance the user has to reason about.
+
+## 2026-08-15: update checks on by default, once a day
+
+Previously opt-in and twice daily, on the reasoning that any unasked network call breaks the
+"no network unless you ask" promise. Reversed: an app that installs updates in place has to
+learn that updates exist, and a security fix nobody hears about is not a fix. One call a day
+to the GitHub releases API, silent unless there is news, one click to switch off.
+
+The cost is honesty upkeep, and it was paid: README, SECURITY.md, and the site each claimed
+there was no update check. SECURITY.md now lists `api.github.com` alongside the three
+Anthropic hosts and marks it as the only request RedLine makes without being asked. Existing
+installs keep whatever their `config.json` already says, so the new default reaches only
+fresh ones.

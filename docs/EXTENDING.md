@@ -120,8 +120,14 @@ and `make dmg` notarizes and staples automatically.
   ID signed into Xcode. `SIGN=no make widget` builds unsigned for a smoke test.
 - **Tests need Xcode, not just the Command Line Tools**, for XCTest. `scripts/test.sh`
   handles the selection.
-- **Rebuilding invalidates the Keychain ACL** for both this app's item and the borrowed CLI
-  item, because ad-hoc signing changes the code identity every build. A real Developer ID
-  cert gives a stable identity and stops the re-prompting.
+- **Ad-hoc rebuilding invalidates the Keychain ACL** for both this app's item and the borrowed
+  CLI item, because ad-hoc signing changes the code identity every build. A Developer ID cert
+  gives a stable designated requirement and the grant then survives rebuilds; that much is
+  verified. It does **not** stop the re-prompting, because Claude Code rewriting its own
+  credential on refresh is what actually clears the grant, roughly daily.
 - **The Claude rate-limit endpoint is undocumented** and may disappear. Token and cost
-  totals do not depend on it.
+  totals do not depend on it. It requires the OAuth scope `user:profile`, which only Claude
+  Code's `/login` token carries, and Anthropic does not register OAuth clients for
+  third-party apps, so borrowing that token is the only mechanism available. Anthropic's
+  policy since February 2026 says subscription credentials are for Claude Code and
+  Claude.ai; see the README before building on this.
