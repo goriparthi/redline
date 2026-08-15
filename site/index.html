@@ -343,7 +343,7 @@
     <div class="panel">
       <div class="panel-head">
         <p class="label">Usage</p>
-        <p class="label">Menu bar: nearest limit, or pick one</p>
+        <p class="label">Menu bar: nearest limit, your style</p>
       </div>
 
       <div class="tracks" id="tracks">
@@ -427,8 +427,9 @@
       <div class="card">
         <div class="card-top"><h3>Claude Code</h3><span class="chip">usage · resets</span></div>
         <p>Token and cost totals come from transcripts already on disk, with no sign-in.
-           Remaining capacity needs a token: either borrow the CLI's, which is opt-in, or
-           sign in separately.</p>
+           Remaining capacity needs a token: borrow the CLI's, or sign in with your Claude
+           account in a browser, which works for claude.ai users with no CLI at all. Both
+           are one click in the menu, and both are opt-in.</p>
         <div class="spec">
           <div><span class="t">Source</span><span class="d">~/.claude</span></div>
           <div><span class="t">Sign-in for usage</span><span class="d">none</span></div>
@@ -598,8 +599,14 @@ codesign -dv --verbose=2 /Applications/Redline.app</pre>
     <p class="note" style="margin-top:1.25rem">
       On first launch RedLine asks which providers to read, listing only what it finds
       installed. It works with any one of them, and the pickers disappear when there is only
-      one track. <strong>Check for Updates…</strong> in the menu runs only when you ask, so
-      the no-network default holds.
+      one track. Updates install <strong>in place</strong> from the menu afterward: verified
+      against notarization and this project's signing identity, then swapped and relaunched.
+      Checks run when you ask, or on an opt-in twice-daily schedule that only speaks up when
+      an update exists, so the no-network default holds. <strong>Menu Bar Style</strong>
+      makes the readout yours: hide the icon, hide reset times, pick which limit windows
+      appear, down to a single number. Leaving is as clean as arriving:
+      <strong>Uninstall RedLine</strong> in the menu removes the app, the login item, and
+      its Keychain token.
     </p>
   </section>
 
