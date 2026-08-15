@@ -23,16 +23,30 @@ are opting into:
 
 - They come from `https://api.anthropic.com/api/oauth/usage`, which is **not a documented or
   published API**. It is an internal endpoint the Claude Code CLI uses for itself.
-- Because it is undocumented, **there is no published permission to use it**. Doing so may fall
-  outside Anthropic's Terms of Service or acceptable use policy. Nobody here has a ruling
-  either way, and this project is not in a position to give you one.
-- Reading the Claude CLI's stored OAuth token (`useCLIToken`, off by default) means using
-  **your own credential** in a way Anthropic has not documented or endorsed.
+- Reading it needs the OAuth scope `user:profile`, which only the token Claude Code stores
+  when you run `/login` carries. A token from `claude setup-token` is refused
+  (`403 · does not meet scope requirement user:profile`), and Anthropic does not register
+  OAuth clients for third-party apps, so RedLine cannot mint a token of its own. **Borrowing
+  the CLI's token is the only mechanism that exists**, which is what `useCLIToken` does.
+- **Anthropic's position is now published, and it points away from this.** Since February 2026
+  its authentication policy states that OAuth credentials from Claude Free, Pro, and Max plans
+  are for Claude Code and Claude.ai, that products built on Claude should authenticate with a
+  Console API key, and that tools misrepresenting their identity to Anthropic's servers are
+  prohibited. Server-side enforcement has rejected subscription credentials outside Claude Code
+  since January 2026. Earlier versions of this file said nobody had a ruling either way; that
+  is no longer accurate, and pretending otherwise would be the dishonest choice.
+- What RedLine actually does, so you can weigh it yourself: it reads the token Claude Code
+  already stored on your Mac and makes one **read-only** call to the usage endpoint. It sends
+  no prompts, runs no inference, consumes none of your quota, and never presents a client id
+  or claims to be another application. The usage endpoint keeps answering it today. That is a
+  narrower thing than the policy's target, and it is still the shape the policy addresses.
 - The endpoint can change, start refusing requests, or disappear without notice. It already
   rate-limits aggressively, and RedLine backs off when it does.
 
-**You are responsible for deciding whether that is acceptable for your account.** If you would
-rather not touch it at all, RedLine is still useful: leave `useCLIToken` false and
+**You are responsible for deciding whether that is acceptable for your account**, and the
+percentages stay **off until you switch them on** precisely because that decision is yours to
+make rather than one to inherit from a default. If you would rather not touch it at all,
+RedLine is still useful: leave `useCLIToken` false and
 `oauth.clientId` empty, which is the shipped default. In that state the only request RedLine
 makes is **one call a day to the GitHub releases API** to see whether a newer version exists,
 and turning that off (`autoCheckUpdates`) leaves **no network requests whatsoever**. Either
@@ -216,12 +230,13 @@ Both routes live in **Settings ▸ Providers & Claude Limits…**, and both are 
    grants a single read and the prompt returns on the next refresh. If you denied it, or the
    app runs as a background agent that is refused silently, grant it in Keychain Access.app:
    find `Claude Code-credentials`, open **Access Control**, and add `Redline.app`.
-2. **Sign in with your Claude account in a browser.** This is the route for people who use
-   the claude.ai app or website rather than Claude Code: the percentages cover the whole
-   account, so they work with no transcripts on disk at all. It requires an OAuth client id
-   (`oauth.clientId`, or paste it into the setup window). **No client id ships by default**,
-   because this project is not registered with Anthropic and shipping someone else's client
-   id is not ours to do.
+2. **Sign in with your Claude account in a browser.** Built, tested, and **not usable today.**
+   The PKCE flow is complete and requests the `user:profile` scope the usage endpoint wants,
+   but it needs an OAuth client id (`oauth.clientId`), and **Anthropic does not register OAuth
+   clients for third-party applications**. Claude Code's client id is hard-coded to Claude
+   Code; using it would misrepresent RedLine as another application, which their policy
+   prohibits outright and this project will not do. The route stays in the code because it is
+   the right design and works the day a client id becomes obtainable.
 
 Chat-only users get percentages but no token or cost tables, since those are read from
 Claude Code's transcripts and there are none to read.
@@ -302,7 +317,7 @@ poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it
 | `statusChecks` | `false` | Poll the providers' public status pages every 15 minutes |
 | `dashboardTheme` | `auto` | Dashboard appearance: `auto` follows the OS, or force `light` or `dark` |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
-| `oauth.clientId` | empty | Required for the app's own Sign In |
+| `oauth.clientId` | empty | Required for the app's own Sign In, which Anthropic does not issue to third-party apps |
 
 Pricing keys match by substring, so `opus` covers `claude-opus-5`. A model with no matching
 key is **counted but excluded from cost**, and the dropdown marks the total with `+`.

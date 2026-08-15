@@ -151,8 +151,10 @@ struct FirstRunView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(BrandUI.chalk)
             Text("""
-                 These call an undocumented Anthropic endpoint with no published permission \
-                 to use it, which may fall outside their terms. Whether that is acceptable \
+                 These read an undocumented Anthropic endpoint using Claude Code's own token. \
+                 Anthropic's policy says subscription credentials are for Claude Code and \
+                 Claude.ai, so this may fall outside their terms; RedLine only reads usage and \
+                 never sends prompts or spends your quota. Whether that trade is acceptable \
                  for your account is your call. Everything else works with this off.
                  """)
                 .font(.system(size: 11))
@@ -173,16 +175,19 @@ struct FirstRunView: View {
             case .cliToken:
                 Text("""
                      Needs Claude Code installed and signed in. Reads its token from your \
-                     Keychain; macOS asks for permission once.
+                     Keychain. Claude Code rewrites that item whenever it refreshes, which \
+                     clears the permission, so macOS asks again every day or so; the menu \
+                     has a one-click Reconnect.
                      """)
                     .font(.system(size: 11))
                     .foregroundStyle(BrandUI.steel)
                     .fixedSize(horizontal: false, vertical: true)
             case .browser:
                 Text("""
-                     For claude.ai app users without Claude Code. A browser window signs in \
-                     to your Claude account and the token stays in your Keychain. RedLine \
-                     ships no OAuth client id, so paste one to enable it.
+                     For claude.ai app users without Claude Code. Needs an OAuth client id, \
+                     and Anthropic does not issue them to third-party apps, so this stays \
+                     unavailable unless you already have one. The flow is built and works \
+                     the moment a client id exists.
                      """)
                     .font(.system(size: 11))
                     .foregroundStyle(BrandUI.steel)
