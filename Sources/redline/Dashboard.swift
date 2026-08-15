@@ -128,6 +128,9 @@ struct DashboardData {
     var limits: [LimitWindow] = []
     var services: [Snapshot.Service] = []
     var servicesCheckedAt: Date?
+    /// Why Claude's rails may be missing (rate limited, no token); shown so an empty
+    /// panel never reads as silently broken
+    var limitsNote: String?
     var visibleServices: [Snapshot.Service] { services.filter { matches($0.provider) } }
     var today = Agg()
     var week = Agg()
@@ -721,11 +724,16 @@ struct DashboardView: View {
                             }
                         }
                     }
-                    if !data.visibleLimits.isEmpty {
+                    if !data.visibleLimits.isEmpty || data.limitsNote != nil {
                         Panel(title: "Limits", note: "limit at the line") {
-                            VStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 12) {
                                 ForEach(data.visibleLimits) {
                                     LimitRailRow(window: $0, yellow: 60, red: 85)
+                                }
+                                if let note = data.limitsNote {
+                                    Text(note)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .foregroundStyle(Brandkit.steel)
                                 }
                             }
                         }

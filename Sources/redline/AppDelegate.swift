@@ -974,6 +974,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.claudeLimitsAt = nil
                 }
                 self.limitsStatus = err
+                // The dashboard gets the same honesty as the menu: a missing rail with no
+                // reason attached reads as broken
+                self.dashboardModel.data.limitsNote =
+                    err.map { "Claude limits: \($0)" }
                 self.updateTitle()
                 self.publishSnapshot()
                 if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
