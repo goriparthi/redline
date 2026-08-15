@@ -10,14 +10,29 @@ Sources/RedlineCore/     Pure parsing and aggregation. No AppKit, no network, no
   UsageStore.swift       Claude transcript scanner
   CodexSessions.swift    Codex rollout scanner (limits + tokens)
   OllamaUsage.swift      Ollama shim-log scanner
+  Ollama.swift           Local server model list and running-model shapes
+  Availability.swift     Which providers are installed on this Mac
+  Trends.swift           Per-day, per-hour and model-mix series for the dashboard
+  Sparkline.swift        Point series for the menu bar and dashboard sparklines
+  Snapshot.swift         Wire format the app writes and the widget renders
+  ServiceStatus.swift    Status-page parsing, plus the shared health glyph vocabulary
+  SingleInstance.swift   The lock that keeps one copy in the menu bar
   CredentialScan.swift   Finds an access token in an undocumented JSON blob
+  Brand.swift/BrandUI    Colour tokens and the shared track badges
 
 Sources/redline/         The app. AppKit, network and Keychain live here only.
-  main.swift             Entry point and the LaunchAgent CLI flags
+  main.swift             Entry point, instance guard, and the LaunchAgent CLI flags
   AppDelegate.swift      Menu bar UI, refresh loop, provider wiring
+  Dashboard.swift        The charts window
+  OllamaService.swift    Live local-server state and start/stop
+  Updates.swift          Release check and the verified in-place install
+  FirstRun.swift         The providers and limits setup window
+  MenuRowView.swift      Menu rows that read as information, not controls
   OAuth.swift            Keychain token storage, CLI-token borrowing, PKCE sign-in
 
-Tests/RedlineCoreTests/  38 tests over the core
+Sources/RedlineWidget/   The WidgetKit extension. Renders the snapshot, parses nothing.
+
+Tests/RedlineCoreTests/  127 tests over the core
 scripts/                 Build, test, bundle, install, DMG, release, Ollama shim
 Casks/redline.rb         Homebrew cask
 ```

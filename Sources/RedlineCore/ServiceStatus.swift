@@ -3,6 +3,37 @@
 // Cloud publishes no status feed or usage API yet, so it has nothing to read.
 import Foundation
 
+/// One vocabulary for provider health wherever it is drawn. The dropdown, the dashboard and
+/// the widgets read the glyph and the tone from here and pick their own colour token for the
+/// tone, so no surface invents its own reading of an indicator.
+public enum ServiceGlyph {
+    public enum Tone { case healthy, warning, critical, unknown }
+
+    /// Interim state while a fetch is in flight. Not an indicator any status page reports.
+    public static let checking = "checking"
+
+    public static func symbol(for indicator: String) -> String {
+        switch indicator {
+        case "none", "local":     return "checkmark.circle.fill"
+        case "minor":             return "exclamationmark.triangle.fill"
+        case "major", "critical": return "exclamationmark.octagon.fill"
+        case "local-down":        return "bolt.slash.circle.fill"
+        case checking:            return "ellipsis.circle.fill"
+        default:                  return "questionmark.circle.fill"
+        }
+    }
+
+    public static func tone(for indicator: String) -> Tone {
+        switch indicator {
+        case "none", "local":       return .healthy
+        // A local server that is not answering is a real degradation, not an unknown
+        case "minor", "local-down": return .warning
+        case "major", "critical":   return .critical
+        default:                    return .unknown
+        }
+    }
+}
+
 public enum ServiceStatus {
     public static let claudeURL = URL(string:
         "https://status.claude.com/api/v2/status.json")!

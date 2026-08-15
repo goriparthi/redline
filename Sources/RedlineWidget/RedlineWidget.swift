@@ -264,26 +264,29 @@ private struct ServiceLine: View {
     }
 
     private func rank(_ s: Snapshot.Service) -> Int {
-        switch s.indicator {
-        case "major", "critical": return 2
-        case "minor", "local-down": return 1
-        default: return 0
+        switch ServiceGlyph.tone(for: s.indicator) {
+        case .critical: return 2
+        case .warning:  return 1
+        case .healthy, .unknown: return 0
         }
     }
 
     private func color(_ s: Snapshot.Service) -> Color {
-        switch s.indicator {
-        case "none", "local": return BrandUI.clear
-        case "minor": return BrandUI.amber
-        case "major", "critical": return BrandUI.signal
-        default: return BrandUI.steel
+        switch ServiceGlyph.tone(for: s.indicator) {
+        case .healthy:  return BrandUI.clear
+        case .warning:  return BrandUI.amber
+        case .critical: return BrandUI.signal
+        case .unknown:  return BrandUI.steel
         }
     }
 
     var body: some View {
         if let r = report {
             HStack(spacing: 4) {
-                Circle().fill(color(r)).frame(width: 6, height: 6)
+                // The same glyph the dropdown and the dashboard use for this state
+                Image(systemName: ServiceGlyph.symbol(for: r.indicator))
+                    .font(.system(size: m.detail, weight: .semibold))
+                    .foregroundStyle(color(r))
                 Text(r.phrase)
                     .font(.system(size: m.detail, design: .monospaced))
                     .foregroundStyle(BrandUI.steel)
@@ -424,7 +427,8 @@ private struct OllamaBody: View {
                 Spacer(minLength: 0)
             }
             Spacer(minLength: 0)
-            if detail == .full {
+            // Same rule as the usage cards: the health line outlives the detail around it
+            if detail != .lean {
                 HStack(spacing: 8) {
                     ServiceLine(snapshot: snapshot, provider: "Ollama", m: m)
                     StaleNote(snapshot: snapshot, m: m)
@@ -551,7 +555,10 @@ private struct UsageBody: View {
                 }
             }
 
-            if family == .systemLarge, detail == .full, windows.count > 1 {
+            // Only the all-providers track learns anything here: on a single provider the
+            // rows repeat the gauges above, and the height they cost pushed the card down
+            // to a leaner layout that dropped its totals and status line.
+            if family == .systemLarge, detail == .full, provider == nil, windows.count > 1 {
                 Divider().overlay(BrandUI.steel.opacity(0.25))
                 VStack(alignment: .leading, spacing: 7) {
                     ForEach(windows) { w in
@@ -573,7 +580,9 @@ private struct UsageBody: View {
             }
 
             Spacer(minLength: 0)
-            if detail == .full {
+            // Health and staleness are one short line, and they are the last thing worth
+            // dropping: a card that stays quiet about an outage is worse than a cramped one.
+            if detail != .lean {
                 HStack(spacing: 8) {
                     ServiceLine(snapshot: snapshot, provider: provider, m: m)
                     StaleNote(snapshot: snapshot, m: m)

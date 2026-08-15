@@ -26,6 +26,9 @@ fi
 
 mkdir -p "$INSTALL_DIR" "$HOME/Library/LaunchAgents"
 launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
+# A copy launched from anywhere else, typically a dist/ build, holds the instance lock and
+# would leave the newly installed app with nothing to do, so retire every running copy
+pkill -f "Redline.app/Contents/MacOS/$BIN_NAME" 2>/dev/null || true
 rm -rf "$INSTALLED_APP"
 cp -R "$APP_BUNDLE" "$INSTALLED_APP"
 info "Installed $INSTALLED_APP"
@@ -36,7 +39,10 @@ rm -f "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string $INSTALLED_APP/Contents/MacOS/$BIN_NAME" "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
-/usr/libexec/PlistBuddy -c "Add :KeepAlive bool true" "$PLIST"
+# Restart after a crash, never after a clean exit: plain KeepAlive would resurrect the app
+# on Quit, and would respawn a duplicate launch that exited to leave the menu bar alone.
+/usr/libexec/PlistBuddy -c "Add :KeepAlive dict" "$PLIST"
+/usr/libexec/PlistBuddy -c "Add :KeepAlive:SuccessfulExit bool false" "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :StandardOutPath string $HOME/Library/Logs/$BIN_NAME.log" "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :StandardErrorPath string $HOME/Library/Logs/$BIN_NAME.err" "$PLIST"
 plutil -lint "$PLIST" >/dev/null

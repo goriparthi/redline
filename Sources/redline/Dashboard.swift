@@ -32,6 +32,25 @@ enum Brandkit {
     static let amber = BrandUI.amber
     static let clear = BrandUI.clear
 
+    /// The status trio, chosen by tone rather than by reading an indicator string twice
+    static func tone(_ tone: ServiceGlyph.Tone) -> Color {
+        switch tone {
+        case .healthy:  return clear
+        case .warning:  return amber
+        case .critical: return signal
+        case .unknown:  return steel
+        }
+    }
+
+    static func nsTone(_ tone: ServiceGlyph.Tone) -> NSColor {
+        switch tone {
+        case .healthy:  return NSColor(Brand.clear)
+        case .warning:  return NSColor(Brand.amber)
+        case .critical: return NSColor(Brand.signal)
+        case .unknown:  return NSColor(Brand.steel)
+        }
+    }
+
     // Menus follow the system theme and cannot be painted, so these two resolve per
     // appearance: chalk on dark menus, carbon on light ones. Fixed chalk was invisible on
     // light Macs. Every other surface paints Carbon and keeps the fixed brand tones.
@@ -95,24 +114,9 @@ struct ServiceStatusRow: View {
     let detail: String
     let checkedAt: Date?
 
-    private var symbol: String {
-        switch indicator {
-        case "none", "local": return "checkmark.circle.fill"
-        case "minor": return "exclamationmark.triangle.fill"
-        case "major", "critical": return "exclamationmark.octagon.fill"
-        case "local-down": return "bolt.slash.circle.fill"
-        default: return "questionmark.circle.fill"
-        }
-    }
+    private var symbol: String { ServiceGlyph.symbol(for: indicator) }
 
-    private var color: Color {
-        switch indicator {
-        case "none", "local": return Brandkit.clear
-        case "minor": return Brandkit.amber
-        case "major", "critical": return Brandkit.signal
-        default: return Brandkit.steel
-        }
-    }
+    private var color: Color { Brandkit.tone(ServiceGlyph.tone(for: indicator)) }
 
     private var tooltip: String {
         let when = checkedAt.map {

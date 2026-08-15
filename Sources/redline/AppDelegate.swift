@@ -75,6 +75,11 @@ enum LaunchAgent {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    // Posted by a duplicate launch that found this copy already holding the instance lock,
+    // so the launch the user asked for still puts something on screen.
+    static let showDashboardNotification =
+        Notification.Name("com.goriparthi.redline.showDashboard")
+
     private var statusItem: NSStatusItem!
     private var timer: Timer?
     private var config = Config.load()
@@ -137,6 +142,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(wokeUp),
             name: NSWorkspace.didWakeNotification, object: nil)
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(openDashboard(_:)),
+            name: AppDelegate.showDashboardNotification, object: nil)
     }
 
     // An accessory app draws no menu bar, but key equivalents still route through
@@ -255,17 +263,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return services
     }
 
-    private func serviceSuffix(for provider: String) -> String {
+    /// The provider's health as the indicator the shared glyph vocabulary understands, plus
+    /// the words to print beside it. nil when nothing has been checked and nothing is claimed.
+    private func serviceMark(for provider: String) -> (indicator: String, phrase: String)? {
         if provider == OllamaStore.provider {
-            guard let reachable = ollamaSection?.reachable else { return "" }
-            return reachable ? " · local, running" : " · local, not reachable"
+            guard let reachable = ollamaSection?.reachable else { return nil }
+            return reachable ? ("local", "local, running")
+                             : ("local-down", "local, not reachable")
         }
-        guard config.statusChecks else { return "" }
+        guard config.statusChecks else { return nil }
         let report = provider == UsageStore.provider ? claudeService
                    : provider == CodexStore.provider ? codexService : nil
         // Honest interim state: the fetch is in flight, and silence would read as broken
-        guard let report else { return " · checking status…" }
-        return " · \(report.phrase)"
+        guard let report else { return (ServiceGlyph.checking, "checking status…") }
+        return (report.indicator, report.phrase)
+    }
+
+    /// An SF Symbol as inline text, so a menu row can carry the same glyph the dashboard
+    /// draws. Menu rows are attributed strings, and an attachment is how an image gets in.
+    private func symbolRun(_ name: String, color: NSColor, size: CGFloat) -> NSAttributedString {
+        let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(config) else {
+            // A symbol this OS does not know must not leave a blank gap where health goes
+            return monoTitle([("●", color)], mono: false)
+        }
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        // Sits the glyph on the text's optical centre rather than its baseline
+        attachment.bounds = CGRect(x: 0, y: -2, width: image.size.width, height: image.size.height)
+        return NSAttributedString(attachment: attachment)
     }
 
     @objc func toggleStatusChecks(_ sender: Any?) {
@@ -1178,8 +1206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         for provider in grouped.keys.sorted() {
-            addInfo(menu, "\(provider) limits:\(staleSuffix(for: provider))"
-                        + serviceSuffix(for: provider))
+            addProviderHeader(menu, provider: provider)
             for w in LimitParser.sorted(grouped[provider] ?? []) where wantsWindow(w) {
                 let reset = config.showResetTimes ? fmtReset(w.resetsAt) : ""
                 addStatic(menu, coloredTitle([
@@ -1469,6 +1496,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             out.append(NSAttributedString(string: text, attributes: attrs))
         }
         return out
+    }
+
+    /// "Claude limits:" plus, when there is something to report, the same health glyph the
+    /// dashboard draws and the words beside it.
+    private func addProviderHeader(_ menu: NSMenu, provider: String) {
+        let title = NSMutableAttributedString(attributedString: monoTitle(
+            [("\(provider) limits:\(staleSuffix(for: provider))", Brandkit.menuPrimary)],
+            mono: false))
+        if let mark = serviceMark(for: provider) {
+            title.append(monoTitle([("  ", nil)], mono: false))
+            title.append(symbolRun(ServiceGlyph.symbol(for: mark.indicator),
+                                   color: contrasted(Brandkit.nsTone(
+                                       ServiceGlyph.tone(for: mark.indicator))),
+                                   size: NSFont.systemFontSize))
+            title.append(monoTitle([(" \(mark.phrase)", Brandkit.menuSecondary)], mono: false))
+        }
+        addStatic(menu, title)
     }
 
     private func addInfo(_ menu: NSMenu, _ title: String, secondary: Bool = false) {

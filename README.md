@@ -67,10 +67,16 @@ Widgets, one per track, configurable from the widget's own settings:
 - **Service status**, opt-in via **Show Service Status**: the menu, dashboard, and widgets
   report each provider's health from its public status page (Claude and Codex), polled
   every 15 minutes. **Refresh Now** in the menu and **Check now** on the dashboard check
-  immediately, and the dashboard shows glyphs with the wording and last-checked time on
-  hover. Ollama is probed locally with no network at all; Ollama Cloud publishes no status
-  feed or usage API yet, so there is nothing to read for it. Cloud models are marked with
-  ☁ wherever models are listed, and the Ollama widget counts local and cloud separately.
+  immediately. All three surfaces draw the same glyph for the same state, so an outage
+  reads identically wherever you happen to be looking; the dashboard keeps the wording and
+  last-checked time on hover. Ollama is probed locally with no network at all; Ollama Cloud
+  publishes no status feed or usage API yet, so there is nothing to read for it. Cloud
+  models are marked with ☁ wherever models are listed, and the Ollama widget counts local
+  and cloud separately.
+- **The dashboard's theme** follows the OS, or is pinned to light or dark from the window
+  itself. Every other painted surface stays on the brand's dark ground.
+- **One copy at a time.** A second launch, from a second install or a build you are testing,
+  opens the running copy's dashboard and exits rather than adding a second menu bar item.
 
 ## Install
 
@@ -271,6 +277,7 @@ poll, so edits apply without a restart. **Edit Config…** in the dropdown opens
 | `limitWindows` | `all` | Which limit windows to report: `all`, `session`, `week` |
 | `autoCheckUpdates` | `false` | Poll for updates twice a day and pop up when one exists |
 | `statusChecks` | `false` | Poll the providers' public status pages every 15 minutes |
+| `dashboardTheme` | `auto` | Dashboard appearance: `auto` follows the OS, or force `light` or `dark` |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
 | `oauth.clientId` | empty | Required for the app's own Sign In |
 
@@ -282,7 +289,7 @@ Guessing a price tier would silently misreport spend, so it does not.
 
 ```sh
 make help       # list targets
-make test       # 117 tests
+make test       # 127 tests
 make build      # release binary
 make bundle     # dist/Redline.app, signed
 make widget     # app + desktop widget via Xcode
@@ -346,7 +353,10 @@ Codex, and one for Ollama.
 | Codex | Codex's own windows, tokens and estimated cost |
 | Ollama | Server status and version, models loaded with how much sits on the GPU, models downloaded and their size on disk |
 
-The large size adds a per-window breakdown. Ollama state travels in the snapshot rather than
+On the all-providers track the large size adds a per-window breakdown; a single-provider
+track leaves it out, since it would only repeat the gauges above it. Every size ends with
+the provider's health and, when the reading is old, how old. Ollama state travels in the
+snapshot rather than
 being fetched by the widget, so the extension needs no network access of its own.
 
 No Apple ID is needed to run it locally: the build ad-hoc signs the bundle, which macOS
