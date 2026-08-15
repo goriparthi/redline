@@ -211,6 +211,10 @@ final class DashboardModel: ObservableObject {
     @Published var data = DashboardData()
     /// Set by the app: forces a status re-fetch past the 15 minute throttle
     var onStatusRefresh: (() -> Void)?
+    /// Set by the app: repaints the window for a theme choice. SwiftUI's preferredColorScheme
+    /// only reached the window on the next state change, so following the OS again left the
+    /// content on the old theme until the window lost focus.
+    var onThemeChange: ((String) -> Void)?
     private let claude = UsageStore()
     private let codex = CodexStore()
     private let ollama = OllamaStore()
@@ -222,6 +226,9 @@ final class DashboardModel: ObservableObject {
 
     func setTheme(_ theme: String) {
         guard Config.write(["dashboardTheme": theme]) else { return }
+        // Window first, then the published value: the tokens resolve against the window's
+        // appearance at draw time, so a redraw ordered the other way paints the old theme
+        onThemeChange?(theme)
         data.theme = theme
     }
 
@@ -799,9 +806,8 @@ struct DashboardView: View {
             .padding(16)
         }
         .background(Brandkit.carbon)
-        // nil follows the OS; a forced scheme re-resolves every dynamic token in the window
-        .preferredColorScheme(data.theme == "light" ? .light
-                            : data.theme == "dark" ? .dark : nil)
+        // The theme is applied to the window itself, in AppDelegate. preferredColorScheme
+        // here would fight it and reintroduce the lag on returning to "follow the OS".
     }
 
     @ViewBuilder

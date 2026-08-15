@@ -497,6 +497,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateTitle()
     }
 
+    /// nil hands the window back to the OS setting. Setting the window's own appearance is
+    /// what makes the change land at once: it re-resolves every dynamic token immediately,
+    /// where the SwiftUI modifier waited for the window to change state.
+    private func applyDashboardTheme(_ theme: String, to window: NSWindow) {
+        switch theme {
+        case "light": window.appearance = NSAppearance(named: .aqua)
+        case "dark":  window.appearance = NSAppearance(named: .darkAqua)
+        default:      window.appearance = nil
+        }
+        window.contentView?.needsDisplay = true
+        window.displayIfNeeded()
+    }
+
     @objc func openDashboard(_ sender: Any?) {
         if let w = dashboardWindow {
             w.makeKeyAndOrderFront(nil)
@@ -527,6 +540,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.isReleasedWhenClosed = false
         window.center()
         window.setFrameAutosaveName("RedlineDashboard")
+        applyDashboardTheme(dashboardModel.data.theme, to: window)
+        dashboardModel.onThemeChange = { [weak self, weak window] theme in
+            guard let window else { return }
+            self?.applyDashboardTheme(theme, to: window)
+        }
         // An accessory app keeps no Dock icon, so activate explicitly to take focus
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -1272,8 +1290,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(r)
         menu.addItem(.separator())
 
-        // Settings, most-reached-for first. Providers are chosen in one place only, the
-        // setup window, which also carries the Claude limits decision.
+        // One hover away, rather than a flat column of toggles under the numbers: the
+        // readout is what the dropdown is for, and the settings had grown longer than it.
+        let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
+        settingsItem.submenu = buildSettingsMenu()
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
+
+        if let updateStatus {
+            addInfo(menu, "    \(updateStatus)", secondary: true)
+        }
+        if updateDMG != nil, let updateVersion {
+            let i = NSMenuItem(title: "Install Update to \(updateVersion)…",
+                               action: #selector(installUpdate(_:)), keyEquivalent: "")
+            i.target = self
+            i.isEnabled = !updateInFlight
+            menu.addItem(i)
+        }
+        if updateURL != nil {
+            let u = NSMenuItem(title: "Open Release Page…", action: #selector(openUpdate(_:)),
+                               keyEquivalent: "")
+            u.target = self
+            menu.addItem(u)
+        }
+        let c = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates(_:)),
+                           keyEquivalent: "")
+        c.target = self
+        menu.addItem(c)
+        menu.addItem(.separator())
+
+        let u = NSMenuItem(title: "Uninstall RedLine…", action: #selector(uninstall(_:)),
+                           keyEquivalent: "")
+        u.target = self
+        menu.addItem(u)
+        let q = NSMenuItem(title: "Quit", action: #selector(quit(_:)), keyEquivalent: "q")
+        q.target = self
+        menu.addItem(q)
+    }
+
+    /// Everything that changes how RedLine behaves, in the order it gets reached for.
+    /// Providers are chosen in one place only, the setup window, which also carries the
+    /// Claude limits decision.
+    private func buildSettingsMenu() -> NSMenu {
+        let menu = NSMenu()
         let setup = NSMenuItem(title: "Providers & Claude Limits…",
                                action: #selector(showSetup(_:)), keyEquivalent: "")
         setup.target = self
@@ -1375,29 +1434,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             o.target = self
             menu.addItem(o)
         }
-        menu.addItem(.separator())
 
-        if let updateStatus {
-            addInfo(menu, "    \(updateStatus)", secondary: true)
-        }
-        if updateDMG != nil, let updateVersion {
-            let i = NSMenuItem(title: "Install Update to \(updateVersion)…",
-                               action: #selector(installUpdate(_:)), keyEquivalent: "")
-            i.target = self
-            i.isEnabled = !updateInFlight
-            menu.addItem(i)
-        }
-        if updateURL != nil {
-            let u = NSMenuItem(title: "Open Release Page…", action: #selector(openUpdate(_:)),
-                               keyEquivalent: "")
-            u.target = self
-            menu.addItem(u)
-        }
-        let c = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates(_:)),
-                           keyEquivalent: "")
-        c.target = self
-        menu.addItem(c)
-        let auto = NSMenuItem(title: "Check Twice a Day",
+        menu.addItem(.separator())
+        let auto = NSMenuItem(title: "Check for Updates Twice a Day",
                               action: #selector(toggleAutoUpdates(_:)), keyEquivalent: "")
         auto.target = self
         auto.state = config.autoCheckUpdates ? .on : .off
@@ -1405,15 +1444,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                      + "when an update exists. Off by default: RedLine promises no network "
                      + "requests you did not ask for."
         menu.addItem(auto)
-        menu.addItem(.separator())
-
-        let u = NSMenuItem(title: "Uninstall RedLine…", action: #selector(uninstall(_:)),
-                           keyEquivalent: "")
-        u.target = self
-        menu.addItem(u)
-        let q = NSMenuItem(title: "Quit", action: #selector(quit(_:)), keyEquivalent: "q")
-        q.target = self
-        menu.addItem(q)
+        return menu
     }
 
     // A fetch that keeps failing must not leave old percentages looking current

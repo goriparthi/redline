@@ -59,13 +59,13 @@ Widgets, one per track, configurable from the widget's own settings:
 - **Usage and remaining capacity** per provider for the session and week windows, coloured by the brand thresholds (Clear, Amber, Signal).
 - **The nearest limit in the menu bar**, or a provider you pick. By default the title shows
   whichever provider is closest to its limit, since that is the one that will interrupt you
-  first. Choose a single provider from **Menu bar shows** if you would rather watch one. The
-  dropdown always breaks down every provider.
+  first. Choose a single provider from **Settings ▸ Menu Bar Shows** if you would rather
+  watch one. The dropdown always breaks down every provider.
 - **Token and cost totals** for today, the last 5 hours, and the last 7 days, grouped under
   each provider with inline share bars, so a model can never be listed under the wrong
   provider and relative weight is visible without reading the numbers.
-- **Service status**, opt-in via **Show Service Status**: the menu, dashboard, and widgets
-  report each provider's health from its public status page (Claude and Codex), polled
+- **Service status**, opt-in via **Settings ▸ Show Service Status**: the menu, dashboard,
+  and widgets report each provider's health from its public status page (Claude and Codex), polled
   every 15 minutes. **Refresh Now** in the menu and **Check now** on the dashboard check
   immediately. All three surfaces draw the same glyph for the same state, so an outage
   reads identically wherever you happen to be looking; the dashboard keeps the wording and
@@ -133,7 +133,7 @@ where you can read what you are about to run.
 ### Which providers to read
 
 On first launch RedLine asks which of Claude, Codex, and Ollama to read, listing only what it
-finds installed. Change it later from **Providers & Claude Limits…** in the menu, which
+finds installed. Change it later from **Settings ▸ Providers & Claude Limits…**, which
 reopens the same window.
 
 RedLine works with any one of them. With a single tool installed the provider pickers
@@ -143,9 +143,9 @@ disappear, since there is nothing to choose between.
 
 **Check for Updates…** in the menu compares your version against the latest release. It runs
 only when you ask, because an unasked background poll would break the promise that RedLine
-makes no network requests you did not opt into. **Check Twice a Day** in the menu is that
-opt-in: enabled, RedLine polls the GitHub releases API every 12 hours and pops up only when
-an update actually exists; a quiet check never interrupts.
+makes no network requests you did not opt into. **Settings ▸ Check for Updates Twice a
+Day** is that opt-in: enabled, RedLine polls the GitHub releases API every 12 hours and
+pops up only when an update actually exists; a quiet check never interrupts.
 
 When a newer release exists, **Install Update…** replaces the app in place: it downloads the
 DMG, verifies it is notarized and signed by this project's Developer ID team (anything else
@@ -167,7 +167,7 @@ history as well. Your Claude, Codex and Ollama files are never touched. From a c
 
 ## Providers
 
-Pick which ones to read from **Providers & Claude Limits…** in the dropdown, or set `providers`
+Pick which ones to read from **Settings ▸ Providers & Claude Limits…**, or set `providers`
 in the config. Each is independent; none is required.
 
 | Provider | Source | Auth | Rate limits | Tokens |
@@ -192,7 +192,7 @@ The percentages are the only part that needs the undocumented endpoint described
 
 Token and cost totals come from transcripts on disk and need no credentials. The
 **rate-limit percentages** come from an undocumented endpoint that requires an OAuth token.
-Both routes live in **Providers & Claude Limits…**, and both are off by default:
+Both routes live in **Settings ▸ Providers & Claude Limits…**, and both are off by default:
 
 1. **Borrow the CLI's token** (`useCLIToken: true`). Needs Claude Code installed and signed
    in. Off by default, because that Keychain item belongs to another application and reading
@@ -218,7 +218,7 @@ Claude Code's transcripts and there are none to read.
   a translocated copy (launched straight from the DMG or Downloads); move RedLine.app to
   Applications with Finder and launch it from there. For a grant that macOS remembers
   unconditionally, give RedLine **Full Disk Access** in System Settings; **Stop Permission
-  Prompts…** in the menu takes you there, and the item disappears once it is granted. It is
+  Prompts…** under Settings takes you there, and the item disappears once it is granted. It is
   a broad permission, and RedLine still reads only what this document and SECURITY.md list.
 - **The Keychain prompt** for `Claude Code-credentials` appears only with `useCLIToken` on,
   and **Always Allow** is the answer that makes it stick. One caveat is inherent to
@@ -233,8 +233,8 @@ number in that position reads as real limit data.
 
 ### Ollama needs one setup step
 
-Ollama keeps no usage history, so there is nothing to read retroactively. **Set Up Ollama
-Tracking…** in the dropdown installs a transparent shim at `~/.local/bin/ollama`, ahead of
+Ollama keeps no usage history, so there is nothing to read retroactively. **Settings ▸ Set Up Ollama
+Tracking…** installs a transparent shim at `~/.local/bin/ollama`, ahead of
 the real binary on your `PATH`. After that, plain `ollama run` is counted with no habit
 change, whether you type it or a coding agent does:
 
@@ -262,7 +262,7 @@ is the same script.
 ## Configuration
 
 `~/.config/redline/config.json`, written with defaults on first launch. Reloaded on every
-poll, so edits apply without a restart. **Edit Config…** in the dropdown opens it.
+poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
