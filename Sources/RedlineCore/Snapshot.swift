@@ -102,14 +102,17 @@ public struct Snapshot: Codable, Equatable {
             self.description = description
         }
 
-        public var isOperational: Bool { indicator == "none" }
+        public var isOperational: Bool { indicator == "none" || indicator == "local" }
 
-        /// Calm and factual: report what the operator reports, never alarm
+        /// Calm and factual: report what the operator reports, never alarm. The two local
+        /// indicators are Ollama's, probed directly rather than read from a status page.
         public var phrase: String {
             switch indicator {
             case "none":  return "service ok"
             case "minor": return "minor incident reported"
             case "major", "critical": return "outage reported"
+            case "local": return "local server running"
+            case "local-down": return "local server not reachable"
             default: return "status unknown"
             }
         }

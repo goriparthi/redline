@@ -237,6 +237,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             services.append(.init(provider: CodexStore.provider, indicator: x.indicator,
                                   description: x.description))
         }
+        // Ollama is always present when read: the probe is local, so reporting it needs
+        // no network opt-in, and it must come from the live section, never a default
+        if config.wants(OllamaStore.provider), let o = ollamaSection {
+            services.append(.init(provider: OllamaStore.provider,
+                                  indicator: o.reachable ? "local" : "local-down",
+                                  description: "checked directly, no network leaves this Mac"))
+        }
         return services
     }
 
@@ -248,7 +255,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard config.statusChecks else { return "" }
         let report = provider == UsageStore.provider ? claudeService
                    : provider == CodexStore.provider ? codexService : nil
-        guard let report else { return "" }
+        // Honest interim state: the fetch is in flight, and silence would read as broken
+        guard let report else { return " · checking status…" }
         return " · \(report.phrase)"
     }
 
@@ -258,6 +266,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         serviceStatusAt = nil
         claudeService = nil
         codexService = nil
+        // Both directions must reach every surface immediately: turning it off used to
+        // leave stale status rows on the dashboard and widgets, which read as the toggle
+        // doing nothing at all
+        dashboardModel.data.services = snapshotServices()
+        publishSnapshot()
         refreshServiceStatus()
         if let menu = statusItem.menu { rebuildMenu(menu) }
     }
@@ -862,6 +875,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             await MainActor.run {
                 self.ollamaSection = section
                 self.publishSnapshot()
+                // The dashboard renders these; stale defaults here painted "not reachable"
+                // while ollama was answering prompts in the next window
+                self.dashboardModel.data.services = self.snapshotServices()
+                self.dashboardModel.data.ollamaReachableHint = section?.reachable ?? false
+                if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
             }
         }
     }

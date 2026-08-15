@@ -261,14 +261,14 @@ private struct ServiceLine: View {
     private func rank(_ s: Snapshot.Service) -> Int {
         switch s.indicator {
         case "major", "critical": return 2
-        case "minor": return 1
+        case "minor", "local-down": return 1
         default: return 0
         }
     }
 
     private func color(_ s: Snapshot.Service) -> Color {
         switch s.indicator {
-        case "none": return BrandUI.clear
+        case "none", "local": return BrandUI.clear
         case "minor": return BrandUI.amber
         case "major", "critical": return BrandUI.signal
         default: return BrandUI.steel

@@ -78,6 +78,7 @@ struct DashboardData {
     var models: [ModelShare] = []
     var limits: [LimitWindow] = []
     var services: [Snapshot.Service] = []
+    var visibleServices: [Snapshot.Service] { services.filter { matches($0.provider) } }
     var today = Agg()
     var week = Agg()
     var loading = true
@@ -609,26 +610,18 @@ struct DashboardView: View {
                     }
                 } else {
                     tiles
-                    if !data.services.isEmpty || data.matches(OllamaStore.provider) {
+                    if !data.visibleServices.isEmpty {
                         Panel(title: "Service status", note: "as reported by each operator") {
                             VStack(alignment: .leading, spacing: 10) {
-                                ForEach(data.services.filter { data.matches($0.provider) },
-                                        id: \.provider) { s in
+                                ForEach(data.visibleServices, id: \.provider) { s in
                                     ServiceStatusRow(
                                         provider: s.provider, phrase: s.phrase,
                                         detail: s.description,
-                                        color: s.indicator == "none" ? Brandkit.clear
+                                        color: s.indicator == "none" || s.indicator == "local"
+                                             ? Brandkit.clear
                                              : s.indicator == "minor" ? Brandkit.amber
+                                             : s.indicator == "local-down" ? Brandkit.steel
                                              : Brandkit.signal)
-                                }
-                                if data.matches(OllamaStore.provider) {
-                                    ServiceStatusRow(
-                                        provider: "Ollama",
-                                        phrase: data.ollamaReachableHint
-                                            ? "local server running" : "local server not reachable",
-                                        detail: "checked directly, no network leaves this Mac",
-                                        color: data.ollamaReachableHint ? Brandkit.clear
-                                                                        : Brandkit.steel)
                                 }
                             }
                         }
