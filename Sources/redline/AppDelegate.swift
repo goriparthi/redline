@@ -196,6 +196,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.imagePosition = .imageLeading
     }
 
+    // Full Disk Access is the grant macOS actually remembers. The per-app data prompts can
+    // recur (per translocated launch, and per target app); FDA is granted once in System
+    // Settings and covers every transcript folder durably. Detection is a probe of a
+    // TCC-gated path: readable means FDA is on.
+    private var hasFullDiskAccess: Bool {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let probe = home.appendingPathComponent("Library/Safari")
+        return (try? FileManager.default.contentsOfDirectory(atPath: probe.path)) != nil
+    }
+
+    @objc func grantFullDiskAccess(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Stop the repeated permission prompts"
+        alert.informativeText = """
+            macOS asks before RedLine reads other apps' files, and that consent does not \
+            always stick. Full Disk Access is the one grant macOS remembers: give it once \
+            in System Settings and the prompts stop.
+
+            It is a broad permission. RedLine still reads only what SECURITY.md lists: \
+            transcript files, its own config, and nothing else.
+
+            In System Settings, add RedLine under Privacy & Security > Full Disk Access, \
+            then relaunch it.
+            """
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn,
+           let url = URL(string:
+               "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     // MARK: - Menu bar style toggles
 
     @objc func toggleMenuIcon(_ sender: Any?) {
@@ -1176,6 +1210,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         l.target = self
         l.state = LaunchAgent.isInstalled ? .on : .off
         menu.addItem(l)
+
+        // Only shown while the durable grant is missing; once FDA is on there is nothing
+        // left to fix
+        if !hasFullDiskAccess {
+            let fda = NSMenuItem(title: "Stop Permission Prompts…",
+                                 action: #selector(grantFullDiskAccess(_:)), keyEquivalent: "")
+            fda.target = self
+            fda.toolTip = "Full Disk Access is the one grant macOS remembers"
+            menu.addItem(fda)
+        }
 
         if oauth.isSignedIn {
             let o = NSMenuItem(title: "Sign Out of Claude", action: #selector(signOut(_:)),

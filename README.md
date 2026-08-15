@@ -198,7 +198,10 @@ Claude Code's transcripts and there are none to read.
   Codex's transcript files is the product, and this is macOS asking you to approve exactly
   that. One **Allow** should hold. If it reappears on every launch, you are probably running
   a translocated copy (launched straight from the DMG or Downloads); move RedLine.app to
-  Applications with Finder and launch it from there.
+  Applications with Finder and launch it from there. For a grant that macOS remembers
+  unconditionally, give RedLine **Full Disk Access** in System Settings; **Stop Permission
+  Prompts…** in the menu takes you there, and the item disappears once it is granted. It is
+  a broad permission, and RedLine still reads only what this document and SECURITY.md list.
 - **The Keychain prompt** for `Claude Code-credentials` appears only with `useCLIToken` on,
   and **Always Allow** is the answer that makes it stick. One caveat is inherent to
   borrowing another app's credential: when Claude Code signs in again it recreates that
