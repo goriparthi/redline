@@ -19,7 +19,9 @@ BUILD_DIR="$REPO_ROOT/.build"
 DIST_DIR="$REPO_ROOT/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 
-INSTALL_DIR="$HOME/Applications"
+# Overridable so a machine that keeps RedLine in /Applications, next to the DMG install,
+# does not end up with a second bundle in ~/Applications that only the LaunchAgent knows about
+INSTALL_DIR="${INSTALL_DIR:-$HOME/Applications}"
 INSTALLED_APP="$INSTALL_DIR/$APP_NAME.app"
 PLIST="$HOME/Library/LaunchAgents/$LAUNCH_LABEL.plist"
 CONFIG_DIR="$HOME/.config/$BIN_NAME"

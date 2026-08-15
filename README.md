@@ -108,6 +108,10 @@ make install            # menu bar app
 WIDGET=1 make install   # menu bar app and the desktop widget
 ```
 
+`make install` puts the app in `~/Applications`. If you also keep a DMG install in
+`/Applications`, install over it instead with `INSTALL_DIR=/Applications make install`,
+so there is one bundle rather than two competing for the menu bar.
+
 Needs Xcode for the widget; the menu bar app alone builds with the Command Line Tools. You
 end up running a binary you compiled from source you can read. Updates are `git pull &&
 make install`, not automatic.
