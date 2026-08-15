@@ -1061,9 +1061,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                 (signedIn ? "…" : "Connect", signedIn ? .tertiaryLabelColor
                                                       : contrasted(NSColor(Brand.signal))),
             ])
-            button.toolTip = signedIn
-                ? "Usage loading…"
-                : "Connect Claude to view usage"
+            // Naming the cause here saves opening the menu to find out what broke
+            button.toolTip = signedIn ? "Usage loading…"
+                : config.useCLIToken
+                    ? "Claude Code's Keychain token is not readable; open RedLine to fix it"
+                    : "Connect Claude to view usage"
         case "cost":
             button.title = fmtCost(today.cost)
         case "tokens":
@@ -1195,11 +1197,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return contrasted(NSColor(status.color))
     }
 
+    /// The one state where the dropdown opens on a problem instead of the numbers. Claude Code
+    /// rewrites its Keychain item whenever it refreshes its token, and the rewrite drops
+    /// RedLine's Always Allow, so this comes back periodically through no fault of the user.
+    /// It used to sit below another provider's section, where it had to be hunted for.
+    private func addTokenTrouble(_ menu: NSMenu) {
+        guard config.wants(UsageStore.provider), !oauth.isSignedIn, config.useCLIToken
+        else { return }
+        let title = NSMutableAttributedString()
+        title.append(symbolRun(ServiceGlyph.symbol(for: "minor"),
+                               color: contrasted(Brandkit.nsTone(.warning)),
+                               size: NSFont.systemFontSize))
+        title.append(monoTitle([(" Claude percentages are off: the Keychain token "
+                                 + "is unreadable", Brandkit.menuPrimary)], mono: false))
+        addStatic(menu, title)
+        let fix = NSMenuItem(title: "Fix Keychain Access…",
+                             action: #selector(fixKeychainAccess(_:)), keyEquivalent: "")
+        fix.target = self
+        fix.toolTip = "Claude Code rewrote its Keychain item, which forgets who was allowed. "
+                    + "This asks again; choose Always Allow."
+        menu.addItem(fix)
+        menu.addItem(.separator())
+    }
+
     private func rebuildMenu(_ menu: NSMenu) {
         menu.removeAllItems()
         // Without this, an item with no action is auto-disabled and macOS dims the whole row,
         // which is what made the usage tables hard to read. No action still means inert.
         menu.autoenablesItems = false
+        addTokenTrouble(menu)
 
         // Drop empty unnamed windows (Claude has emitted internal codenames at 0% with no
         // reset); anything actually being consumed still shows.
@@ -1239,31 +1265,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Percentages that are off or broken must say so where the user is looking, with
         // the enable actions one click away. A setting that only lives in another window
         // reads as a silent failure.
-        if config.wants(UsageStore.provider), !oauth.isSignedIn {
-            if config.useCLIToken {
-                addInfo(menu, "    Percentages on, but the CLI token is unreadable")
-                let f = NSMenuItem(title: "Fix Keychain Access…",
-                                   action: #selector(fixKeychainAccess(_:)), keyEquivalent: "")
-                f.target = self
-                menu.addItem(f)
-            } else {
-                addInfo(menu, "    Claude percentages are off", secondary: true)
-                let parent = NSMenuItem(title: "Show Claude Percentages",
-                                        action: nil, keyEquivalent: "")
-                let sub = NSMenu()
-                let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
-                                     action: #selector(enableCLIToken(_:)), keyEquivalent: "")
-                cli.target = self
-                cli.toolTip = "Reads Claude Code's token from your Keychain; macOS asks once"
-                sub.addItem(cli)
-                let b = NSMenuItem(title: "Sign In with Browser…",
-                                   action: #selector(browserSignIn(_:)), keyEquivalent: "")
-                b.target = self
-                b.toolTip = "For claude.ai users without Claude Code"
-                sub.addItem(b)
-                parent.submenu = sub
-                menu.addItem(parent)
-            }
+        if config.wants(UsageStore.provider), !oauth.isSignedIn, !config.useCLIToken {
+            addInfo(menu, "    Claude percentages are off", secondary: true)
+            let parent = NSMenuItem(title: "Show Claude Percentages",
+                                    action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
+                                 action: #selector(enableCLIToken(_:)), keyEquivalent: "")
+            cli.target = self
+            cli.toolTip = "Reads Claude Code's token from your Keychain; macOS asks once"
+            sub.addItem(cli)
+            let b = NSMenuItem(title: "Sign In with Browser…",
+                               action: #selector(browserSignIn(_:)), keyEquivalent: "")
+            b.target = self
+            b.toolTip = "For claude.ai users without Claude Code"
+            sub.addItem(b)
+            parent.submenu = sub
+            menu.addItem(parent)
         }
         menu.addItem(.separator())
 

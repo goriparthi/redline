@@ -234,11 +234,17 @@ Claude Code's transcripts and there are none to read.
   Prompts…** under Settings takes you there, and the item disappears once it is granted. It is
   a broad permission, and RedLine still reads only what this document and SECURITY.md list.
 - **The Keychain prompt** for `Claude Code-credentials` appears only with `useCLIToken` on,
-  and **Always Allow** is the answer that makes it stick. One caveat is inherent to
-  borrowing another app's credential: when Claude Code signs in again it recreates that
-  Keychain item, and a recreated item forgets who was allowed, so expect one fresh prompt
-  after a CLI login. If that bothers you, the browser sign-in route uses RedLine's own
-  Keychain item and never prompts.
+  and **Always Allow** is the answer to give. Be aware of what it does and does not buy you,
+  because this is inherent to borrowing another app's credential: **the grant lasts until
+  Claude Code next writes that item**, which it does whenever it refreshes its token, not
+  only when you sign in again. The rewritten item no longer lists RedLine, so the
+  percentages stop and the menu bar reads **Connect** until you allow it once more. You may
+  well find this waiting for you in the morning, since a refresh often lands overnight.
+  RedLine cannot hold the grant open: the item belongs to Claude Code, and only its owner
+  decides who may read it. What RedLine does do is open its dropdown on the problem, with
+  **Fix Keychain Access…** as the first thing in the menu, which asks again in one click.
+  If the repetition bothers you, the browser sign-in route uses RedLine's own Keychain item,
+  which nothing else rewrites, and never prompts again.
 
 If neither is available the menu bar shows `sign in` rather than a number. It deliberately
 never falls back to showing token counts in the limits slot, because a plausible-looking
