@@ -19,7 +19,16 @@ public enum BrandUI {
     /// Providers keep one colour everywhere they appear: menu, dashboard, widget.
     public static func color(forProvider provider: String) -> Color {
         switch provider.lowercased() {
-        case "claude": return chalk
+        // Claude's identity is chalk, which only exists against a dark ground; in a light
+        // context it resolves to carbon so the badge never disappears into the paper.
+        // Surfaces that paint carbon regardless of the OS theme (the widget, the setup
+        // window) force .dark so this resolves to chalk there.
+        case "claude":
+            return Color(nsColor: NSColor(name: nil) { appearance in
+                let c = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    ? Brand.chalk : Brand.carbon
+                return NSColor(red: c.red, green: c.green, blue: c.blue, alpha: 1)
+            })
         case "codex":  return steel
         case "ollama": return clear
         default:       return amber

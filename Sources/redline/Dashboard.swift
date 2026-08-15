@@ -5,11 +5,29 @@ import RedlineCore
 import SwiftUI
 
 enum Brandkit {
-    // SwiftUI tones come from the shared palette so the app, widget and menu agree
-    static let carbon = BrandUI.carbon
-    static let graphite = BrandUI.graphite
-    static let steel = BrandUI.steel
-    static let chalk = BrandUI.chalk
+    // Dashboard surface and ink tokens resolve per appearance: the brand's dark world by
+    // default, and honest light equivalents when the window is light. The status trio
+    // stays fixed. Every other painted surface in the app forces dark, so only the
+    // dashboard actually exercises the light side.
+    private static func dynamic(dark: BrandColor, light: BrandColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let c = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            return NSColor(red: c.red, green: c.green, blue: c.blue, alpha: 1)
+        })
+    }
+    private static func dynamic(dark: (Double, Double, Double),
+                                light: (Double, Double, Double)) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let c = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            return NSColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
+    }
+
+    static let carbon = dynamic(dark: Brand.carbon, light: Brand.chalk)          // ground
+    static let graphite = dynamic(dark: Brand.graphite,
+                                  light: BrandColor(0xFFFFFF))                   // panels
+    static let chalk = dynamic(dark: Brand.chalk, light: Brand.carbon)           // ink
+    static let steel = dynamic(dark: Brand.steel, light: BrandColor(0x5C6270))   // quiet ink
     static let signal = BrandUI.signal
     static let amber = BrandUI.amber
     static let clear = BrandUI.clear
@@ -45,11 +63,16 @@ enum Brandkit {
     // steel are near-neutrals that read as one gray mass in a chart. This triple passes
     // the categorical checks (lightness band, chroma floor, CVD separation, contrast) on
     // Carbon; the legend ties names to colors so identity is never color alone.
+    // Each mode's steps validated separately against its own surface: dark on Carbon,
+    // light on chalk paper (the light steps sit darker to clear 3:1)
     static func chartColor(for provider: String) -> Color {
         switch provider {
-        case UsageStore.provider:  return Color(red: 0.725, green: 0.510, blue: 0.165) // B9822A
-        case CodexStore.provider:  return Color(red: 0.357, green: 0.553, blue: 0.910) // 5B8DE8
-        case OllamaStore.provider: return Color(red: 0.137, green: 0.651, blue: 0.235) // 23A63C
+        case UsageStore.provider:  // B9822A / A6741F
+            return dynamic(dark: (0.725, 0.510, 0.165), light: (0.651, 0.455, 0.122))
+        case CodexStore.provider:  // 5B8DE8 / 3E6FC9
+            return dynamic(dark: (0.357, 0.553, 0.910), light: (0.243, 0.435, 0.788))
+        case OllamaStore.provider: // 23A63C / 1E8F33
+            return dynamic(dark: (0.137, 0.651, 0.235), light: (0.118, 0.561, 0.200))
         default:                   return steel
         }
     }
@@ -128,6 +151,7 @@ struct DashboardData {
     var limits: [LimitWindow] = []
     var services: [Snapshot.Service] = []
     var servicesCheckedAt: Date?
+    var theme = Config.load().dashboardTheme
     /// Why Claude's rails may be missing (rate limited, no token); shown so an empty
     /// panel never reads as silently broken
     var limitsNote: String?
@@ -190,6 +214,11 @@ final class DashboardModel: ObservableObject {
 
     func setFocus(_ provider: String) {
         data.focus = provider
+    }
+
+    func setTheme(_ theme: String) {
+        guard Config.write(["dashboardTheme": theme]) else { return }
+        data.theme = theme
     }
 
     func load(range: Int, limits: [LimitWindow]) {
@@ -510,7 +539,7 @@ private struct ModelMix: View {
                     GeometryReader { geo in
                         let maxIO = max(models.first?.io ?? 1, 1)
                         Capsule()
-                            .fill(Brandkit.color(for: m.provider))
+                            .fill(Brandkit.chartColor(for: m.provider))
                             .frame(width: max(2, geo.size.width * Double(m.io) / Double(maxIO)))
                     }
                     .frame(height: 8)
@@ -766,6 +795,9 @@ struct DashboardView: View {
             .padding(16)
         }
         .background(Brandkit.carbon)
+        // nil follows the OS; a forced scheme re-resolves every dynamic token in the window
+        .preferredColorScheme(data.theme == "light" ? .light
+                            : data.theme == "dark" ? .dark : nil)
     }
 
     @ViewBuilder
@@ -845,6 +877,31 @@ struct DashboardView: View {
                 }
 
                 Spacer()
+
+                // Theme: auto follows the OS, light and dark force the window. The choice
+                // persists in the config like every other preference.
+                HStack(spacing: 4) {
+                    ForEach([("auto", "circle.lefthalf.filled"),
+                             ("light", "sun.max.fill"),
+                             ("dark", "moon.fill")], id: \.0) { value, icon in
+                        Button {
+                            model.setTheme(value)
+                        } label: {
+                            Image(systemName: icon)
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(width: 32, height: 25)
+                                .background(value == data.theme
+                                            ? Brandkit.signal.opacity(0.22)
+                                            : Brandkit.graphite)
+                                .foregroundStyle(value == data.theme ? Brandkit.chalk
+                                                                     : Brandkit.steel)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Appearance: \(value)")
+                    }
+                }
+                .padding(.trailing, 10)
 
                 // Segmented controls take the system accent, so drive the range with plain
                 // buttons that can carry the brand tint instead

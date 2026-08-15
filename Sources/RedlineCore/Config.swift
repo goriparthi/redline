@@ -53,6 +53,8 @@ public struct Config {
     public var autoCheckUpdates = false
     // Also off by default, same reasoning: polls the providers' public status feeds
     public var statusChecks = false
+    /// Dashboard appearance: "auto" follows the OS, "light" and "dark" force it
+    public var dashboardTheme = "auto"
 
     public init() {}
 
@@ -103,6 +105,8 @@ public struct Config {
            ["all", "session", "week"].contains(w) { cfg.limitWindows = w }
         if let b = json["autoCheckUpdates"] as? Bool { cfg.autoCheckUpdates = b }
         if let b = json["statusChecks"] as? Bool { cfg.statusChecks = b }
+        if let t = json["dashboardTheme"] as? String,
+           ["auto", "light", "dark"].contains(t) { cfg.dashboardTheme = t }
         if let p = json["providers"] as? [String], !p.isEmpty { cfg.providers = p }
         if let m = json["menuBarProvider"] as? String,
            let match = menuBarProviderChoices.first(where: {

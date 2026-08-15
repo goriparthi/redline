@@ -139,6 +139,8 @@ struct FirstRunView: View {
         .padding(22)
         .frame(width: 470)
         .background(BrandUI.carbon)
+        // This window paints Carbon in every OS theme, so dynamic colors resolve as dark
+        .colorScheme(.dark)
     }
 
     // The percentages need a token, and where it comes from is a decision, not a default.

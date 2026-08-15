@@ -614,6 +614,9 @@ struct RedlineUsageWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: SelectTrackIntent.self,
                                provider: Provider()) { entry in
             RedlineWidgetView(entry: entry)
+                // The widget paints Carbon whatever the OS theme, so dynamic brand colors
+                // must resolve as if dark; without this a light-mode Mac gets ink on carbon
+                .colorScheme(.dark)
                 // Carbon base with a soft wash of the track's own colour, so widgets tell
                 // themselves apart at a glance. The wash stays quiet on purpose: colour
                 // identifies the track, it never shouts about it.
