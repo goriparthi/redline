@@ -99,6 +99,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var updateVersion: String?
     private var updateInFlight = false
     private var updateTimer: Timer?
+    private var claudeService: ServiceStatus.Report?
+    private var codexService: ServiceStatus.Report?
+    private var serviceStatusAt: Date?
     private var claudeLimitsAt: Date?
     private var ollamaSection: Snapshot.Ollama?
     // Recomputed on each refresh so a provider installed later shows up without a restart
@@ -196,6 +199,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.imagePosition = .imageLeading
     }
 
+    // MARK: - Service status
+
+    // Statuspage feeds for the hosted providers; Ollama is probed locally and its cloud
+    // publishes no status feed to read. Only fetched when the user switched it on.
+    private func refreshServiceStatus() {
+        guard config.statusChecks else { return }
+        if let last = serviceStatusAt, Date().timeIntervalSince(last) < 900 { return }
+        serviceStatusAt = Date()
+        ServiceStatus.fetch(ServiceStatus.claudeURL) { [weak self] report in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.claudeService = report
+                self.publishSnapshot()
+                self.dashboardModel.data.services = self.snapshotServices()
+                if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+            }
+        }
+        ServiceStatus.fetch(ServiceStatus.codexURL) { [weak self] report in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.codexService = report
+                self.publishSnapshot()
+                self.dashboardModel.data.services = self.snapshotServices()
+                if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+            }
+        }
+    }
+
+    private func snapshotServices() -> [Snapshot.Service] {
+        var services: [Snapshot.Service] = []
+        if let c = claudeService {
+            services.append(.init(provider: UsageStore.provider, indicator: c.indicator,
+                                  description: c.description))
+        }
+        if let x = codexService {
+            services.append(.init(provider: CodexStore.provider, indicator: x.indicator,
+                                  description: x.description))
+        }
+        return services
+    }
+
+    private func serviceSuffix(for provider: String) -> String {
+        if provider == OllamaStore.provider {
+            guard let reachable = ollamaSection?.reachable else { return "" }
+            return reachable ? " · local, running" : " · local, not reachable"
+        }
+        guard config.statusChecks else { return "" }
+        let report = provider == UsageStore.provider ? claudeService
+                   : provider == CodexStore.provider ? codexService : nil
+        guard let report else { return "" }
+        return " · \(report.phrase)"
+    }
+
+    @objc func toggleStatusChecks(_ sender: Any?) {
+        guard Config.write(["statusChecks": !config.statusChecks]) else { return }
+        config = Config.load()
+        serviceStatusAt = nil
+        claudeService = nil
+        codexService = nil
+        refreshServiceStatus()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
     // Full Disk Access is the grant macOS actually remembers. The per-app data prompts can
     // recur (per translocated launch, and per target app); FDA is granted once in System
     // Settings and covers every transcript folder durably. Detection is a probe of a
@@ -281,6 +347,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func refreshNow(_ sender: Any?) {
         reloadConfig()
+        // On demand means now: the status throttle yields to an explicit refresh
+        serviceStatusAt = nil
         refresh()
     }
 
@@ -765,6 +833,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshLimits()
         refreshOllamaSection()
         refreshAvailability()
+        refreshServiceStatus()
     }
 
     // Polled here rather than in the widget: keeping the extension offline means it needs no
@@ -836,10 +905,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // The widget cannot poll or parse transcripts in its time budget, so hand it a snapshot
     private func publishSnapshot() {
+        let services = snapshotServices()
         // Same filter the menu applies, so the widget never inherits empty unnamed windows
         let snap = Snapshot(updatedAt: lastRefresh ?? Date(),
                             limits: allLimits.filter { !$0.isUninformative },
-                            today: today, week: week, ollama: ollamaSection)
+                            today: today, week: week, ollama: ollamaSection,
+                            services: services.isEmpty ? nil : services)
         guard SnapshotStore.writeEverywhere(snap) else { return }
         #if canImport(WidgetKit)
         // Nudge the widget rather than waiting for the system's own reload schedule
@@ -1063,8 +1134,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             addInfo(menu, "Rate limits:")
             addInfo(menu, "    none available", secondary: true)
         }
+        // Claude's notes belong under Claude's own section; appended after the loop they
+        // visually attached to whichever provider sorted last
+        var claudeNotesEmitted = false
+        func emitClaudeNotes() {
+            claudeNotesEmitted = true
+            if let s = limitsStatus { addInfo(menu, "    \(s)") }
+            if oauth.usingCLIToken {
+                addInfo(menu, "    Reading limits with the Claude CLI's token",
+                        secondary: true)
+            }
+        }
         for provider in grouped.keys.sorted() {
-            addInfo(menu, "\(provider) limits:\(staleSuffix(for: provider))")
+            addInfo(menu, "\(provider) limits:\(staleSuffix(for: provider))"
+                        + serviceSuffix(for: provider))
             for w in LimitParser.sorted(grouped[provider] ?? []) where wantsWindow(w) {
                 let reset = config.showResetTimes ? fmtReset(w.resetsAt) : ""
                 addStatic(menu, coloredTitle([
@@ -1072,11 +1155,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     ("\(w.displayName): \(pct(w))%\(reset)", Brandkit.menuPrimary),
                 ]))
             }
+            if provider == UsageStore.provider { emitClaudeNotes() }
         }
-        if let s = limitsStatus { addInfo(menu, "    \(s)") }
-        if oauth.usingCLIToken {
-            addInfo(menu, "    Reading limits with the Claude CLI's token", secondary: true)
-        }
+        if !claudeNotesEmitted { emitClaudeNotes() }
 
         // Percentages that are off or broken must say so where the user is looking, with
         // the enable actions one click away. A setting that only lives in another window
@@ -1187,6 +1268,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         styleItem.submenu = style
         menu.addItem(styleItem)
 
+        let svc = NSMenuItem(title: "Show Service Status",
+                             action: #selector(toggleStatusChecks(_:)), keyEquivalent: "")
+        svc.target = self
+        svc.state = config.statusChecks ? .on : .off
+        svc.toolTip = "Polls the providers' public status pages every 15 minutes; "
+                    + "Refresh Now checks immediately"
+        menu.addItem(svc)
+
         // Only offered when Ollama is actually installed; a setup step for a missing tool
         // is noise
         if availability.installed.contains(where: {
@@ -1295,8 +1384,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
             // Models sit under the provider that produced them, never in one flat list
             for (model, m) in usage.rankedModels {
+                // Detected on the full name, since shortening may drop the cloud tag
+                let cloudMark = OllamaLocality.isCloud(model) ? "☁ " : ""
                 addRow(menu, indent: 2, dot: nil,
-                       name: Sparkline.shortModel(model),
+                       name: cloudMark + Sparkline.shortModel(model),
                        share: agg.share(ofIO: m.io),
                        cost: m.cost, priced: m.priced, io: m.io,
                        tint: Brandkit.nsColor(for: provider).withAlphaComponent(0.75))

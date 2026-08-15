@@ -2,6 +2,21 @@
 // history of its own, so anything that bypasses the shim is invisible here by design.
 import Foundation
 
+/// Ollama models run in two places, and which one is a fact worth stating plainly: cloud
+/// models carry a "cloud" tag in their name, everything else runs on this machine.
+public enum OllamaLocality {
+    public static func isCloud(_ model: String) -> Bool {
+        let m = model.lowercased()
+        return m.hasSuffix(":cloud") || m.hasSuffix("-cloud") || m.contains(":cloud-")
+    }
+
+    /// A cloud model gets the cloud glyph in front of its name, so the distinction is
+    /// visible in every list without widening any column
+    public static func marked(_ model: String) -> String {
+        isCloud(model) ? "☁ \(model)" : model
+    }
+}
+
 public final class OllamaStore {
     public static let provider = "Ollama"
     private let log: URL

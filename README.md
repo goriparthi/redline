@@ -64,6 +64,11 @@ Widgets, one per track, configurable from the widget's own settings:
 - **Token and cost totals** for today, the last 5 hours, and the last 7 days, grouped under
   each provider with inline share bars, so a model can never be listed under the wrong
   provider and relative weight is visible without reading the numbers.
+- **Service status**, opt-in via **Show Service Status**: the menu, dashboard, and widgets
+  report each provider's health from its public status page (Claude and Codex), polled
+  every 15 minutes, with **Refresh Now** checking immediately. Ollama is probed locally
+  with no network at all; Ollama Cloud publishes no status feed or usage API yet, so there
+  is nothing to read for it. Cloud models are marked with ☁ wherever models are listed.
 
 ## Install
 
@@ -258,6 +263,7 @@ poll, so edits apply without a restart. **Edit Config…** in the dropdown opens
 | `showResetTimes` | `true` | Reset times in the menu bar and dropdown |
 | `limitWindows` | `all` | Which limit windows to report: `all`, `session`, `week` |
 | `autoCheckUpdates` | `false` | Poll for updates twice a day and pop up when one exists |
+| `statusChecks` | `false` | Poll the providers' public status pages every 15 minutes |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
 | `oauth.clientId` | empty | Required for the app's own Sign In |
 

@@ -1,6 +1,36 @@
 import XCTest
 @testable import RedlineCore
 
+final class OllamaLocalityTests: XCTestCase {
+    func testCloudModelsAreDetectedByTag() {
+        XCTAssertTrue(OllamaLocality.isCloud("deepseek-v4-flash:cloud"))
+        XCTAssertTrue(OllamaLocality.isCloud("gpt-oss:120b-cloud"))
+        XCTAssertFalse(OllamaLocality.isCloud("qwen3-coder:30b"))
+        XCTAssertFalse(OllamaLocality.isCloud("cloudqwen:7b"))
+    }
+
+    func testCloudModelsGetTheGlyphAndLocalOnesDoNot() {
+        XCTAssertEqual(OllamaLocality.marked("x:cloud"), "☁ x:cloud")
+        XCTAssertEqual(OllamaLocality.marked("qwen3-coder:30b"), "qwen3-coder:30b")
+    }
+}
+
+final class ServiceStatusTests: XCTestCase {
+    func testStatuspageParse() {
+        let json = #"{"page":{"name":"Claude"},"status":{"indicator":"minor","description":"Degraded"}}"#
+        let r = ServiceStatus.parse(json.data(using: .utf8)!)
+        XCTAssertEqual(r?.indicator, "minor")
+        XCTAssertEqual(r?.description, "Degraded")
+        XCTAssertEqual(r?.isOperational, false)
+        XCTAssertEqual(r?.phrase, "minor incident reported")
+    }
+
+    func testGarbageParsesToNil() {
+        XCTAssertNil(ServiceStatus.parse(Data("not json".utf8)))
+        XCTAssertNil(ServiceStatus.parse(Data("{\"status\":{}}".utf8)))
+    }
+}
+
 final class OllamaParseTests: XCTestCase {
     func testParsesTagsWithDetails() {
         let json: [String: Any] = ["models": [

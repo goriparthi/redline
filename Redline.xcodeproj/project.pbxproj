@@ -24,6 +24,7 @@
 		8A37C1B9C476E667D3C7626E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594A59204E47A19AF9380F42 /* AppDelegate.swift */; };
 		90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C70F9EB19961D2896832675D /* Trends.swift */; };
 		9BD597547539A0FF0DD27053 /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
+		9CD52EA04F1CDE8CD286AF39 /* ServiceStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */; };
 		A75D73001BF1B24C3C293DF1 /* ollama-shim.sh in Resources */ = {isa = PBXBuildFile; fileRef = F7E0FD556CE74C96E8B89230 /* ollama-shim.sh */; };
 		B05F25F924C6CEDA04D1CAFB /* RedlineTemplate@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 9D59182E56BE7254764382E5 /* RedlineTemplate@2x.png */; };
 		B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B28FA77D5BF771D09A8333 /* Ollama.swift */; };
@@ -115,6 +116,7 @@
 		B7AF4BF9E1F8FE7E67230776 /* Brand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brand.swift; sourceTree = "<group>"; };
 		BCFB67C592C32CEC96CB61C6 /* OAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuth.swift; sourceTree = "<group>"; };
 		C70F9EB19961D2896832675D /* Trends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trends.swift; sourceTree = "<group>"; };
+		D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatus.swift; sourceTree = "<group>"; };
 		DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedlineWidget.swift; sourceTree = "<group>"; };
 		EF2D39E506526264BDC08DB4 /* CodexSessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSessions.swift; sourceTree = "<group>"; };
 		F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaUsage.swift; sourceTree = "<group>"; };
@@ -219,6 +221,7 @@
 				9AF292E55776C9FDD7D18743 /* Limits.swift */,
 				91B28FA77D5BF771D09A8333 /* Ollama.swift */,
 				F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */,
+				D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */,
 				3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */,
 				AB7A91F7558A008A61D6AE0B /* Sparkline.swift */,
 				C70F9EB19961D2896832675D /* Trends.swift */,
@@ -395,6 +398,7 @@
 				6C7AAC7DE7E9AEFD5E977096 /* Limits.swift in Sources */,
 				B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */,
 				24926363A3D24D71291FCE23 /* OllamaUsage.swift in Sources */,
+				9CD52EA04F1CDE8CD286AF39 /* ServiceStatus.swift in Sources */,
 				2F1CF67F76429502CD8D63D1 /* Snapshot.swift in Sources */,
 				D1346E76D50919C07BCA074F /* Sparkline.swift in Sources */,
 				90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */,

@@ -244,6 +244,51 @@ private struct StaleNote: View {
     }
 }
 
+// The provider's own reported health, one quiet line. Shown only when the app publishes
+// status reports (the status checks are opt-in) and colored by what the operator says.
+private struct ServiceLine: View {
+    let snapshot: Snapshot
+    let provider: String?
+    let m: Metrics
+
+    private var report: Snapshot.Service? {
+        guard let services = snapshot.services, !services.isEmpty else { return nil }
+        if let provider { return services.first { $0.provider == provider } }
+        // The all-providers track reports the worst news anyone has
+        return services.min { rank($0) > rank($1) }
+    }
+
+    private func rank(_ s: Snapshot.Service) -> Int {
+        switch s.indicator {
+        case "major", "critical": return 2
+        case "minor": return 1
+        default: return 0
+        }
+    }
+
+    private func color(_ s: Snapshot.Service) -> Color {
+        switch s.indicator {
+        case "none": return BrandUI.clear
+        case "minor": return BrandUI.amber
+        case "major", "critical": return BrandUI.signal
+        default: return BrandUI.steel
+        }
+    }
+
+    var body: some View {
+        if let r = report {
+            HStack(spacing: 4) {
+                Circle().fill(color(r)).frame(width: 6, height: 6)
+                Text(r.phrase)
+                    .font(.system(size: m.detail, design: .monospaced))
+                    .foregroundStyle(BrandUI.steel)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
+    }
+}
+
 private struct Unavailable: View {
     let m: Metrics
 
@@ -318,7 +363,7 @@ private struct OllamaBody: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack(spacing: 6) {
                                     TrackBadge(provider: "Ollama", size: m.label + 4)
-                                    Text(model.name)
+                                    Text(OllamaLocality.marked(model.name))
                                         .font(.system(size: m.label, weight: .medium,
                                                       design: .monospaced))
                                         .foregroundStyle(BrandUI.chalk)
@@ -486,7 +531,12 @@ private struct UsageBody: View {
             }
 
             Spacer(minLength: 0)
-            if detail == .full { StaleNote(snapshot: snapshot, m: m) }
+            if detail == .full {
+                HStack(spacing: 8) {
+                    ServiceLine(snapshot: snapshot, provider: provider, m: m)
+                    StaleNote(snapshot: snapshot, m: m)
+                }
+            }
         }
     }
 }

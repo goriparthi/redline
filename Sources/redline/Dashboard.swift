@@ -42,6 +42,33 @@ enum Brandkit {
     }
 }
 
+// One provider's health as its operator reports it: dot, name, phrase, and the raw
+// description for the detail column
+struct ServiceStatusRow: View {
+    let provider: String
+    let phrase: String
+    let detail: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            TrackBadge(provider: provider, size: 16)
+            Text(provider)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Brandkit.chalk)
+            Text(phrase)
+                .font(.system(size: 12))
+                .foregroundStyle(color)
+            Spacer()
+            Text(detail)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Brandkit.steel)
+                .lineLimit(1)
+        }
+    }
+}
+
 struct DashboardData {
     var range = 14
     var availability = ProviderAvailability.detect()
@@ -50,6 +77,7 @@ struct DashboardData {
     var hourly: [ProviderTrend] = []
     var models: [ModelShare] = []
     var limits: [LimitWindow] = []
+    var services: [Snapshot.Service] = []
     var today = Agg()
     var week = Agg()
     var loading = true
@@ -408,7 +436,7 @@ private struct ModelMix: View {
             ForEach(models.prefix(8), id: \.model) { m in
                 HStack(spacing: 8) {
                     TrackBadge(provider: m.provider, size: 18)
-                    Text(m.model)
+                    Text(OllamaLocality.marked(m.model))
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundStyle(Brandkit.chalk)
                         .lineLimit(1)
@@ -581,6 +609,30 @@ struct DashboardView: View {
                     }
                 } else {
                     tiles
+                    if !data.services.isEmpty || data.matches(OllamaStore.provider) {
+                        Panel(title: "Service status", note: "as reported by each operator") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(data.services.filter { data.matches($0.provider) },
+                                        id: \.provider) { s in
+                                    ServiceStatusRow(
+                                        provider: s.provider, phrase: s.phrase,
+                                        detail: s.description,
+                                        color: s.indicator == "none" ? Brandkit.clear
+                                             : s.indicator == "minor" ? Brandkit.amber
+                                             : Brandkit.signal)
+                                }
+                                if data.matches(OllamaStore.provider) {
+                                    ServiceStatusRow(
+                                        provider: "Ollama",
+                                        phrase: data.ollamaReachableHint
+                                            ? "local server running" : "local server not reachable",
+                                        detail: "checked directly, no network leaves this Mac",
+                                        color: data.ollamaReachableHint ? Brandkit.clear
+                                                                        : Brandkit.steel)
+                                }
+                            }
+                        }
+                    }
                     if !data.visibleLimits.isEmpty {
                         Panel(title: "Limits", note: "limit at the line") {
                             VStack(spacing: 12) {

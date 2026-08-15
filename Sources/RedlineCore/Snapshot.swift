@@ -89,8 +89,36 @@ public struct Snapshot: Codable, Equatable {
 
     // Timestamps are stored at whole-second precision, since the JSON encoding is ISO8601
     // and nothing here is finer-grained than a poll interval.
+    /// A provider's own reported health, from its public status feed. Optional end to end
+    /// so snapshots written before this field existed still decode.
+    public struct Service: Codable, Equatable {
+        public let provider: String
+        public let indicator: String
+        public let description: String
+
+        public init(provider: String, indicator: String, description: String) {
+            self.provider = provider
+            self.indicator = indicator
+            self.description = description
+        }
+
+        public var isOperational: Bool { indicator == "none" }
+
+        /// Calm and factual: report what the operator reports, never alarm
+        public var phrase: String {
+            switch indicator {
+            case "none":  return "service ok"
+            case "minor": return "minor incident reported"
+            case "major", "critical": return "outage reported"
+            default: return "status unknown"
+            }
+        }
+    }
+
+    public var services: [Service]?
+
     public init(updatedAt: Date, limits: [LimitWindow], today: Agg, week: Agg,
-                ollama: Ollama? = nil) {
+                ollama: Ollama? = nil, services: [Service]? = nil) {
         self.updatedAt = Snapshot.truncate(updatedAt)
         self.todayByProvider = today.providers.mapValues {
             Totals(io: $0.io, cost: $0.cost, hasUnpriced: today.hasUnpriced)
@@ -105,6 +133,7 @@ public struct Snapshot: Codable, Equatable {
         }
         self.today = Totals(today)
         self.week = Totals(week)
+        self.services = services
     }
 
     static func truncate(_ d: Date) -> Date {
