@@ -501,7 +501,8 @@ PROMPT</pre>
       <p class="label">Private by default</p>
       <h2>It reads your machine, and reports to no one</h2>
       <p>Everything is computed locally from files your tools already write. There is no
-         analytics, no telemetry, no crash reporting, and no update check.
+         analytics, no telemetry, and no crash reporting. The one call RedLine makes on its
+         own is a daily check for a newer release, which you can switch off.
          <a href="https://github.com/goriparthi/redline/blob/main/SECURITY.md">SECURITY.md</a>
          lists every path read and written.</p>
     </div>
@@ -514,9 +515,9 @@ PROMPT</pre>
       </div>
       <div class="card">
         <div class="card-top"><h3>Three hosts, all Anthropic's</h3><span class="chip">opt-in</span></div>
-        <p>Network calls happen only when you ask: Claude rate limits if you enable them,
-           and update checks on request or an opt-in twice-daily schedule. Codex and
-           Ollama are read entirely from disk. Endpoint overrides must be HTTPS.</p>
+        <p>Claude rate limits are called only if you enable them. The one call RedLine makes
+           on its own is a daily check for a newer release, which you can switch off. Codex
+           and Ollama are read entirely from disk. Endpoint overrides must be HTTPS.</p>
       </div>
       <div class="card">
         <div class="card-top"><h3>Credentials you control</h3><span class="chip">keychain</span></div>

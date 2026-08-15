@@ -1,4 +1,5 @@
-// Manual update check against the GitHub releases API.
+// Update check against the GitHub releases API, run daily by default and on demand from
+// the menu. The only request RedLine makes without being asked.
 //
 // Deliberately not automatic: the shipped promise is that RedLine makes no network requests
 // unless you ask for Claude limits, and a background poll would quietly break that. This runs

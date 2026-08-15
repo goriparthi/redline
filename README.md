@@ -33,9 +33,11 @@ are opting into:
 
 **You are responsible for deciding whether that is acceptable for your account.** If you would
 rather not touch it at all, RedLine is still useful: leave `useCLIToken` false and
-`oauth.clientId` empty, which is the shipped default. In that state RedLine makes **no network
-requests whatsoever** and still reports tokens, cost, model mix, and history for Claude, plus
-everything for Codex and Ollama. You lose only the Claude percentages.
+`oauth.clientId` empty, which is the shipped default. In that state the only request RedLine
+makes is **one call a day to the GitHub releases API** to see whether a newer version exists,
+and turning that off (`autoCheckUpdates`) leaves **no network requests whatsoever**. Either
+way it still reports tokens, cost, model mix, and history for Claude, plus everything for
+Codex and Ollama. You lose only the Claude percentages.
 
 Codex and Ollama involve no such question. Codex is read entirely from local files, and Ollama
 is your own machine.
@@ -154,11 +156,12 @@ disappear, since there is nothing to choose between.
 
 ### Updates
 
-**Check for Updates…** in the menu compares your version against the latest release. It runs
-only when you ask, because an unasked background poll would break the promise that RedLine
-makes no network requests you did not opt into. **Settings ▸ Check for Updates Twice a
-Day** is that opt-in: enabled, RedLine polls the GitHub releases API every 12 hours and
-pops up only when an update actually exists; a quiet check never interrupts.
+RedLine asks the GitHub releases API **once a day** whether a newer version exists, and says
+nothing unless one does; a quiet check never interrupts. This is on by default and is the
+only request RedLine makes without being asked. An app that installs updates in place has to
+learn about them to be worth trusting, and a security fix nobody hears about is not a fix.
+Turn it off with **Settings ▸ Check for Automatic Updates** and RedLine goes back to making
+no network requests at all; **Check for Updates…** then checks on demand, whenever you ask.
 
 When a newer release exists, **Install Update…** replaces the app in place: it downloads the
 DMG, verifies it is notarized and signed by this project's Developer ID team (anything else
@@ -295,7 +298,7 @@ poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it
 | `showMenuIcon` | `true` | The mark in the menu bar; off leaves just the numbers |
 | `showResetTimes` | `true` | Reset times in the menu bar and dropdown |
 | `limitWindows` | `all` | Which limit windows to report: `all`, `session`, `week` |
-| `autoCheckUpdates` | `false` | Poll for updates twice a day and pop up when one exists |
+| `autoCheckUpdates` | `true` | Ask once a day whether a newer release exists; speaks up only when one does |
 | `statusChecks` | `false` | Poll the providers' public status pages every 15 minutes |
 | `dashboardTheme` | `auto` | Dashboard appearance: `auto` follows the OS, or force `light` or `dark` |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |

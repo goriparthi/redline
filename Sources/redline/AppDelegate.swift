@@ -725,17 +725,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // Twice a day, only when the user switched it on: the shipped promise is no network
-    // unless asked for, so the poll is opt-in and stays silent unless there is news.
+    // Once a day, on by default: a security fix nobody hears about is not a fix. The poll
+    // stays silent unless there is news, and the menu switches it off.
     private func scheduleUpdateTimer() {
         updateTimer?.invalidate()
         updateTimer = nil
         guard config.autoCheckUpdates else { return }
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 12 * 3600,
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 24 * 3600,
                                            repeats: true) { [weak self] _ in
             self?.runUpdateCheck(interactive: false)
         }
-        // One check now, so enabling it does not mean waiting half a day for the first look
+        // One check now, so a fresh launch does not wait a day for the first look
         runUpdateCheck(interactive: false)
     }
 
@@ -1462,13 +1462,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
-        let auto = NSMenuItem(title: "Check for Updates Twice a Day",
+        let auto = NSMenuItem(title: "Check for Automatic Updates",
                               action: #selector(toggleAutoUpdates(_:)), keyEquivalent: "")
         auto.target = self
         auto.state = config.autoCheckUpdates ? .on : .off
-        auto.toolTip = "Polls the GitHub releases API every 12 hours and pops up only "
-                     + "when an update exists. Off by default: RedLine promises no network "
-                     + "requests you did not ask for."
+        auto.toolTip = "Asks the GitHub releases API once a day and speaks up only when an "
+                     + "update exists. This is the one network request RedLine makes without "
+                     + "being asked; switch it off and updates are yours to check for."
         menu.addItem(auto)
         return menu
     }

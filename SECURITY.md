@@ -47,9 +47,15 @@ Three hosts, all Anthropic's, and only when Claude rate limits are enabled:
 - `https://console.anthropic.com/v1/oauth/token` — token exchange and refresh
 - `https://api.anthropic.com/api/oauth/usage` — rate-limit percentages
 
-There is no analytics, telemetry, crash reporting, or update check. Codex and Ollama are
-read entirely from disk and make no network calls. Config overrides for these URLs are
-rejected unless they are `https`.
+One more host is reached on RedLine's own initiative:
+
+- `https://api.github.com` — once a day, to ask whether a newer release exists. It sends no
+  identifying information beyond an ordinary HTTPS request, and `autoCheckUpdates: false`
+  stops it. **This is the only request RedLine makes without being asked.**
+
+There is no analytics, telemetry, or crash reporting. Codex and Ollama are read entirely
+from disk and make no network calls. Config overrides for these URLs are rejected unless
+they are `https`.
 
 ## Credentials
 

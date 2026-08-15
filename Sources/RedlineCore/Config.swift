@@ -48,9 +48,10 @@ public struct Config {
     public var showResetTimes = true
     /// Which limit windows the menu bar and dropdown report: "all", "session", or "week"
     public var limitWindows = "all"
-    // Off by default: the shipped promise is no network unless asked, and a background
-    // update poll is a network request. Enabling it is one click in the menu.
-    public var autoCheckUpdates = false
+    // On by default, and the one network request RedLine makes without being asked: an app
+    // that installs updates in place is only safe if it learns about them. One call a day to
+    // the GitHub releases API, nothing else, and turning it off is one click in the menu.
+    public var autoCheckUpdates = true
     // Also off by default, same reasoning: polls the providers' public status feeds
     public var statusChecks = false
     /// Dashboard appearance: "auto" follows the OS, "light" and "dark" force it
