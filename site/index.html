@@ -1,3 +1,4 @@
+<!doctype html>
 <meta charset="utf-8">
 <title>RedLine: AI usage monitor for macOS</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -142,10 +143,6 @@
 
   .tracks { display: flex; flex-direction: column; gap: .875rem; }
   .track-row { display: grid; grid-template-columns: 11rem 1fr auto; gap: 1rem; align-items: center; }
-  @media (max-width: 700px) {
-    .track-row { grid-template-columns: 1fr auto; }
-    .track-row .rail-wrap { grid-column: 1 / -1; order: 3; }
-  }
   .track-name { font-size: .875rem; color: var(--chalk); }
   .track-name span { color: var(--steel); }
 
@@ -176,6 +173,15 @@
   }
   .track-val { font-family: var(--metrics); font-variant-numeric: tabular-nums; font-size: .8125rem; min-width: 15.5rem; text-align: right; }
   .track-val em { font-style: normal; color: var(--steel); }
+
+  /* Narrow: name and value share a line where they fit and stack where they do not, with the
+     rail beneath and the value flush to the limit. The 15.5rem value column leaves the name
+     too little room on a phone. Must sit after .track-val, or the base rule wins the cascade. */
+  @media (max-width: 700px) {
+    .track-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .75rem; }
+    .track-row .rail-wrap { order: 3; flex: 1 0 100%; }
+    .track-val { min-width: 0; flex: 1 1 auto; }
+  }
 
   .totals { display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; padding-top: 1.125rem; border-top: 1px solid var(--hairline); }
   .total { display: flex; flex-direction: column; gap: .15rem; }
@@ -274,7 +280,9 @@
     gap: clamp(1rem, 2vw, 1.5rem);
     align-items: start;
   }
-  @media (max-width: 980px) { .install-grid { grid-template-columns: 1fr; } }
+  /* minmax(0,...), not 1fr: a bare 1fr floors at min-content, and the clone URL in the
+     code block is one unbreakable token, so the column would push the page sideways */
+  @media (max-width: 980px) { .install-grid { grid-template-columns: minmax(0, 1fr); } }
   .route {
     display: flex; flex-direction: column; gap: .7rem;
     background: var(--graphite);
@@ -285,6 +293,10 @@
   }
   /* The recommended route is the one that earns the accent */
   .route-best { border-color: color-mix(in srgb, var(--signal) 40%, var(--hairline)); }
+  /* The one .route that stands alone rather than in the install grid. Capped to the reading
+     measure so prose and code share an edge instead of stranding half the card empty. */
+  .route-aside { max-width: 62ch; margin-top: 1.25rem; }
+  .route-aside .note { max-width: none; }
   .route pre { background: var(--carbon); font-size: .78rem; }
   .route .note { font-size: .8125rem; }
 
@@ -480,19 +492,25 @@
       </div>
     </div>
 
-    <div class="route" style="margin-top:1.25rem">
-      <p class="label">One setup step</p>
+    <div class="route route-aside">
+      <p class="label">Setup, once</p>
       <h3>Plain <code>ollama run</code> is counted</h3>
       <p class="note"><strong>Set Up Ollama Tracking</strong> in the dropdown installs a
-         transparent shim at <code>~/.local/bin/ollama</code>. Every subcommand passes
-         through to the real binary unchanged; plain <code>ollama run</code> calls are
-         answered over the local API so their token counts land in RedLine. No agent
-         configuration, no habit change. Programs that call Ollama's HTTP API directly
-         bypass the CLI, so those stay uncounted.</p>
+         transparent shim at <code>~/.local/bin/ollama</code>, which has to come before the
+         real binary on your <code>PATH</code>. If it does not already, add
+         <code>export PATH="$HOME/.local/bin:$PATH"</code> to your shell profile once.</p>
+      <p class="note">Every other subcommand passes through to the real binary untouched.
+         Two shapes of <code>ollama run</code> are answered over the local API so their
+         token counts land in RedLine: a prompt piped in, and a prompt as a single
+         argument. No agent configuration, no habit change.</p>
       <pre><span class="c"># you, or your coding agent, exactly as before</span>
 ollama run qwen3-coder:30b &lt;&lt;'PROMPT'
 Summarize this build log.
 PROMPT</pre>
+      <p class="note">Interactive chat, any <code>run</code> carrying flags, and programs
+         that call Ollama's HTTP API directly never reach the shim, so those stay
+         uncounted. If the API call fails the prompt is replayed through the real binary,
+         so the worst case is an uncounted call, never a broken one.</p>
     </div>
   </section>
 
@@ -514,10 +532,11 @@ PROMPT</pre>
            Their content is never copied, stored, or sent anywhere. Prompts never reach a log.</p>
       </div>
       <div class="card">
-        <div class="card-top"><h3>Three hosts, all Anthropic's</h3><span class="chip">opt-in</span></div>
-        <p>Claude rate limits are called only if you enable them. The one call RedLine makes
-           on its own is a daily check for a newer release, which you can switch off. Codex
-           and Ollama are read entirely from disk. Endpoint overrides must be HTTPS.</p>
+        <div class="card-top"><h3>Every host it can reach</h3><span class="chip">network</span></div>
+        <p>One is on by default: the daily release check, against GitHub's API. The rest are
+           yours to switch on. Claude rate limits and sign-in reach Anthropic. Service health
+           reads Anthropic's and OpenAI's public status feeds. Codex and Ollama usage never
+           leave the disk, and endpoint overrides must be HTTPS.</p>
       </div>
       <div class="card">
         <div class="card-top"><h3>Credentials you control</h3><span class="chip">keychain</span></div>
@@ -623,8 +642,9 @@ codesign -dv --verbose=2 /Applications/Redline.app</pre>
       installed. It works with any one of them, and the pickers disappear when there is only
       one track. Updates install <strong>in place</strong> from the menu afterward: verified
       against notarization and this project's signing identity, then swapped and relaunched.
-      Checks run when you ask, or on an opt-in twice-daily schedule that only speaks up when
-      an update exists, so the no-network default holds. <strong>Menu Bar Style</strong>
+      Checks run when you ask, and once a day on their own unless you switch that off. It is
+      the only request RedLine makes without being asked, and it speaks up only when an
+      update exists. <strong>Menu Bar Style</strong>
       makes the readout yours: hide the icon, hide reset times, pick which limit windows
       appear, down to a single number. Leaving is as clean as arriving:
       <strong>Uninstall RedLine</strong> in the menu removes the app, the login item, and
