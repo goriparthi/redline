@@ -17,7 +17,9 @@ Sources/RedlineCore/     Pure parsing and aggregation. No AppKit, no network, no
   Snapshot.swift         Wire format the app writes and the widget renders
   ServiceStatus.swift    Status-page parsing, plus the shared health glyph vocabulary
   SingleInstance.swift   The lock that keeps one copy in the menu bar
-  CredentialScan.swift   Finds an access token in an undocumented JSON blob
+  StatuslineFeed.swift   Claude's limit windows as Claude Code itself reports them
+  CredentialScan.swift   Finds a credential in an undocumented JSON blob, plus hex decoding
+  ClaudeAuth.swift       What a failed credential read or refresh means, and how long to wait
   Brand.swift/BrandUI    Colour tokens and the shared track badges
 
 Sources/redline/         The app. AppKit, network and Keychain live here only.
@@ -29,11 +31,15 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
   FirstRun.swift         The providers and limits setup window
   MenuRowView.swift      Menu rows that read as information, not controls
   OAuth.swift            Keychain token storage, CLI-token borrowing, PKCE sign-in
+  ClaudeCredentialSource Reads the CLI's credential from file, Keychain, or security(1)
+  DelegatedRefresh.swift Asks Claude Code to renew its own token instead of doing it for it
+  StatuslineInstaller    Installs the usage feed and the settings.json entry pointing at it
 
 Sources/RedlineWidget/   The WidgetKit extension. Renders the snapshot, parses nothing.
 
-Tests/RedlineCoreTests/  127 tests over the core
-scripts/                 Build, test, bundle, install, DMG, release, Ollama shim
+Tests/RedlineCoreTests/  146 tests over the core
+scripts/                 Build, test, bundle, install, DMG, release, Ollama shim,
+                         Claude usage feed
 Casks/redline.rb         Homebrew cask
 ```
 
@@ -58,47 +64,80 @@ Nothing in the core reads the real home directory unless you let it default.
 - `refreshLocal()` scans transcripts on a utility queue and aggregates into three buckets
   (today, last 5 hours, last 7 days). Codex limits fall out of the same scan, since they
   are already on disk.
-- `refreshLimits()` fetches Claude rate limits over the network.
+- `refreshLimits()` reads Claude rate limits, from the usage feed on disk when it is
+  installed and reporting, and over the network otherwise.
 
-They are separate because one is a file read that always works and the other needs a token
-that may not exist. A failure in one must never blank the other.
+They are separate because one is a file read that always works and the other may need a token
+that does not exist. A failure in one must never blank the other.
+
+The feed is checked first and returns early on a hit, so the whole token path is skipped
+whenever Claude Code has already reported its own windows. Windows whose reset has passed are
+dropped on read, which is what lets a feed that has gone quiet fall through to the token path
+without anything having to notice that it went quiet.
 
 Polling is `pollIntervalSeconds` (default 300), plus a refresh on wake and on menu open if
 the data is over 60s old.
 
 ## Auth, and why it is shaped this way
 
-Claude rate limits need an OAuth token. Two sources, tried in order:
+Claude rate limits are read from four sources, tried in order, each one cheaper and less
+intrusive than the one below it:
 
-1. **The CLI's token**, read from the `Claude Code-credentials` Keychain item.
-2. **This app's own grant**, PKCE sign-in stored under Keychain service `redline`.
+0. **The usage feed.** Claude Code passes its own `rate_limits` to whatever `statusLine`
+   command is configured. `scripts/claude-statusline.sh` files that block to
+   `~/.local/share/redline/claude-usage.json`, and `StatuslineFeed` parses it. No token, no
+   Keychain, no network. When this reports, nothing below it runs.
+1. **The CLI's credential**, via `ClaudeCredentialSource`: the file at
+   `~/.claude/.credentials.json`, then the Keychain API, then `/usr/bin/security`.
+2. **Delegated refresh.** If that credential has expired, `claude auth status` asks Claude
+   Code to renew its own, and the credential is read again.
+3. **Minting**, exchanging the CLI's refresh token directly, then this app's own PKCE grant
+   under Keychain service `redline`.
 
-The CLI's token is preferred because of a failure discovered the hard way: this app and the
-Claude CLI can end up sharing one OAuth client, and the CLI's constant token rotation
-invalidates the app's refresh token. The app's grant would die roughly daily while the CLI
-stayed healthy. Borrowing the already-refreshed token sidesteps that entirely.
+Order is the whole design. Each rung costs more and carries more risk than the last, so the
+common case never reaches the expensive ones.
+
+### Why the ladder exists
+
+The original single-source version needed a manual **Reconnect** once or twice a day. The
+cause was not the Keychain grant expiring, which was the earlier theory recorded here and is
+wrong: `Claude Code-credentials` is updated in place, its creation date does not move, and a
+Developer ID signature keeps the ACL valid across RedLine's own rebuilds.
+
+The real cause was two things compounding. `CredentialScan` returned nil for an *expired*
+token, indistinguishable from an absent one, and `refreshCLIProbe` cached that nil and then
+short-circuited on `have` forever. Claude Code renews its token only when it runs, so an idle
+CLI plus one expired read latched RedLine off until the user clicked Reconnect.
 
 Constraints that shaped the implementation:
 
-- **Keychain reads can block on a consent prompt**, so the probe runs on `probeQueue`,
-  never the main thread. Blocking the main thread beachballs the whole menu bar.
-- **The probe caches misses as well as hits** for 60s, so a denied prompt is not re-asked
-  on every poll.
-- **A background `LSUIElement` agent is denied silently** rather than prompted, so failure
-  here is expected until access is granted in Keychain Access.app.
-- **The grant does not last.** Claude Code rewrites `Claude Code-credentials` every time it
-  refreshes its token, and the rewrite drops RedLine from the item's access list, so the
-  consent prompt returns roughly daily. Nothing on this side changes that; the menu surfaces
-  it as **Reconnect Claude usage…**. A Developer ID signature does keep the grant across
-  RedLine's own rebuilds, which was verified by replacing the bundle repeatedly while access
-  held.
-- **A 401/403 while using the CLI token** marks it unusable and retries once with the app's
-  own grant. The endpoint requires the OAuth scope `user:profile`; only the token Claude Code
-  writes at `/login` carries it, which is why `claude setup-token` output is rejected.
+- **Nothing latches except a signed-out CLI.** `CredentialOutcome` separates `notFound` from
+  `accessDenied` and `unreadable`; only the first is durable. The rest retry on a timer.
+  Discarding the `OSStatus` is what caused the original bug, twice.
+- **The credential is cached with its expiry**, not as a bare string, so it is re-read when it
+  dies rather than after a request fails.
+- **Attribute-only Keychain reads cost nothing.** A query without `kSecReturnData` never
+  decrypts the secret, so it neither consults the ACL nor prompts. Watching
+  `kSecAttrModificationDate` is therefore a free signal that the CLI rotated the token.
+- **Keychain reads can block on a consent prompt**, so the probe runs on `probeQueue`, never
+  the main thread. Blocking the main thread beachballs the whole menu bar. For the same
+  reason the `security` subprocess waits 90 seconds: a shorter kill fires while the dialog is
+  still open and reads a waiting user as a denial.
+- **`security -w` hex-encodes** any payload it cannot return as a clean C-string, and Claude
+  Code's blob line-wraps, which triggers it. `SecurityCLIOutput.decode` handles that.
+- **Delegated refresh measures itself.** Whether `claude auth status` renews an expired token
+  is not documented, so the code compares the stored expiry before and after and stops
+  spawning the process once it proves ineffective on this machine.
+- **Minting forks the refresh chain.** Anthropic rotates refresh tokens, so minting can leave
+  the CLI's copy stale and force a fresh `/login`. That is why it is last, why the result goes
+  in RedLine's own Keychain item rather than back over the CLI's, and why a refusal naming the
+  grant stops the attempt permanently.
+- **The endpoint requires the OAuth scope `user:profile`**; only the token Claude Code writes
+  at `/login` carries it, which is why `claude setup-token` output is rejected.
 - **`invalid_grant` on refresh is terminal.** The dead token is cleared so the app falls
   back to offering Sign In. Without this it stays "signed in" and retries a dead token
-  forever, which is exactly the bug that motivated this work.
-- **A rebuild changes the ad-hoc code identity**, so the old Keychain item's ACL rejects the
+  forever.
+- **A rebuild changes an ad-hoc code identity**, so the old Keychain item's ACL rejects the
   new binary. `TokenStore.save()` therefore handles `errSecDuplicateItem` by updating in
   place, and reports failure instead of claiming a successful sign-in.
 
