@@ -219,6 +219,9 @@ final class DashboardModel: ObservableObject {
     @Published var data = DashboardData()
     /// Set by the app: forces a status re-fetch past the 15 minute throttle
     var onStatusRefresh: (() -> Void)?
+    /// Installs the Claude usage feed from the dashboard's empty Limits state, so the fix
+    /// lives where the gap is noticed rather than only in the menu.
+    var onSetupClaudeTracking: (() -> Void)?
     /// Set by the app: repaints the window for a theme choice. SwiftUI's preferredColorScheme
     /// only reached the window on the next state change, so following the OS again left the
     /// content on the old theme until the window lost focus.
@@ -772,6 +775,9 @@ struct DashboardView: View {
                     }
                 } else {
                     tiles
+                    // Limits before service status: the limit rails are the product's
+                    // headline, and the menu already leads with them.
+                    limitsPanel
                     if !data.visibleServices.isEmpty {
                         Panel(title: "Service status", note: "as reported by each operator") {
                             VStack(alignment: .leading, spacing: 10) {
@@ -799,22 +805,6 @@ struct DashboardView: View {
                                             .foregroundStyle(Brandkit.steel)
                                     }
                                     Spacer()
-                                }
-                            }
-                        }
-                    }
-                    if !data.visibleLimits.isEmpty || data.limitsNote != nil {
-                        Panel(title: "Limits", note: "limit at the line") {
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(data.visibleLimits) {
-                                    LimitRailRow(window: $0, yellow: 60, red: 85,
-                                                 asOf: $0.provider == "Claude"
-                                                     ? data.claudeLimitsAsOf : nil)
-                                }
-                                if let note = data.limitsNote {
-                                    Text(note)
-                                        .font(.system(size: 12, design: .monospaced))
-                                        .foregroundStyle(Brandkit.steel)
                                 }
                             }
                         }
@@ -850,6 +840,45 @@ struct DashboardView: View {
         .background(Brandkit.carbon)
         // The theme is applied to the window itself, in AppDelegate. preferredColorScheme
         // here would fight it and reintroduce the lag on returning to "follow the OS".
+    }
+
+    /// The rails, or a way to get them. An empty panel with only an error string was a dead
+    /// end exactly where a new user needs a door; the setup button is the door.
+    @ViewBuilder
+    private var limitsPanel: some View {
+        if !data.visibleLimits.isEmpty || data.limitsNote != nil {
+            Panel(title: "Limits", note: "the red line marks the limit") {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(data.visibleLimits) {
+                        LimitRailRow(window: $0, yellow: 60, red: 85,
+                                     asOf: $0.provider == "Claude"
+                                         ? data.claudeLimitsAsOf : nil)
+                    }
+                    if let note = data.limitsNote {
+                        Text(note)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(Brandkit.steel)
+                    }
+                    // No Claude rails and no feed installed: offer the recommended fix
+                    // right here rather than sending the user hunting through the menu
+                    if data.matches("Claude"),
+                       !data.visibleLimits.contains(where: { $0.provider == "Claude" }),
+                       !StatuslineInstaller.isInstalled(),
+                       data.availability.has("Claude") {
+                        Button {
+                            model.onSetupClaudeTracking?()
+                        } label: {
+                            Label("Set Up Claude Tracking…", systemImage: "waveform.path")
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Brandkit.chalk)
+                        .help("Reads the windows Claude Code hands its statusline. "
+                              + "No sign-in, no Keychain, no network.")
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder

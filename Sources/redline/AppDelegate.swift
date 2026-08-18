@@ -108,6 +108,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var codexService: ServiceStatus.Report?
     private var serviceStatusAt: Date?
     private var claudeLimitsAt: Date?
+    /// Which source produced the current Claude windows. Shown as a quiet provenance line
+    /// under the section, because three different sources can feed the same number and a
+    /// reading whose origin cannot be named is a reading that cannot be trusted or fixed.
+    enum ClaudeLimitsSource { case feed, signIn, cliToken }
+    private var claudeLimitsSource: ClaudeLimitsSource?
     private var ollamaSection: Snapshot.Ollama?
     // Recomputed on each refresh so a provider installed later shows up without a restart
     private var availability = ProviderAvailability.detect()
@@ -128,6 +133,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         let firstRun = Config.isFirstRun()
         // The dashboard's "Check now" button: past the throttle, straight to the feeds
+        dashboardModel.onSetupClaudeTracking = { [weak self] in
+            self?.installStatuslineFeed(nil)
+        }
         dashboardModel.onStatusRefresh = { [weak self] in
             guard let self else { return }
             self.serviceStatusAt = nil
@@ -535,8 +543,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func signOut(_ sender: Any?) {
         oauth.signOut()
         claudeLimits = []
+        claudeLimitsAt = nil
+        claudeLimitsSource = nil
         limitsStatus = nil
         updateTitle()
+        // The feed, if installed, repopulates the percentages on the next poll
+        refresh()
     }
 
     /// nil hands the window back to the OS setting. Setting the window's own appearance is
@@ -720,6 +732,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // One-click enable from the menu: persist the choice, probe immediately, and either
     // show data or say exactly what is in the way
+    /// The menu checkbox: on enables the borrow (and verifies the read), off disables it.
+    /// enableCLIToken stays separate because first-run and the checkbox share the enable path.
+    @objc func toggleCLIToken(_ sender: Any?) {
+        if config.useCLIToken {
+            guard Config.write(["useCLIToken": false]) else {
+                limitsStatus = "Could not write config"
+                if let menu = statusItem.menu { rebuildMenu(menu) }
+                return
+            }
+            config = Config.load()
+            oauth.update(settings: config.oauth, useCLIToken: false)
+            refresh()
+        } else {
+            enableCLIToken(sender)
+        }
+    }
+
     @objc func enableCLIToken(_ sender: Any?) {
         guard Config.write(["useCLIToken": true]) else {
             limitsStatus = "Could not write config"
@@ -1061,6 +1090,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !claudeLimits.isEmpty || claudeLimitsAt != nil || limitsStatus != nil {
                 claudeLimits = []
                 claudeLimitsAt = nil
+                claudeLimitsSource = nil
                 limitsStatus = nil
                 updateTitle()
                 publishSnapshot()
@@ -1077,6 +1107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let feed, !feed.isEmpty, feed.isFresh() {
             claudeLimits = feed.windows
             claudeLimitsAt = feed.updatedAt
+            claudeLimitsSource = .feed
             limitsStatus = nil
             dashboardModel.data.limitsNote = nil
             dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
@@ -1093,6 +1124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if let limits, !limits.isEmpty {
                     self.claudeLimits = limits
                     self.claudeLimitsAt = Date()
+                    self.claudeLimitsSource = self.oauth.usingCLIToken ? .cliToken : .signIn
                     self.limitsStatus = nil
                 } else if let feed, !feed.isEmpty {
                     // No live source answered. The feed's last unexpired reading beats a
@@ -1101,6 +1133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     // feed-only install, not news; a failure from an actual sign-in is.
                     self.claudeLimits = feed.windows
                     self.claudeLimitsAt = feed.updatedAt
+                    self.claudeLimitsSource = .feed
                     self.limitsStatus = self.oauth.isSignedIn ? err : nil
                 } else {
                     // Losing the token invalidates the cached percentages; keeping them would
@@ -1108,6 +1141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     if err != nil && !self.oauth.isSignedIn {
                         self.claudeLimits = []
                         self.claudeLimitsAt = nil
+                        self.claudeLimitsSource = nil
                     }
                     self.limitsStatus = err
                 }
@@ -1362,9 +1396,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         func emitClaudeNotes() {
             claudeNotesEmitted = true
             if let s = limitsStatus { addInfo(menu, "    \(s)") }
-            if oauth.usingCLIToken {
-                addInfo(menu, "    Reading limits with the Claude CLI's token",
-                        secondary: true)
+            // Provenance, always: three sources can produce the same percentage, and a
+            // number that cannot say where it came from cannot be trusted or fixed.
+            if !claudeLimits.isEmpty, let source = claudeLimitsSource {
+                let line = switch source {
+                case .feed:     "    via the usage feed"
+                case .signIn:   "    via your Claude sign-in"
+                case .cliToken: "    via the Claude CLI's token"
+                }
+                addInfo(menu, line, secondary: true)
             }
         }
         for provider in grouped.keys.sorted() {
@@ -1385,36 +1425,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !claudeNotesEmitted { emitClaudeNotes() }
 
         // Percentages that are off or broken must say so where the user is looking, with
-        // the enable actions one click away. A setting that only lives in another window
-        // reads as a silent failure. A working feed already delivers percentages, so the
-        // claim "off" is reserved for when nothing is producing them.
+        // the fix one click away. A working feed already delivers percentages, so the claim
+        // "off" is reserved for when nothing is producing them. The full set of source
+        // choices lives in one place, Settings > Claude Limits Source; this row is the door.
         if config.wants(UsageStore.provider), !oauth.isSignedIn, !config.useCLIToken,
            claudeLimits.isEmpty {
             addInfo(menu, "    Claude percentages are off", secondary: true)
-            let parent = NSMenuItem(title: "Show Claude Percentages",
-                                    action: nil, keyEquivalent: "")
-            let sub = NSMenu()
-            let feed = NSMenuItem(title: "Set Up the Usage Feed (recommended)…",
-                                  action: #selector(installStatuslineFeed(_:)),
-                                  keyEquivalent: "")
-            feed.target = self
-            feed.toolTip = "Reads the windows Claude Code hands its statusline. "
-                + "No sign-in, no Keychain, no network."
-            sub.addItem(feed)
-            let b = NSMenuItem(title: "Sign In with Browser…",
-                               action: #selector(browserSignIn(_:)), keyEquivalent: "")
-            b.target = self
-            b.toolTip = "Live between sessions too; also the route for claude.ai users "
-                + "without Claude Code"
-            sub.addItem(b)
-            let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
-                                 action: #selector(enableCLIToken(_:)), keyEquivalent: "")
-            cli.target = self
-            cli.toolTip = "Reads Claude Code's token from your Keychain. The token is only "
-                + "ever read, never refreshed, so it cannot sign the CLI out."
-            sub.addItem(cli)
-            parent.submenu = sub
-            menu.addItem(parent)
+            // One door, opening on the right room: the feed needs Claude Code, so a
+            // claude.ai-only user is sent to the browser sign-in instead.
+            let hasCLI = availability.has(UsageStore.provider)
+            let fix = NSMenuItem(title: "Show Claude Percentages…",
+                                 action: hasCLI ? #selector(installStatuslineFeed(_:))
+                                                : #selector(browserSignIn(_:)),
+                                 keyEquivalent: "")
+            fix.target = self
+            fix.toolTip = hasCLI
+                ? "Sets up the usage feed: the windows Claude Code hands its statusline. "
+                    + "No sign-in, no Keychain, no network. Other sources are under "
+                    + "Settings > Claude Limits Source."
+                : "Signs in with your Claude account in a browser. Other sources are under "
+                    + "Settings > Claude Limits Source."
+            menu.addItem(fix)
         }
         menu.addItem(.separator())
 
@@ -1482,68 +1513,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Everything that changes how RedLine behaves, in the order it gets reached for.
     /// Providers are chosen in one place only, the setup window, which also carries the
     /// Claude limits decision.
+    /// Sources first, display second, behaviour third, the raw file last. Every credential
+    /// and setup decision lives under exactly one roof so it can be found again later, not
+    /// only at the moment a conditional item happened to be visible.
     private func buildSettingsMenu() -> NSMenu {
         let menu = NSMenu()
-        let setup = NSMenuItem(title: "Providers & Claude Limits…",
-                               action: #selector(showSetup(_:)), keyEquivalent: "")
+        let setup = NSMenuItem(title: "Set Up RedLine…",
+                               action: #selector(showSetup(_:)), keyEquivalent: ",")
         setup.target = self
+        setup.toolTip = "Which providers RedLine reads, and where Claude's percentages "
+                      + "come from"
         menu.addItem(setup)
 
-        let barItem = NSMenuItem(title: "Menu Bar Shows", action: nil, keyEquivalent: "")
-        let barSub = NSMenu()
-        for choice in availability.trackChoices {
-            let title = choice == Config.autoProvider ? "Nearest Limit (any provider)" : choice
-            let item = NSMenuItem(title: title, action: #selector(pickMenuBarProvider(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = choice
-            item.state = choice.caseInsensitiveCompare(config.menuBarProvider) == .orderedSame
-                ? .on : .off
-            // A provider that is switched off entirely has nothing to report
-            if choice != Config.autoProvider, !config.wants(choice) {
-                item.isEnabled = false
-                item.toolTip = "Enable \(choice) in Providers & Claude Limits first"
-            } else if choice == OllamaStore.provider {
-                item.toolTip = "Ollama has no rate limit; shows tokens used today"
+        // Every way the Claude percentages can be sourced, in one place, with the active
+        // ones checked. These items used to be scattered across conditional menus, which
+        // meant sign-in could be found only while it was broken.
+        if availability.has(UsageStore.provider) || config.wants(UsageStore.provider)
+            || oauth.isSignedIn {
+            let srcItem = NSMenuItem(title: "Claude Limits Source",
+                                     action: nil, keyEquivalent: "")
+            let src = NSMenu()
+            if availability.has(UsageStore.provider) {
+                let feedInstalled = StatuslineInstaller.isInstalled()
+                let f = NSMenuItem(title: "Set Up Claude Tracking…",
+                                   action: #selector(installStatuslineFeed(_:)),
+                                   keyEquivalent: "")
+                f.target = self
+                f.state = feedInstalled ? .on : .off
+                f.toolTip = feedInstalled
+                    ? "Installed: the usage feed reads the windows Claude Code hands its "
+                        + "statusline. Re-running updates the wrapper."
+                    : "The recommended source: the windows Claude Code hands its statusline. "
+                        + "No sign-in, no Keychain, no network."
+                src.addItem(f)
             }
-            barSub.addItem(item)
+            let signedIn = oauth.hasOwnGrant
+            let b = NSMenuItem(title: signedIn ? "Sign Out of Claude"
+                                               : "Sign In with Browser…",
+                               action: signedIn ? #selector(signOut(_:))
+                                                : #selector(browserSignIn(_:)),
+                               keyEquivalent: "")
+            b.target = self
+            b.state = signedIn ? .on : .off
+            b.toolTip = signedIn
+                ? "Signed in: RedLine fetches live percentages with its own grant whenever "
+                    + "the feed is quiet"
+                : "Live between sessions too; also the route for claude.ai users without "
+                    + "Claude Code. Needs oauth.clientId in the config."
+            src.addItem(b)
+            let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
+                                 action: #selector(toggleCLIToken(_:)), keyEquivalent: "")
+            cli.target = self
+            cli.state = config.useCLIToken ? .on : .off
+            cli.toolTip = "Reads Claude Code's token from your Keychain. Only ever read, "
+                        + "never refreshed, so it cannot sign the CLI out."
+            src.addItem(cli)
+            srcItem.submenu = src
+            menu.addItem(srcItem)
         }
-        barItem.submenu = barSub
-        if availability.hasChoice { menu.addItem(barItem) }
-
-        // Compactness is taste, so every element is a choice rather than a mode
-        let styleItem = NSMenuItem(title: "Menu Bar Style", action: nil, keyEquivalent: "")
-        let style = NSMenu()
-        let icon = NSMenuItem(title: "Show Icon", action: #selector(toggleMenuIcon(_:)),
-                              keyEquivalent: "")
-        icon.target = self
-        icon.state = config.showMenuIcon ? .on : .off
-        style.addItem(icon)
-        let resets = NSMenuItem(title: "Show Reset Times",
-                                action: #selector(toggleResetTimes(_:)), keyEquivalent: "")
-        resets.target = self
-        resets.state = config.showResetTimes ? .on : .off
-        style.addItem(resets)
-        style.addItem(.separator())
-        for (title, value) in [("All Limits", "all"), ("Session Only", "session"),
-                               ("Week Only", "week")] {
-            let item = NSMenuItem(title: title, action: #selector(pickLimitWindows(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = value
-            item.state = config.limitWindows == value ? .on : .off
-            style.addItem(item)
-        }
-        styleItem.submenu = style
-        menu.addItem(styleItem)
-
-        let svc = NSMenuItem(title: "Show Service Status",
-                             action: #selector(toggleStatusChecks(_:)), keyEquivalent: "")
-        svc.target = self
-        svc.state = config.statusChecks ? .on : .off
-        svc.toolTip = "Polls the providers' public status pages every 15 minutes; "
-                    + "Refresh Now checks immediately"
-        menu.addItem(svc)
 
         // Only offered when Ollama is actually installed; a setup step for a missing tool
         // is noise
@@ -1557,27 +1584,80 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                       + "`ollama run` calls are counted"
             menu.addItem(w)
         }
+        menu.addItem(.separator())
 
-        // Only when Claude is present, and only while the feed is not already wired up
-        if availability.has(UsageStore.provider), !StatuslineInstaller.isInstalled() {
-            let f = NSMenuItem(title: "Set Up Claude Usage Feed…",
-                               action: #selector(installStatuslineFeed(_:)), keyEquivalent: "")
-            f.target = self
-            f.toolTip = "Reads Claude Code's own rate-limit figures from its statusline, so "
-                      + "the percentages need no token and no Keychain access"
-            menu.addItem(f)
+        // One submenu for everything the menu bar readout is, was two ("Shows" / "Style")
+        let barItem = NSMenuItem(title: "Menu Bar", action: nil, keyEquivalent: "")
+        let bar = NSMenu()
+        if availability.hasChoice {
+            for choice in availability.trackChoices {
+                let title = choice == Config.autoProvider
+                    ? "Nearest Limit (any provider)" : choice
+                let item = NSMenuItem(title: title,
+                                      action: #selector(pickMenuBarProvider(_:)),
+                                      keyEquivalent: "")
+                item.target = self
+                item.representedObject = choice
+                item.state = choice.caseInsensitiveCompare(config.menuBarProvider)
+                    == .orderedSame ? .on : .off
+                // A provider that is switched off entirely has nothing to report
+                if choice != Config.autoProvider, !config.wants(choice) {
+                    item.isEnabled = false
+                    item.toolTip = "Enable \(choice) in Set Up RedLine first"
+                } else if choice == OllamaStore.provider {
+                    item.toolTip = "Ollama has no rate limit; shows tokens used today"
+                }
+                bar.addItem(item)
+            }
+            bar.addItem(.separator())
         }
+        // Compactness is taste, so every element is a choice rather than a mode
+        let icon = NSMenuItem(title: "Show Icon", action: #selector(toggleMenuIcon(_:)),
+                              keyEquivalent: "")
+        icon.target = self
+        icon.state = config.showMenuIcon ? .on : .off
+        bar.addItem(icon)
+        let resets = NSMenuItem(title: "Show Reset Times",
+                                action: #selector(toggleResetTimes(_:)), keyEquivalent: "")
+        resets.target = self
+        resets.state = config.showResetTimes ? .on : .off
+        bar.addItem(resets)
+        bar.addItem(.separator())
+        for (title, value) in [("All Limits", "all"), ("Session Only", "session"),
+                               ("Week Only", "week")] {
+            let item = NSMenuItem(title: title, action: #selector(pickLimitWindows(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = config.limitWindows == value ? .on : .off
+            bar.addItem(item)
+        }
+        barItem.submenu = bar
+        menu.addItem(barItem)
 
-        let e = NSMenuItem(title: "Edit Config…", action: #selector(editConfig(_:)),
-                           keyEquivalent: ",")
-        e.target = self
-        menu.addItem(e)
+        let svc = NSMenuItem(title: "Check Service Status Pages",
+                             action: #selector(toggleStatusChecks(_:)), keyEquivalent: "")
+        svc.target = self
+        svc.state = config.statusChecks ? .on : .off
+        svc.toolTip = "Polls the providers' public status pages every 15 minutes; "
+                    + "Refresh Now checks immediately"
+        menu.addItem(svc)
+        menu.addItem(.separator())
 
         let l = NSMenuItem(title: "Launch at Login",
                            action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
         l.target = self
         l.state = LaunchAgent.isInstalled ? .on : .off
         menu.addItem(l)
+
+        let auto = NSMenuItem(title: "Check Daily for Updates",
+                              action: #selector(toggleAutoUpdates(_:)), keyEquivalent: "")
+        auto.target = self
+        auto.state = config.autoCheckUpdates ? .on : .off
+        auto.toolTip = "Asks the GitHub releases API once a day and speaks up only when an "
+                     + "update exists. This is the one network request RedLine makes without "
+                     + "being asked; switch it off and updates are yours to check for."
+        menu.addItem(auto)
 
         // Only shown while the durable grant is missing; once FDA is on there is nothing
         // left to fix
@@ -1588,23 +1668,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             fda.toolTip = "Full Disk Access is the one grant macOS remembers"
             menu.addItem(fda)
         }
-
-        if oauth.isSignedIn {
-            let o = NSMenuItem(title: "Sign Out of Claude", action: #selector(signOut(_:)),
-                               keyEquivalent: "")
-            o.target = self
-            menu.addItem(o)
-        }
-
         menu.addItem(.separator())
-        let auto = NSMenuItem(title: "Check for Automatic Updates",
-                              action: #selector(toggleAutoUpdates(_:)), keyEquivalent: "")
-        auto.target = self
-        auto.state = config.autoCheckUpdates ? .on : .off
-        auto.toolTip = "Asks the GitHub releases API once a day and speaks up only when an "
-                     + "update exists. This is the one network request RedLine makes without "
-                     + "being asked; switch it off and updates are yours to check for."
-        menu.addItem(auto)
+
+        let e = NSMenuItem(title: "Edit Config…", action: #selector(editConfig(_:)),
+                           keyEquivalent: "")
+        e.target = self
+        e.toolTip = "The raw config.json; everything above edits the same file"
+        menu.addItem(e)
         return menu
     }
 

@@ -23,7 +23,7 @@ and the difference between them matters.
 
 **The usage feed asks nothing of Anthropic.** Claude Code passes its own rate-limit figures to
 whatever statusline command you configure, which is a documented extension point. **Set Up
-Claude Usage Feed** points that at a small wrapper that files them where RedLine reads them.
+Claude Tracking** points that at a small wrapper that files them where RedLine reads them.
 No credential, no Keychain, no request. If you use the feed, everything below is moot, and it
 is the route this project recommends.
 
@@ -96,12 +96,12 @@ the totals, the small keeps the window nearest its limit.
 - **Usage and remaining capacity** per provider for the session and week windows, coloured by the brand thresholds (Clear, Amber, Signal).
 - **The nearest limit in the menu bar**, or a provider you pick. By default the title shows
   whichever provider is closest to its limit, since that is the one that will interrupt you
-  first. Choose a single provider from **Settings ▸ Menu Bar Shows** if you would rather
+  first. Choose a single provider from **Settings ▸ Menu Bar** if you would rather
   watch one. The dropdown always breaks down every provider.
 - **Token and cost totals** for today, the last 5 hours, and the last 7 days, grouped under
   each provider with inline share bars, so a model can never be listed under the wrong
   provider and relative weight is visible without reading the numbers.
-- **Service status**, opt-in via **Settings ▸ Show Service Status**: the menu, dashboard,
+- **Service status**, opt-in via **Settings ▸ Check Service Status Pages**: the menu, dashboard,
   and widgets report each provider's health from its public status page (Claude and Codex), polled
   every 15 minutes. **Refresh Now** in the menu and **Check now** on the dashboard check
   immediately. All three surfaces draw the same glyph for the same state, so an outage
@@ -174,7 +174,7 @@ where you can read what you are about to run.
 ### Which providers to read
 
 On first launch RedLine asks which of Claude, Codex, and Ollama to read, listing only what it
-finds installed. Change it later from **Settings ▸ Providers & Claude Limits…**, which
+finds installed. Change it later from **Settings ▸ Set Up RedLine…**, which
 reopens the same window.
 
 RedLine works with any one of them. With a single tool installed the provider pickers
@@ -186,7 +186,7 @@ RedLine asks the GitHub releases API **once a day** whether a newer version exis
 nothing unless one does; a quiet check never interrupts. This is on by default and is the
 only request RedLine makes without being asked. An app that installs updates in place has to
 learn about them to be worth trusting, and a security fix nobody hears about is not a fix.
-Turn it off with **Settings ▸ Check for Automatic Updates** and RedLine goes back to making
+Turn it off with **Settings ▸ Check Daily for Updates** and RedLine goes back to making
 no network requests at all; **Check for Updates…** then checks on demand, whenever you ask.
 
 When a newer release exists, **Install Update…** replaces the app in place: it downloads the
@@ -209,7 +209,7 @@ history as well. Your Claude, Codex and Ollama files are never touched. From a c
 
 ## Providers
 
-Pick which ones to read from **Settings ▸ Providers & Claude Limits…**, or set `providers`
+Pick which ones to read from **Settings ▸ Set Up RedLine…**, or set `providers`
 in the config. Each is independent; none is required.
 
 | Provider | Source | Auth | Rate limits | Tokens |
@@ -237,7 +237,7 @@ Token and cost totals come from transcripts on disk and need no credentials. The
 **rate-limit percentages** have three routes, and the first one needs no credential either.
 
 **1. The usage feed (recommended).** Claude Code hands its own rate-limit figures to whatever
-statusline command you have configured. **Set Up Claude Usage Feed** in the menu points that
+statusline command you have configured. **Set Up Claude Tracking** in the menu points that
 at a small wrapper which files those figures where RedLine reads them. No token, no Keychain
 prompt, and no request to Anthropic. It keeps any statusline you already run: yours still
 draws the line, unchanged, and the wrapper only takes a copy of the limit block in passing.
@@ -250,7 +250,7 @@ that predates the install is enough), RedLine notices on its next poll and re-wi
 keeping whatever statusline command is there chained in front.
 
 The remaining two routes are for when the feed is not installed or your build of Claude Code
-does not send the limits. Both live in **Settings ▸ Providers & Claude Limits…**, and both are
+does not send the limits. Both live in **Settings ▸ Set Up RedLine…**, and both are
 off by default:
 
 **2. Borrow the CLI's token** (`useCLIToken: true`). Needs Claude Code installed and signed

@@ -3,7 +3,7 @@
 # and that payload already carries the rate-limit windows RedLine shows. This writes just those
 # to a sidecar file. No token, no Keychain, no network, nothing undocumented.
 #
-# Installed by "Set Up Claude Usage Feed" in the RedLine menu, which points the `statusLine`
+# Installed by "Set Up Claude Tracking" in the RedLine menu, which points the `statusLine`
 # entry in ~/.claude/settings.json at this file.
 #
 # Composes rather than replaces: whatever statusline command was already configured is carried

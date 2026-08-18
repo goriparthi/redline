@@ -23,7 +23,7 @@ and **never stores, copies, or transmits their content**. Only counts reach the 
 ## The Claude usage feed
 
 Claude Code passes a JSON payload to whatever `statusLine` command is configured, and that
-payload already carries the rate-limit windows. **Set Up Claude Usage Feed** points that
+payload already carries the rate-limit windows. **Set Up Claude Tracking** points that
 setting at `~/.local/share/redline/claude-statusline.sh`, which files those windows where
 RedLine can read them. This path needs no token, no Keychain access, and no network request.
 
@@ -37,10 +37,14 @@ Note that the chained command is run through `sh -c`, so treat that setting as y
 other shell command in your own config: it is whatever was already in your `settings.json`,
 and RedLine never invents one.
 
-Editing `~/.claude/settings.json` is a file another application owns, so it happens only when
-you choose that menu item, never on launch or refresh. The write goes through a temporary file
-and an atomic replace, because a half-written `settings.json` would break every Claude Code
-session on the machine.
+`~/.claude/settings.json` is a file another application owns, so RedLine first writes to it
+only when you choose that menu item. After that one consent, each poll re-checks the wiring
+and restores the `statusLine` entry if something else overwrote it, because a Claude Code
+session started before the install holds the old settings in memory and writes them back on
+any settings change, silently unwiring the feed. The wrapper script on disk is the marker of
+that consent: uninstalling removes it, and with it the repair. Every write goes through a
+temporary file and an atomic replace, because a half-written `settings.json` would break
+every Claude Code session on the machine.
 
 ## What it writes
 
@@ -53,7 +57,7 @@ session on the machine.
 | `~/.config/redline/config.json` | your settings | default |
 | `~/Library/Logs/redline.{log,err}` | stdout and stderr, normally empty | default |
 | `~/.local/bin/ollama` | the ollama shim, written only when you run **Set Up Ollama Tracking** and never overwriting a file that is not RedLine's | `0755` |
-| `~/.local/share/redline/claude-statusline.sh` | the usage feed, written only when you run **Set Up Claude Usage Feed** | `0755` |
+| `~/.local/share/redline/claude-statusline.sh` | the usage feed, written only when you run **Set Up Claude Tracking** | `0755` |
 | `~/.local/share/redline/claude-usage.json` | Claude limit percentages and reset times, written by that feed | `0600` |
 | `~/.claude/settings.json` | its `statusLine` entry only, and only on that same explicit action, preserving any command already there | unchanged |
 

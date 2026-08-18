@@ -188,17 +188,23 @@ final class OAuthManager {
         let outcome = cliProbe?.outcome
         let expired = cliProbe?.credential != nil
         lock.unlock()
+        // Named for what the user can do about it: "no source set up" points at Settings,
+        // where "not signed in" implied sign-in was the only fix.
         if !useCLIToken {
-            return settings.isConfigured ? "Not signed in" : "No Claude token available"
+            return "No limits source set up"
         }
         if signedOut { return "Claude Code is signed out; run claude to sign in" }
         if outcome == .accessDenied { return "Keychain access needed; choose Reconnect" }
         if expired { return "Claude token expired; waiting for Claude Code to renew it" }
-        return settings.isConfigured ? "Not signed in" : "No Claude token available"
+        return "No limits source set up"
     }
 
     // Sign In is only offered when a client id has been configured
     var canSignIn: Bool { settings.isConfigured }
+
+    /// Specifically this app's own browser grant, as distinct from a borrowed CLI token.
+    /// The menu needs the distinction to label the source and to offer Sign In vs Sign Out.
+    var hasOwnGrant: Bool { TokenStore.load() != nil }
 
     var usingCLIToken: Bool { cachedCLIToken() != nil }
 
