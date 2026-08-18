@@ -876,6 +876,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if purge.state == .on {
             let fm = FileManager.default
             let home = fm.homeDirectoryForCurrentUser
+            // Before the data directory goes, since the usage feed script lives inside it and
+            // ~/.claude/settings.json still points at it. Removing the script first would
+            // break the statusline, including whatever was chained behind ours.
+            StatuslineInstaller.uninstall()
             for url in [Config.configURL.deletingLastPathComponent(),
                         home.appendingPathComponent("Library/Logs/\(LaunchAgent.binName).log"),
                         home.appendingPathComponent("Library/Logs/\(LaunchAgent.binName).err"),

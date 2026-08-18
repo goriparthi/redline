@@ -191,3 +191,48 @@ final class CredentialOutcomeTests: XCTestCase {
                                expiresAt: nil)).isTerminal)
     }
 }
+
+/// The chain-quoting round trip lives in the app target, so this pins the pure half of it:
+/// what `shellQuote` writes must be exactly what the unwire step can read back.
+final class ShellQuoteRoundTripTests: XCTestCase {
+    private func quote(_ s: String) -> String {
+        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private func unchain(_ command: String) -> String? {
+        let marker = "REDLINE_STATUSLINE_CHAIN='"
+        guard let start = command.range(of: marker) else { return nil }
+        var rest = command[start.upperBound...]
+        var out = ""
+        while let q = rest.firstIndex(of: "'") {
+            out += rest[rest.startIndex..<q]
+            let after = rest.index(after: q)
+            if rest[after...].hasPrefix("\\''") {
+                out += "'"
+                rest = rest[rest.index(after, offsetBy: 3)...]
+                continue
+            }
+            return out.isEmpty ? nil : out
+        }
+        return nil
+    }
+
+    private func roundTrip(_ original: String) -> String? {
+        unchain("REDLINE_STATUSLINE_CHAIN=\(quote(original)) '/path/claude-statusline.sh'")
+    }
+
+    func testOrdinaryCommandSurvives() {
+        XCTAssertEqual(roundTrip("bash ~/.claude/statusline-command.sh"),
+                       "bash ~/.claude/statusline-command.sh")
+    }
+
+    /// A statusline with quotes in it is the case that would silently truncate
+    func testQuotesAndPipesSurvive() {
+        let original = #"jq -r '.model.display_name' | sed "s/x/y/""#
+        XCTAssertEqual(roundTrip(original), original)
+    }
+
+    func testNoChainYieldsNothingToRestore() {
+        XCTAssertNil(unchain("'/path/claude-statusline.sh'"))
+    }
+}

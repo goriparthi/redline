@@ -20,7 +20,53 @@ info "Removed app and LaunchAgent"
 security delete-generic-password -s "$BIN_NAME" -a oauth >/dev/null 2>&1 \
     && info "Removed Keychain token" || true
 
+# Puts ~/.claude/settings.json back the way the feed found it: restores whatever statusline
+# was chained behind the wrapper, or drops the entry entirely if there was nothing there
+# before. Only ever touches an entry that points at our own script.
+unwire_usage_feed() {
+    local settings="$HOME/.claude/settings.json"
+    [[ -f "$settings" ]] || return 0
+    command -v python3 >/dev/null 2>&1 || {
+        warn "python3 not found; remove the statusLine entry from $settings by hand"
+        return 0
+    }
+    python3 - "$settings" <<'PY'
+import json, os, re, sys
+path = sys.argv[1]
+try:
+    with open(path) as fh:
+        settings = json.load(fh)
+except (OSError, ValueError):
+    sys.exit(0)
+
+line = settings.get("statusLine")
+command = line.get("command") if isinstance(line, dict) else None
+if not command or "claude-statusline.sh" not in command:
+    sys.exit(0)
+
+# The original command was preserved verbatim in REDLINE_STATUSLINE_CHAIN='...'
+match = re.search(r"REDLINE_STATUSLINE_CHAIN='(.*?)' ", command, re.S)
+if match:
+    line["command"] = match.group(1).replace("'\\''", "'")
+    settings["statusLine"] = line
+else:
+    settings.pop("statusLine", None)
+
+tmp = path + ".redline.tmp"
+with open(tmp, "w") as fh:
+    json.dump(settings, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+os.replace(tmp, path)
+print("restored" if match else "removed")
+PY
+    info "Unwired the Claude usage feed from ~/.claude/settings.json"
+}
+
 if [[ "${1:-}" == "--purge" ]]; then
+    # Unwire the Claude usage feed before deleting the script it points at. A statusLine
+    # entry aimed at a file that no longer exists breaks the statusline on every draw, and
+    # takes any command chained behind it down too.
+    unwire_usage_feed
     rm -rf "$CONFIG_DIR"
     rm -f "$HOME/Library/Logs/$BIN_NAME.log" "$HOME/Library/Logs/$BIN_NAME.err"
     # Snapshot and the Ollama usage log, which nothing else records

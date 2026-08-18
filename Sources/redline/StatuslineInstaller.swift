@@ -78,6 +78,48 @@ enum StatuslineInstaller {
         return .installed(script: dest, chained: chained)
     }
 
+    /// Puts `settings.json` back the way the feed found it. Deleting the wrapper while the
+    /// `statusLine` entry still points at it breaks the statusline on every draw, and takes
+    /// any command chained behind it down too, so this must run before the script is removed.
+    /// Only ever touches an entry that points at our own script.
+    @discardableResult
+    static func uninstall(home: URL? = nil) -> Bool {
+        guard var settings = readSettings(home: home),
+              var line = settings["statusLine"] as? [String: Any],
+              let command = line["command"] as? String,
+              command.contains(scriptURL(home: home).lastPathComponent) else { return false }
+
+        if let chained = chainedCommand(in: command) {
+            line["command"] = chained
+            settings["statusLine"] = line
+        } else {
+            // Nothing was there before the feed, so leave nothing behind
+            settings.removeValue(forKey: "statusLine")
+        }
+        return writeSettings(settings, home: home)
+    }
+
+    /// Recovers the command that was preserved in `REDLINE_STATUSLINE_CHAIN='…'`, undoing the
+    /// quoting `shellQuote` applied when it was stored.
+    static func chainedCommand(in command: String) -> String? {
+        let marker = "REDLINE_STATUSLINE_CHAIN='"
+        guard let start = command.range(of: marker) else { return nil }
+        var rest = command[start.upperBound...]
+        var out = ""
+        while let quote = rest.firstIndex(of: "'") {
+            out += rest[rest.startIndex..<quote]
+            let after = rest.index(after: quote)
+            // shellQuote writes a literal quote as '\'' , so that sequence continues the value
+            if rest[after...].hasPrefix("\\''") {
+                out += "'"
+                rest = rest[rest.index(after, offsetBy: 3)...]
+                continue
+            }
+            return out.isEmpty ? nil : out
+        }
+        return nil
+    }
+
     // MARK: -
 
     private static func readSettings(home: URL? = nil) -> [String: Any]? {
