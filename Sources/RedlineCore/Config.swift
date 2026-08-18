@@ -54,6 +54,9 @@ public struct Config {
     public var autoCheckUpdates = true
     // Also off by default, same reasoning: polls the providers' public status feeds
     public var statusChecks = false
+    /// Which releases Check for Updates offers: "stable" sees only full releases,
+    /// "beta" also sees prerelease builds.
+    public var updateChannel = "stable"
     /// Dashboard appearance: "auto" follows the OS, "light" and "dark" force it
     public var dashboardTheme = "auto"
 
@@ -106,6 +109,8 @@ public struct Config {
            ["all", "session", "week"].contains(w) { cfg.limitWindows = w }
         if let b = json["autoCheckUpdates"] as? Bool { cfg.autoCheckUpdates = b }
         if let b = json["statusChecks"] as? Bool { cfg.statusChecks = b }
+        if let c = json["updateChannel"] as? String,
+           ["stable", "beta"].contains(c) { cfg.updateChannel = c }
         if let t = json["dashboardTheme"] as? String,
            ["auto", "light", "dark"].contains(t) { cfg.dashboardTheme = t }
         if let p = json["providers"] as? [String], !p.isEmpty { cfg.providers = p }
@@ -152,7 +157,7 @@ public struct Config {
     static func writeDefault(to url: URL) {
         let cfg = Config()
         let dict: [String: Any] = [
-            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https.",
+            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https. updateChannel: stable | beta; beta also offers prerelease builds.",
             "pollIntervalSeconds": 300,
             "menuBarDisplay": "limits",
             "limitYellowPct": 60,
@@ -160,6 +165,7 @@ public struct Config {
             "providers": cfg.providers,
             "menuBarProvider": cfg.menuBarProvider,
             "useCLIToken": cfg.useCLIToken,
+            "updateChannel": cfg.updateChannel,
             "pricingPerMTok": defaultPricing.mapValues {
                 ["input": $0.input, "output": $0.output, "cacheRead": $0.cacheRead]
             },

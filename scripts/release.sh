@@ -23,10 +23,20 @@ fi
 
 git -C "$REPO_ROOT" diff --quiet || die "working tree is dirty; commit before releasing"
 
+# A version with a prerelease suffix ships to the beta channel: GitHub marks the release
+# prerelease, so releases/latest, stable-channel updaters and the stable cask never see it.
+PRERELEASE_FLAG=""
+CASK_FILE="Casks/redline.rb"
+if [[ "$VERSION" == *-* ]]; then
+    PRERELEASE_FLAG="--prerelease"
+    CASK_FILE="Casks/redline-beta.rb"
+    info "Prerelease version; publishing $TAG to the beta channel"
+fi
+
 info "Creating release $TAG"
-gh release create "$TAG" "$DMG" --title "$APP_NAME $TAG" --generate-notes
+gh release create "$TAG" "$DMG" --title "$APP_NAME $TAG" --generate-notes $PRERELEASE_FLAG
 
 SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
-info "Release published. Update Casks/redline.rb:"
+info "Release published. Update $CASK_FILE:"
 echo "  version \"$VERSION\""
 echo "  sha256 \"$SHA\""

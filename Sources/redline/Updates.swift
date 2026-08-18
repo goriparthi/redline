@@ -10,6 +10,9 @@ import RedlineCore
 enum Updates {
     static let releasesURL = URL(string:
         "https://api.github.com/repos/goriparthi/redline/releases/latest")!
+    // Beta channel: the list endpoint is the only one that includes prereleases
+    static let allReleasesURL = URL(string:
+        "https://api.github.com/repos/goriparthi/redline/releases?per_page=20")!
 
     enum Result {
         case upToDate
@@ -21,8 +24,10 @@ enum Updates {
         (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
     }
 
-    static func check(currentVersion: String, completion: @escaping (Result) -> Void) {
-        var req = URLRequest(url: releasesURL)
+    static func check(currentVersion: String, channel: String = "stable",
+                      completion: @escaping (Result) -> Void) {
+        let beta = channel == "beta"
+        var req = URLRequest(url: beta ? allReleasesURL : releasesURL)
         req.timeoutInterval = 12
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         URLSession.shared.dataTask(with: req) { data, resp, err in
@@ -31,16 +36,26 @@ enum Updates {
                 return
             }
             let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            guard let data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  (200..<300).contains(status) else {
+            guard let data, (200..<300).contains(status) else {
                 // A private repo answers 404 to an unauthenticated request
                 completion(.failed(status == 404 ? "No public releases found"
                                                  : "Update check failed (HTTP \(status))"))
                 return
             }
-            guard let tag = json["tag_name"] as? String else {
-                completion(.failed("Update check failed: unexpected response"))
+            let json: [String: Any]?
+            if beta {
+                // Newest by version, not list order, so a stable hotfix outranks older betas
+                let list = ((try? JSONSerialization.jsonObject(with: data))
+                    as? [[String: Any]] ?? [])
+                    .filter { !(($0["draft"] as? Bool) ?? false) }
+                json = list.max { VersionCompare.isNewer(tagVersion(of: $1),
+                                                         than: tagVersion(of: $0)) }
+            } else {
+                json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            }
+            guard let json, let tag = json["tag_name"] as? String else {
+                completion(.failed(beta ? "No releases found"
+                                        : "Update check failed: unexpected response"))
                 return
             }
             let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
@@ -198,13 +213,11 @@ enum Updates {
 
     /// Numeric component comparison, so 0.10.0 is correctly newer than 0.9.0.
     static func isNewer(_ candidate: String, than current: String) -> Bool {
-        let a = candidate.split(separator: ".").map { Int($0) ?? 0 }
-        let b = current.split(separator: ".").map { Int($0) ?? 0 }
-        for i in 0..<max(a.count, b.count) {
-            let x = i < a.count ? a[i] : 0
-            let y = i < b.count ? b[i] : 0
-            if x != y { return x > y }
-        }
-        return false
+        VersionCompare.isNewer(candidate, than: current)
+    }
+
+    private static func tagVersion(of release: [String: Any]) -> String {
+        let tag = release["tag_name"] as? String ?? "0"
+        return tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
     }
 }

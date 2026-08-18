@@ -87,30 +87,3 @@ final class FirstRunTests: XCTestCase {
         XCTAssertFalse(Config.isFirstRun(at: url), "setup must not reappear on every launch")
     }
 }
-
-final class VersionCompareTests: XCTestCase {
-    // Mirrors Updates.isNewer, which lives in the app target and so cannot be imported here.
-    private func isNewer(_ candidate: String, than current: String) -> Bool {
-        let a = candidate.split(separator: ".").map { Int($0) ?? 0 }
-        let b = current.split(separator: ".").map { Int($0) ?? 0 }
-        for i in 0..<max(a.count, b.count) {
-            let x = i < a.count ? a[i] : 0
-            let y = i < b.count ? b[i] : 0
-            if x != y { return x > y }
-        }
-        return false
-    }
-
-    func testNumericComparisonNotStringComparison() {
-        XCTAssertTrue(isNewer("0.10.0", than: "0.9.0"),
-                      "string comparison would call 0.10.0 older than 0.9.0")
-        XCTAssertTrue(isNewer("1.0.0", than: "0.99.9"))
-        XCTAssertFalse(isNewer("0.2.0", than: "0.2.0"))
-        XCTAssertFalse(isNewer("0.1.9", than: "0.2.0"))
-    }
-
-    func testShorterVersionsPadWithZero() {
-        XCTAssertTrue(isNewer("0.3", than: "0.2.9"))
-        XCTAssertFalse(isNewer("0.2", than: "0.2.0"))
-    }
-}

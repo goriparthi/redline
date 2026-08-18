@@ -199,6 +199,22 @@ prefer the manual route, quit RedLine first and the drag works.
 Installed with Homebrew? `brew upgrade --cask redline`. Built from source? `git pull &&
 make install`.
 
+### Beta channel
+
+Prerelease builds (versions like `0.4.0-beta.1`) ship as GitHub prereleases, which the
+stable channel never sees: `releases/latest` excludes them by definition, so the daily
+check and the `redline` cask stay on full releases. To opt in, set
+`"updateChannel": "beta"` in `~/.config/redline/config.json`, or install the beta cask:
+
+```bash
+brew install --cask ./Casks/redline-beta.rb
+```
+
+The beta channel offers whichever version is newest, so a stable release still reaches
+beta users the moment it outranks the last prerelease. Switching back is
+`"updateChannel": "stable"` plus waiting for the next stable release, or reinstalling
+the stable cask.
+
 ### Uninstalling
 
 **Uninstall RedLine…** at the bottom of the dropdown moves the app to the Trash and removes
