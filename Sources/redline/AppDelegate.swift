@@ -74,7 +74,7 @@ enum LaunchAgent {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     // Posted by a duplicate launch that found this copy already holding the instance lock,
     // so the launch the user asked for still puts something on screen.
     static let showDashboardNotification =
@@ -166,20 +166,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: AppDelegate.showDashboardNotification, object: nil)
     }
 
-    // An accessory app draws no menu bar, but key equivalents still route through
-    // NSApp.mainMenu. Without one, ⌘Q and ⌘W are dead in every window and ⌘V cannot paste
-    // into the setup window's client id field.
+    // Shown next to the Apple logo while a window has the app in .regular mode; in
+    // accessory mode it is invisible but still routes ⌘Q/⌘W/⌘V key equivalents.
     private func buildMainMenu() {
         let main = NSMenu()
 
         let appItem = NSMenuItem()
-        let appMenu = NSMenu()
+        let appMenu = NSMenu(title: "RedLine")
         appMenu.addItem(NSMenuItem(
             title: "About RedLine",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""))
         appMenu.addItem(.separator())
+        // ⌘Q from a window closes it and leaves the menu bar app running; a full
+        // quit stays on ⌥⌘Q here and on Quit in the status item menu.
+        let close = NSMenuItem(title: "Close Dashboard", action: #selector(closeWindows(_:)),
+                               keyEquivalent: "q")
+        close.target = self
+        appMenu.addItem(close)
         let q = NSMenuItem(title: "Quit RedLine", action: #selector(quit(_:)), keyEquivalent: "q")
+        q.keyEquivalentModifierMask = [.option, .command]
         q.target = self
         appMenu.addItem(q)
         appItem.submenu = appMenu
@@ -575,10 +581,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.displayIfNeeded()
     }
 
+    /// A visible window promotes the app to .regular so its menu bar and Dock icon show;
+    /// windowWillClose demotes it back to a bare status item.
+    private func becomeRegularApp() {
+        NSApp.setActivationPolicy(.regular)
+        // Deferred: activating in the same runloop turn as the policy flip can leave the
+        // previous app's menus in the menu bar.
+        DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
+    }
+
+    @objc func closeWindows(_ sender: Any?) {
+        for w in [dashboardWindow, setupWindow].compactMap({ $0 }) where w.isVisible {
+            w.close()
+        }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let closing = notification.object as? NSWindow,
+              closing == dashboardWindow || closing == setupWindow else { return }
+        let stillOpen = [dashboardWindow, setupWindow].compactMap { $0 }
+            .contains { $0 != closing && $0.isVisible }
+        if !stillOpen { NSApp.setActivationPolicy(.accessory) }
+    }
+
     @objc func openDashboard(_ sender: Any?) {
         if let w = dashboardWindow {
+            becomeRegularApp()
             w.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
             dashboardModel.load(range: dashboardModel.data.range, limits: allLimits)
             dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
             ollamaService.refresh()
@@ -612,9 +641,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let window else { return }
             self?.applyDashboardTheme(theme, to: window)
         }
-        // An accessory app keeps no Dock icon, so activate explicitly to take focus
+        window.delegate = self
+        becomeRegularApp()
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
         dashboardWindow = window
         dashboardModel.load(range: 14, limits: allLimits)
         dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
@@ -623,8 +652,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func showSetup(_ sender: Any? = nil) {
         if let w = setupWindow {
+            becomeRegularApp()
             w.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
             return
         }
         let detected = ProviderAvailability.detect(
@@ -675,8 +704,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.contentView = NSHostingView(rootView: view)
         window.isReleasedWhenClosed = false
         window.center()
+        window.delegate = self
+        becomeRegularApp()
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
         setupWindow = window
     }
 
@@ -849,7 +879,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // interactive: the user asked, so every outcome is a dialog. Background: only an
     // available update earns a popup; "no news" must never interrupt anyone.
     private func runUpdateCheck(interactive: Bool) {
-        Updates.check(currentVersion: Updates.bundleVersion) { [weak self] result in
+        Updates.check(currentVersion: Updates.bundleVersion,
+                      channel: config.updateChannel) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
                 if case .available = result {} else if !interactive {
