@@ -118,6 +118,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var feedWatcher: DispatchSourceFileSystemObject?
     private var feedWatchDebounce: DispatchWorkItem?
     private var feedSeenMtime: Date?
+    /// Rebuilding the menu while it is open replaces the items under the cursor and AppKit
+    /// collapses any open submenu, which the live feed watcher turned from a rare race into
+    /// a once-a-second certainty. While open, rebuilds are deferred to menuDidClose.
+    private var menuIsOpen = false
+    private var menuNeedsRebuild = false
     private var ollamaSection: Snapshot.Ollama?
     // Recomputed on each refresh so a provider installed later shows up without a restart
     private var availability = ProviderAvailability.detect()
@@ -983,8 +988,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         rebuildMenu(menu)
+        menuIsOpen = true
         if let last = lastRefresh, Date().timeIntervalSince(last) < 60 { return }
         refresh()
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        menuIsOpen = false
+        if menuNeedsRebuild {
+            menuNeedsRebuild = false
+            rebuildMenu(menu)
+        }
     }
 
     // MARK: - Refresh
@@ -1413,6 +1427,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func rebuildMenu(_ menu: NSMenu) {
+        // Never rip the items out from under an open menu; the fresh data lands on close.
+        // The menu bar title still updates live, so nothing visible goes stale meanwhile.
+        if menuIsOpen {
+            menuNeedsRebuild = true
+            return
+        }
         menu.removeAllItems()
         // Without this, an item with no action is auto-disabled and macOS dims the whole row,
         // which is what made the usage tables hard to read. No action still means inert.
