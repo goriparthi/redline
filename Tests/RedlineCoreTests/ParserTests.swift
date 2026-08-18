@@ -178,7 +178,10 @@ final class FormatTests: XCTestCase {
 
     func testCostFormatting() {
         XCTAssertEqual(fmtCost(0), "$0.00")
-        XCTAssertEqual(fmtCost(6734.061), "$6734.06")
+        XCTAssertEqual(fmtCost(12.274), "$12.27")
+        // Grouped past four digits: an ungrouped dollar figure misreads by 10x at a glance
+        XCTAssertEqual(fmtCost(6734.061), "$6,734.06")
+        XCTAssertEqual(fmtCost(24320.906), "$24,320.91")
     }
 }
 

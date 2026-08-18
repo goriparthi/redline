@@ -31,6 +31,9 @@ enum Brandkit {
     static let signal = BrandUI.signal
     static let amber = BrandUI.amber
     static let clear = BrandUI.clear
+    /// Money reads green by convention. Distinct from `clear` so the light side can run
+    /// darker: the status green is tuned for dark panels and washes out on white.
+    static let money = dynamic(dark: Brand.clear, light: BrandColor(0x1E8E3E))
 
     /// The status trio, chosen by tone rather than by reading an indicator string twice
     static func tone(_ tone: ServiceGlyph.Tone) -> Color {
@@ -603,8 +606,9 @@ private struct ModelMix: View {
                     // An unpriced model shows a dash, never a zero that reads as free
                     Text(m.priced ? fmtCost(m.cost) : "—")
                         .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(m.priced ? Brandkit.chalk : Brandkit.steel)
-                        .frame(width: 78, alignment: .trailing)
+                        .foregroundStyle(m.priced ? Brandkit.money : Brandkit.steel)
+                        .lineLimit(1)
+                        .frame(width: 96, alignment: .trailing)
                 }
             }
             // The list answers "which model"; this row answers "how much altogether"
@@ -619,11 +623,14 @@ private struct ModelMix: View {
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Brandkit.chalk)
                     .frame(width: 68, alignment: .trailing)
+                // Wide enough for "$24,320.91+" on one line; the width once wrapped the
+                // unpriced marker onto its own row, which read as a broken figure
                 Text(fmtCost(models.filter(\.priced).reduce(0) { $0 + $1.cost })
                      + (models.contains { !$0.priced } ? "+" : ""))
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Brandkit.chalk)
-                    .frame(width: 78, alignment: .trailing)
+                    .foregroundStyle(Brandkit.money)
+                    .lineLimit(1)
+                    .frame(width: 96, alignment: .trailing)
             }
             if models.contains(where: { !$0.priced }) {
                 Text("— means no pricing entry, so it is counted in tokens only")

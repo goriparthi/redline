@@ -1826,10 +1826,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         parts.append((" \(Sparkline.bar(share: share, width: Self.barWidth))",
                       contrasted(tint)))
         parts.append((" \(Sparkline.percent(share))", Brandkit.menuSecondary))
-        // A dash rather than $0.00, which would read as free
+        // A dash rather than $0.00, which would read as free. Money is green wherever it
+        // appears, and the column is sized for grouped thousands ("$18,108.58").
         let costText = priced ? fmtCost(cost) : "—"
-        parts.append(("  \(Sparkline.pad(costText, to: 9, alignRight: true))",
-                      Brandkit.menuPrimary))
+        parts.append(("  \(Sparkline.pad(costText, to: 11, alignRight: true))",
+                      priced ? contrasted(Brandkit.nsTone(.healthy)) : Brandkit.menuSecondary))
         parts.append(("  \(Sparkline.pad(fmtTokens(io), to: 7, alignRight: true))",
                       Brandkit.menuSecondary))
         addStatic(menu, monoTitle(parts))

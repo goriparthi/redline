@@ -118,4 +118,19 @@ public func fmtTokens(_ n: Int) -> String {
     }
 }
 
-public func fmtCost(_ c: Double) -> String { String(format: "$%.2f", c) }
+// One shared formatter: fmtCost runs in row loops, and NumberFormatter is not cheap to make
+private let costFormatter: NumberFormatter = {
+    let f = NumberFormatter()
+    f.numberStyle = .decimal
+    f.minimumFractionDigits = 2
+    f.maximumFractionDigits = 2
+    f.groupingSeparator = ","
+    f.usesGroupingSeparator = true
+    return f
+}()
+
+/// "$24,320.91", grouped: past four digits an ungrouped dollar figure misreads by 10x at a
+/// glance, which is exactly the glance a menu bar app is for.
+public func fmtCost(_ c: Double) -> String {
+    "$" + (costFormatter.string(from: NSNumber(value: c)) ?? String(format: "%.2f", c))
+}
