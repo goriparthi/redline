@@ -87,6 +87,9 @@ public struct Snapshot: Codable, Equatable {
 
     public let updatedAt: Date
     public let limits: [Window]
+    /// When Claude's windows were last true, which can be well before `updatedAt`: the
+    /// statusline feed only writes while Claude Code runs. Optional so older snapshots decode.
+    public let claudeLimitsAsOf: Date?
     public let today: Totals
     public let week: Totals
     // Optional so an older snapshot on disk still decodes rather than leaving the widget blank
@@ -128,8 +131,10 @@ public struct Snapshot: Codable, Equatable {
     public var services: [Service]?
 
     public init(updatedAt: Date, limits: [LimitWindow], today: Agg, week: Agg,
-                ollama: Ollama? = nil, services: [Service]? = nil) {
+                ollama: Ollama? = nil, services: [Service]? = nil,
+                claudeLimitsAsOf: Date? = nil) {
         self.updatedAt = Snapshot.truncate(updatedAt)
+        self.claudeLimitsAsOf = claudeLimitsAsOf.map(Snapshot.truncate)
         self.todayByProvider = today.providers.mapValues {
             Totals(io: $0.io, cost: $0.cost, hasUnpriced: today.hasUnpriced)
         }
@@ -154,6 +159,15 @@ public struct Snapshot: Codable, Equatable {
     // Callers must surface staleness rather than implying the number is live.
     public func isStale(now: Date = Date(), tolerance: TimeInterval = 900) -> Bool {
         now.timeIntervalSince(updatedAt) > tolerance
+    }
+
+    /// Claude's windows specifically, which age independently of the snapshot: the app keeps
+    /// publishing fresh totals while a quiet statusline feed leaves the percentages behind.
+    /// Callers render stale windows drained of their status color, never as if live.
+    public func claudeLimitsAreStale(now: Date = Date(),
+                                     tolerance: TimeInterval = 900) -> Bool {
+        guard let at = claudeLimitsAsOf else { return false }
+        return now.timeIntervalSince(at) > tolerance
     }
 
     public func worst(prefix: String, provider: String? = nil) -> Window? {

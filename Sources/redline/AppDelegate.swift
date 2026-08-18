@@ -557,6 +557,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             w.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             dashboardModel.load(range: dashboardModel.data.range, limits: allLimits)
+            dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
             ollamaService.refresh()
             return
         }
@@ -564,6 +565,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                  onReload: { [weak self] range in
             guard let self else { return }
             self.dashboardModel.load(range: range, limits: self.allLimits)
+            self.dashboardModel.data.claudeLimitsAsOf = self.claudeLimitsAt
             // Ollama is live state, not derived from transcripts, so refresh it here too or
             // the model list goes stale while the window stays open
             self.ollamaService.refresh()
@@ -592,6 +594,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         dashboardWindow = window
         dashboardModel.load(range: 14, limits: allLimits)
+        dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
         ollamaService.refresh()
     }
 
@@ -607,7 +610,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let view = FirstRunView(availability: detected,
                                 currentProviders: config.providers,
                                 useCLIToken: config.useCLIToken,
-                                oauthClientId: config.oauth.clientId) {
+                                oauthClientId: config.oauth.clientId,
+                                feedInstalled: StatuslineInstaller.isInstalled(),
+                                signedIn: oauth.isSignedIn) {
             [weak self] providers, choice, clientId in
             guard let self else { return }
             if !providers.isEmpty { Config.setProviders(providers) }
@@ -624,6 +629,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.oauth.update(settings: self.config.oauth, useCLIToken: self.config.useCLIToken)
             self.setupWindow?.close()
             self.setupWindow = nil
+            // The feed installs quietly here: Start is the consent, and the percentages
+            // appearing at the next poll is the confirmation. Failures still speak up.
+            if choice == .feed, !StatuslineInstaller.isInstalled() {
+                if case .failed(let message) = StatuslineInstaller.install() {
+                    self.limitsStatus = "Usage feed: \(message)"
+                }
+            }
             // The browser flow is the one thing Start cannot finish on its own
             if choice == .browser, !self.oauth.isSignedIn { self.signIn(nil) }
             if choice == .cliToken {
@@ -943,6 +955,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Refresh
 
     private func refresh() {
+        // Cheap wiring check first, so a clobbered settings.json costs at most one poll of
+        // stale percentages rather than going quietly dark until someone notices.
+        StatuslineInstaller.repairIfNeeded()
         refreshLocal()
         refreshLimits()
         refreshOllamaSection()
@@ -1030,7 +1045,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let snap = Snapshot(updatedAt: lastRefresh ?? Date(),
                             limits: allLimits.filter { !$0.isUninformative },
                             today: today, week: week, ollama: ollamaSection,
-                            services: services.isEmpty ? nil : services)
+                            services: services.isEmpty ? nil : services,
+                            claudeLimitsAsOf: claudeLimitsAt)
         guard SnapshotStore.writeEverywhere(snap) else { return }
         #if canImport(WidgetKit)
         // Nudge the widget rather than waiting for the system's own reload schedule
@@ -1053,39 +1069,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         // Claude Code hands its statusline command the same rate-limit windows this app used
-        // to borrow a token to fetch. When the feed is installed they are already on disk, so
-        // nothing here needs a credential, a Keychain prompt, or a request. Windows that have
-        // rolled over are dropped on read, so a feed that has gone quiet falls through to the
-        // token path on its own rather than reporting a percentage that no longer exists.
-        if let snapshot = StatuslineFeed.read(path: StatuslineFeed.defaultPath()),
-           !snapshot.isEmpty {
-            claudeLimits = snapshot.windows
-            claudeLimitsAt = snapshot.updatedAt
+        // to borrow a token to fetch. While the sidecar is fresh it wins outright: nothing
+        // here needs a credential, a Keychain prompt, or a request. Freshness matters as much
+        // as presence: a sidecar goes quiet the moment Claude Code does, and a non-empty but
+        // hours-old reading once shadowed a live sign-in by five points.
+        let feed = StatuslineFeed.read(path: StatuslineFeed.defaultPath())
+        if let feed, !feed.isEmpty, feed.isFresh() {
+            claudeLimits = feed.windows
+            claudeLimitsAt = feed.updatedAt
             limitsStatus = nil
             dashboardModel.data.limitsNote = nil
+            dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
             updateTitle()
             publishSnapshot()
             if let menu = statusItem.menu { rebuildMenu(menu) }
             return
         }
+        // The feed is quiet or absent, so a live fetch fills the gap: sign-in first, borrowed
+        // token when the user enabled that instead.
         oauth.fetchLimits { [weak self] limits, err in
             DispatchQueue.main.async {
                 guard let self else { return }
-                if let limits {
+                if let limits, !limits.isEmpty {
                     self.claudeLimits = limits
                     self.claudeLimitsAt = Date()
+                    self.limitsStatus = nil
+                } else if let feed, !feed.isEmpty {
+                    // No live source answered. The feed's last unexpired reading beats a
+                    // blank, and its age travels with it so every surface draws it stale
+                    // rather than current. "Not signed in" is the expected state for a
+                    // feed-only install, not news; a failure from an actual sign-in is.
+                    self.claudeLimits = feed.windows
+                    self.claudeLimitsAt = feed.updatedAt
+                    self.limitsStatus = self.oauth.isSignedIn ? err : nil
+                } else {
+                    // Losing the token invalidates the cached percentages; keeping them would
+                    // show a stale "usage left" in the menu bar with no hint it is stale.
+                    if err != nil && !self.oauth.isSignedIn {
+                        self.claudeLimits = []
+                        self.claudeLimitsAt = nil
+                    }
+                    self.limitsStatus = err
                 }
-                // Losing the token invalidates the cached percentages; keeping them would
-                // show a stale "usage left" in the menu bar with no hint it is stale.
-                if err != nil && !self.oauth.isSignedIn {
-                    self.claudeLimits = []
-                    self.claudeLimitsAt = nil
-                }
-                self.limitsStatus = err
                 // The dashboard gets the same honesty as the menu: a missing rail with no
                 // reason attached reads as broken
                 self.dashboardModel.data.limitsNote =
-                    err.map { "Claude limits: \($0)" }
+                    self.limitsStatus.map { "Claude limits: \($0)" }
+                self.dashboardModel.data.claudeLimitsAsOf = self.claudeLimitsAt
                 self.updateTitle()
                 self.publishSnapshot()
                 if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
@@ -1167,20 +1197,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return true
     }
 
+    /// Claude's windows are only as current as their source: the statusline feed stops
+    /// writing the moment Claude Code does. Past this threshold every surface drains the
+    /// window's status color to steel, so an old percentage can never impersonate a live one.
+    private var claudeLimitsAreStale: Bool {
+        guard let at = claudeLimitsAt else { return false }
+        return Date().timeIntervalSince(at) > max(config.pollIntervalSeconds * 2, 600)
+    }
+
+    private func isStale(_ w: LimitWindow) -> Bool {
+        w.provider == UsageStore.provider && claudeLimitsAreStale
+    }
+
+    /// Status color while the reading is live, steel once it is not. The number stays; the
+    /// palette is what says "as of earlier", the same way the dashboard and widget draw it.
+    private func windowColor(_ w: LimitWindow) -> NSColor {
+        isStale(w) ? Brandkit.menuSecondary : limitColor(w.utilization)
+    }
+
     private func limitsTitle() -> NSAttributedString? {
         let session = wantsSessionWindow ? worst(in: ["five_hour"]) : nil
         let week = wantsWeekWindow ? worst(in: ["seven_day"]) : nil
         guard session != nil || week != nil else { return nil }
         var parts: [(String, NSColor?)] = []
         if let s = session {
-            parts.append(("\(pct(s))%", limitColor(s.utilization)))
+            parts.append(("\(pct(s))%", windowColor(s)))
             if config.showResetTimes, let r = fmtResetShort(s.resetsAt) {
                 parts.append((" \(r)", .labelColor))
             }
         }
         if session != nil && week != nil { parts.append((" | ", .tertiaryLabelColor)) }
         if let w = week {
-            parts.append(("\(pct(w))%", limitColor(w.utilization)))
+            parts.append(("\(pct(w))%", windowColor(w)))
             if config.showResetTimes, let r = fmtResetShort(w.resetsAt) {
                 parts.append((" \(r)", .labelColor))
             }
@@ -1323,9 +1371,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             addProviderHeader(menu, provider: provider)
             for w in LimitParser.sorted(grouped[provider] ?? []) where wantsWindow(w) {
                 let reset = config.showResetTimes ? fmtReset(w.resetsAt) : ""
+                // A stale window is drained wholesale: steel dot, steel text. The header's
+                // "last updated" suffix says when it was true; the palette says "not now".
+                let stale = isStale(w)
                 addStatic(menu, coloredTitle([
-                    ("    ● ", limitColor(w.utilization)),
-                    ("\(w.displayName): \(pct(w))%\(reset)", Brandkit.menuPrimary),
+                    ("    ● ", windowColor(w)),
+                    ("\(w.displayName): \(pct(w))%\(reset)",
+                     stale ? Brandkit.menuSecondary : Brandkit.menuPrimary),
                 ]))
             }
             if provider == UsageStore.provider { emitClaudeNotes() }
@@ -1334,22 +1386,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Percentages that are off or broken must say so where the user is looking, with
         // the enable actions one click away. A setting that only lives in another window
-        // reads as a silent failure.
-        if config.wants(UsageStore.provider), !oauth.isSignedIn, !config.useCLIToken {
+        // reads as a silent failure. A working feed already delivers percentages, so the
+        // claim "off" is reserved for when nothing is producing them.
+        if config.wants(UsageStore.provider), !oauth.isSignedIn, !config.useCLIToken,
+           claudeLimits.isEmpty {
             addInfo(menu, "    Claude percentages are off", secondary: true)
             let parent = NSMenuItem(title: "Show Claude Percentages",
                                     action: nil, keyEquivalent: "")
             let sub = NSMenu()
-            let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
-                                 action: #selector(enableCLIToken(_:)), keyEquivalent: "")
-            cli.target = self
-            cli.toolTip = "Reads Claude Code's token from your Keychain; macOS asks once"
-            sub.addItem(cli)
+            let feed = NSMenuItem(title: "Set Up the Usage Feed (recommended)…",
+                                  action: #selector(installStatuslineFeed(_:)),
+                                  keyEquivalent: "")
+            feed.target = self
+            feed.toolTip = "Reads the windows Claude Code hands its statusline. "
+                + "No sign-in, no Keychain, no network."
+            sub.addItem(feed)
             let b = NSMenuItem(title: "Sign In with Browser…",
                                action: #selector(browserSignIn(_:)), keyEquivalent: "")
             b.target = self
-            b.toolTip = "For claude.ai users without Claude Code"
+            b.toolTip = "Live between sessions too; also the route for claude.ai users "
+                + "without Claude Code"
             sub.addItem(b)
+            let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
+                                 action: #selector(enableCLIToken(_:)), keyEquivalent: "")
+            cli.target = self
+            cli.toolTip = "Reads Claude Code's token from your Keychain. The token is only "
+                + "ever read, never refreshed, so it cannot sign the CLI out."
+            sub.addItem(cli)
             parent.submenu = sub
             menu.addItem(parent)
         }
@@ -1547,13 +1610,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // A fetch that keeps failing must not leave old percentages looking current
     private func staleSuffix(for provider: String) -> String {
-        guard provider == UsageStore.provider, let at = claudeLimitsAt else { return "" }
-        guard Date().timeIntervalSince(at) > max(config.pollIntervalSeconds * 2, 600) else {
-            return ""
-        }
+        guard provider == UsageStore.provider, claudeLimitsAreStale,
+              let at = claudeLimitsAt else { return "" }
         let f = DateFormatter()
         f.dateFormat = "h:mm a"
-        return "  (last updated \(f.string(from: at)))"
+        return "  (as of \(f.string(from: at)))"
     }
 
     private func addSection(_ menu: NSMenu, label: String, agg: Agg, detail: Bool,

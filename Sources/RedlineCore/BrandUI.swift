@@ -94,11 +94,15 @@ public struct LimitRail: View {
     private let utilization: Double
     private let height: CGFloat
     private let showsLimit: Bool
+    /// Stale readings drain to steel: the shape stays, the status palette is what says live.
+    private let stale: Bool
 
-    public init(utilization: Double, height: CGFloat = 6, showsLimit: Bool = true) {
+    public init(utilization: Double, height: CGFloat = 6, showsLimit: Bool = true,
+                stale: Bool = false) {
         self.utilization = utilization
         self.height = height
         self.showsLimit = showsLimit
+        self.stale = stale
     }
 
     public var body: some View {
@@ -106,7 +110,7 @@ public struct LimitRail: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(BrandUI.carbon)
                 Capsule()
-                    .fill(BrandUI.statusColor(utilization))
+                    .fill(stale ? BrandUI.steel : BrandUI.statusColor(utilization))
                     // Always a sliver for a real but small share, never nothing
                     .frame(width: max(height * 0.6,
                                       geo.size.width * min(max(utilization, 0), 100) / 100))

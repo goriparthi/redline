@@ -136,10 +136,6 @@ final class OAuthManager {
     /// Set once delegated refresh proves it does not renew the token on this machine, so the
     /// process spawn is not repeated on every expiry.
     private var delegationIneffective = false
-    /// Minting state: a refused grant is final, a rate limit is not.
-    private var mintFailures = 0
-    private var mintBlockedUntil: Date?
-    private var mintGrantDead = false
     // The usage endpoint rate-limits hard and stays limited, so back off rather than
     // hammering it every poll. See anthropics/claude-code issues 31021 and 31637.
     private var backoffUntil: Date?
@@ -191,14 +187,12 @@ final class OAuthManager {
         let signedOut = cliSignedOut
         let outcome = cliProbe?.outcome
         let expired = cliProbe?.credential != nil
-        let dead = mintGrantDead
         lock.unlock()
         if !useCLIToken {
             return settings.isConfigured ? "Not signed in" : "No Claude token available"
         }
         if signedOut { return "Claude Code is signed out; run claude to sign in" }
         if outcome == .accessDenied { return "Keychain access needed; choose Reconnect" }
-        if dead { return "Claude sign-in expired; run claude to refresh it" }
         if expired { return "Claude token expired; waiting for Claude Code to renew it" }
         return settings.isConfigured ? "Not signed in" : "No Claude token available"
     }
@@ -261,134 +255,38 @@ final class OAuthManager {
         lock.unlock()
     }
 
-    /// The stale-token ladder, in ascending order of intrusion. Returns a fresh access token
-    /// when one of the rungs produced it.
-    ///
-    /// Rung 1 asks Claude Code to renew its own credential, which keeps a single refresh chain
-    /// and cannot invalidate the CLI's login. Rung 2 mints one directly, which works when the
-    /// CLI is absent but forks the chain away from it, so it is deliberately last.
+    /// The stale-token recovery, deliberately capped at one rung: ask Claude Code to renew
+    /// its own credential, which keeps a single refresh chain and cannot invalidate the CLI's
+    /// login. There is no rung 2. An earlier build spent the CLI's refresh token directly
+    /// ("minting"); Anthropic rotates refresh tokens on use, so every mint left the CLI
+    /// holding a consumed token and forced a fresh `/login`. A borrowed token is read, never
+    /// spent: when the CLI will not renew, the answer is stale data honestly labelled, not a
+    /// forked chain.
     private func escalate(now: Date = Date()) -> String? {
         lock.lock()
         let credential = cliProbe?.credential
         let skipDelegation = delegationIneffective
         lock.unlock()
-        guard let credential, !credential.isFresh(now: now) else { return nil }
+        guard let credential, !credential.isFresh(now: now), !skipDelegation else { return nil }
 
-        if !skipDelegation {
-            let before = credential.expiresAt
-            switch DelegatedRefresh.attempt(now: now) {
-            case .ran:
-                refreshCLIProbe(force: true, now: now)
-                if let token = cachedCLIToken() { return token }
-                // It ran and changed nothing, so this build of the CLI does not renew on a
-                // status check. Stop paying for the process and let the next rung answer.
-                lock.lock()
-                if cliProbe?.credential?.expiresAt == before { delegationIneffective = true }
-                lock.unlock()
-            case .cliUnavailable:
-                lock.lock()
-                delegationIneffective = true
-                lock.unlock()
-            case .skippedByCooldown, .failed:
-                break
-            }
-        }
-
-        guard credential.canRefresh else { return nil }
-        return mint(using: credential)
-    }
-
-    /// Claude Code's own OAuth client id. A public identifier rather than a secret, and the
-    /// only one the borrowed refresh token is valid for. Overridable because it is not a
-    /// published constant and Anthropic can change it without notice.
-    static let claudeClientID = ProcessInfo.processInfo
-        .environment["REDLINE_CLAUDE_CLIENT_ID"] ?? "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
-    static let claudeTokenURL = ProcessInfo.processInfo
-        .environment["REDLINE_CLAUDE_TOKEN_URL"] ?? "https://platform.claude.com/v1/oauth/token"
-
-    /// Exchanges the CLI's refresh token for an access token of our own.
-    ///
-    /// This forks the refresh chain: Anthropic rotates the refresh token, so once this runs
-    /// the CLI's stored copy may no longer be the live one and `claude` can need a fresh
-    /// `/login`. That is why it sits below delegated refresh rather than beside it, and why a
-    /// refusal that names the grant is treated as final instead of retried.
-    private func mint(using credential: BorrowedCredential, now: Date = Date()) -> String? {
-        lock.lock()
-        if let until = mintBlockedUntil, until > now {
+        let before = credential.expiresAt
+        switch DelegatedRefresh.attempt(now: now) {
+        case .ran:
+            refreshCLIProbe(force: true, now: now)
+            if let token = cachedCLIToken() { return token }
+            // It ran and changed nothing, so this build of the CLI does not renew on a
+            // status check. Stop paying for the process spawn on every expiry.
+            lock.lock()
+            if cliProbe?.credential?.expiresAt == before { delegationIneffective = true }
             lock.unlock()
-            return nil
-        }
-        if mintGrantDead {
+        case .cliUnavailable:
+            lock.lock()
+            delegationIneffective = true
             lock.unlock()
-            return nil
+        case .skippedByCooldown, .failed:
+            break
         }
-        lock.unlock()
-
-        guard let refresh = credential.refreshToken,
-              let url = URL(string: Self.claudeTokenURL) else { return nil }
-
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.timeoutInterval = 30
-        req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
-        var comps = URLComponents()
-        comps.queryItems = [
-            URLQueryItem(name: "grant_type", value: "refresh_token"),
-            URLQueryItem(name: "refresh_token", value: refresh),
-            URLQueryItem(name: "client_id", value: Self.claudeClientID),
-        ]
-        req.httpBody = (comps.percentEncodedQuery ?? "").data(using: .utf8)
-
-        // Called from the probe queue, never the main thread, so blocking here is safe and
-        // keeps the ladder readable as a sequence rather than nested completions.
-        var body: Data?
-        var status = 0
-        var retryAfter: String?
-        let done = DispatchSemaphore(value: 0)
-        URLSession.shared.dataTask(with: req) { data, resp, _ in
-            body = data
-            let http = resp as? HTTPURLResponse
-            status = http?.statusCode ?? 0
-            retryAfter = http?.value(forHTTPHeaderField: "Retry-After")
-            done.signal()
-        }.resume()
-        _ = done.wait(timeout: .now() + 35)
-
-        guard (200..<300).contains(status),
-              let body,
-              let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
-              let access = json["access_token"] as? String else {
-            record(mintFailure: status, body: body, retryAfter: retryAfter, now: now)
-            return nil
-        }
-
-        lock.lock()
-        mintFailures = 0
-        mintBlockedUntil = nil
-        lock.unlock()
-
-        let expiresIn = (json["expires_in"] as? Double) ?? 3600
-        // Kept in this app's own item, never written back over the CLI's. Corrupting the
-        // credential another tool depends on is a worse failure than a missing percentage.
-        TokenStore(accessToken: access,
-                   refreshToken: (json["refresh_token"] as? String) ?? refresh,
-                   expiresAt: now.addingTimeInterval(expiresIn - 60)).save()
-        return access
-    }
-
-    private func record(mintFailure status: Int, body: Data?, retryAfter: String?, now: Date) {
-        lock.lock()
-        defer { lock.unlock() }
-        guard ClaudeAuthPolicy.disposition(status: status, body: body) == .transient else {
-            // The grant itself is refused. Retrying cannot help, and hammering a dead grant
-            // is exactly the behaviour that gets an endpoint closed.
-            mintGrantDead = true
-            return
-        }
-        mintFailures += 1
-        mintBlockedUntil = ClaudeAuthPolicy.retryAfter(retryAfter, now: now)
-            ?? now.addingTimeInterval(ClaudeAuthPolicy.backoff(consecutiveFailures: mintFailures))
+        return nil
     }
 
     /// One deliberate Keychain read, for the moment the user enables the CLI token: warms
@@ -403,8 +301,8 @@ final class OAuthManager {
     private func recordRateLimit() -> String {
         lock.lock()
         consecutive429 += 1
-        let delay = min(300 * pow(2, Double(consecutive429 - 1)), 1800)
-        backoffUntil = Date().addingTimeInterval(delay)
+        backoffUntil = Date().addingTimeInterval(
+            ClaudeAuthPolicy.backoff(consecutiveFailures: consecutive429))
         lock.unlock()
         return "Usage temporarily unavailable"
     }
@@ -527,7 +425,7 @@ final class OAuthManager {
             completion(cli, nil)
             return
         }
-        // Stale rather than absent: ask the CLI to renew, then mint if that does nothing.
+        // Stale rather than absent: ask the CLI to renew its own credential and re-read.
         if useCLIToken, let escalated = escalate() {
             completion(escalated, nil)
             return

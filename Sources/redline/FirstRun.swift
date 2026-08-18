@@ -5,11 +5,12 @@
 import RedlineCore
 import SwiftUI
 
-// How the Claude rate-limit percentages get their token, if at all
+// Where the Claude rate-limit percentages come from, if anywhere
 enum ClaudeLimitsChoice {
     case off        // percentages stay hidden; everything else still works
-    case cliToken   // borrow the Claude Code CLI's Keychain token
-    case browser    // RedLine's own OAuth sign-in, for claude.ai users without the CLI
+    case feed       // the statusline usage feed: no credentials, updates while Claude Code runs
+    case cliToken   // read (never refresh) the Claude Code CLI's Keychain token
+    case browser    // RedLine's own OAuth sign-in, live between sessions and for claude.ai users
 }
 
 struct FirstRunView: View {
@@ -23,6 +24,8 @@ struct FirstRunView: View {
          currentProviders: [String] = [],
          useCLIToken: Bool = false,
          oauthClientId: String = "",
+         feedInstalled: Bool = false,
+         signedIn: Bool = false,
          onDone: @escaping (_ providers: [String], _ choice: ClaudeLimitsChoice,
                             _ clientId: String) -> Void) {
         self.availability = availability
@@ -32,8 +35,13 @@ struct FirstRunView: View {
         let current = currentProviders.filter { availability.has($0) }
         _selection = State(initialValue: current.isEmpty ? Set(availability.installed)
                                                          : Set(current))
-        _limitsChoice = State(initialValue: useCLIToken ? .cliToken
-                                          : oauthClientId.isEmpty ? .off : .browser)
+        // Reopened, the window reflects what is actually running; on a true first run
+        // nothing is set up yet, so the recommended zero-credential route is preselected.
+        let initial: ClaudeLimitsChoice = feedInstalled ? .feed
+            : useCLIToken ? .cliToken
+            : signedIn ? .browser
+            : .feed
+        _limitsChoice = State(initialValue: initial)
         _clientId = State(initialValue: oauthClientId)
     }
 
@@ -143,28 +151,28 @@ struct FirstRunView: View {
         .colorScheme(.dark)
     }
 
-    // The percentages need a token, and where it comes from is a decision, not a default.
-    // The honest version, not a euphemism: the endpoint is undocumented either way.
+    // Where the percentages come from is a decision, not a default, and each route carries
+    // its own honest cost. The feed is recommended because it has none: it reads data Claude
+    // Code already hands to its statusline, a documented feature, with no credentials at all.
     private var limitsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Claude rate-limit percentages")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(BrandUI.chalk)
             Text("""
-                 These read an undocumented Anthropic endpoint using Claude Code's own token. \
-                 Anthropic's policy says subscription credentials are for Claude Code and \
-                 Claude.ai, so this may fall outside their terms; RedLine only reads usage and \
-                 never sends prompts or spends your quota. Whether that trade is acceptable \
-                 for your account is your call. Everything else works with this off.
+                 The same session and week percentages /usage shows. Everything else works \
+                 with this off.
                  """)
                 .font(.system(size: 11))
                 .foregroundStyle(BrandUI.steel)
                 .fixedSize(horizontal: false, vertical: true)
 
             Picker("", selection: $limitsChoice) {
-                Text("Don't show them").tag(ClaudeLimitsChoice.off)
-                Text("Use the Claude Code CLI's token").tag(ClaudeLimitsChoice.cliToken)
+                Text("Read the statusline usage feed (recommended)")
+                    .tag(ClaudeLimitsChoice.feed)
                 Text("Sign in with your Claude account").tag(ClaudeLimitsChoice.browser)
+                Text("Use the Claude Code CLI's token").tag(ClaudeLimitsChoice.cliToken)
+                Text("Don't show them").tag(ClaudeLimitsChoice.off)
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
@@ -172,22 +180,35 @@ struct FirstRunView: View {
             switch limitsChoice {
             case .off:
                 EmptyView()
+            case .feed:
+                Text("""
+                     Claude Code hands its statusline command the rate-limit windows; RedLine \
+                     installs a small wrapper that writes them to disk. A statusline you \
+                     already have is kept and still draws the line. No sign-in, no Keychain, \
+                     no network. The figures update while Claude Code runs and are shown \
+                     greyed with their age in between.
+                     """)
+                    .font(.system(size: 11))
+                    .foregroundStyle(BrandUI.steel)
+                    .fixedSize(horizontal: false, vertical: true)
             case .cliToken:
                 Text("""
                      Needs Claude Code installed and signed in. Reads its token from your \
-                     Keychain. Claude Code rewrites that item whenever it refreshes, which \
-                     clears the permission, so macOS asks again every day or so; the menu \
-                     has a one-click Reconnect.
+                     Keychain and only ever reads it, never refreshes it, so it cannot sign \
+                     the CLI out. The token is used against an undocumented endpoint, which \
+                     may fall outside Anthropic's terms; that call is yours. macOS may ask \
+                     for Keychain consent again after Claude Code rewrites the item.
                      """)
                     .font(.system(size: 11))
                     .foregroundStyle(BrandUI.steel)
                     .fixedSize(horizontal: false, vertical: true)
             case .browser:
                 Text("""
-                     For claude.ai app users without Claude Code. Needs an OAuth client id, \
-                     and Anthropic does not issue them to third-party apps, so this stays \
-                     unavailable unless you already have one. The flow is built and works \
-                     the moment a client id exists.
+                     RedLine's own sign-in, separate from Claude Code's, so the percentages \
+                     stay live between sessions and it works for claude.ai users with no CLI \
+                     at all. Needs an OAuth client id, which Anthropic does not issue to \
+                     third-party apps; the endpoint is undocumented and using it may fall \
+                     outside their terms, which is your call to make.
                      """)
                     .font(.system(size: 11))
                     .foregroundStyle(BrandUI.steel)

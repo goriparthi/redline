@@ -159,6 +159,9 @@ struct DashboardData {
     /// Why Claude's rails may be missing (rate limited, no token); shown so an empty
     /// panel never reads as silently broken
     var limitsNote: String?
+    /// When Claude's windows were last true. The statusline feed only writes while Claude
+    /// Code runs, so this can trail the rest of the dashboard; old rails drain to steel.
+    var claudeLimitsAsOf: Date?
     var visibleServices: [Snapshot.Service] { services.filter { matches($0.provider) } }
     var today = Agg()
     /// Totals over the selected range, not a fixed week. Named for what it is so a future
@@ -319,9 +322,21 @@ private struct LimitRailRow: View {
     let window: LimitWindow
     let yellow: Double
     let red: Double
+    /// When this window was last true; nil means live. Stale rails drain to steel and carry
+    /// their timestamp in amber, so an old reading can never impersonate a current one.
+    var asOf: Date? = nil
+
+    private var stale: Bool {
+        guard let asOf else { return false }
+        return Date().timeIntervalSince(asOf) > 900
+    }
 
     private var status: Brand.Status {
         Brand.status(for: window.utilization, approachingPct: yellow, atLimitPct: red)
+    }
+
+    private var valueColor: Color {
+        stale ? Brandkit.steel : BrandUI.color(forStatus: status)
     }
 
     var body: some View {
@@ -332,15 +347,20 @@ private struct LimitRailRow: View {
                     .font(.system(size: 14))
                     .foregroundStyle(Brandkit.chalk)
                 Spacer()
+                if stale, let asOf {
+                    Text("as of \(asOf.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(BrandUI.amber)
+                }
                 Text("\(Int(window.utilization.rounded()))% used")
                     .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(BrandUI.color(forStatus: status))
+                    .foregroundStyle(valueColor)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Brandkit.carbon)
                     Capsule()
-                        .fill(BrandUI.color(forStatus: status))
+                        .fill(valueColor)
                         .frame(width: max(2, geo.size.width * window.utilization / 100))
                     // The limit itself, always at the end of the rail
                     Rectangle()
@@ -787,7 +807,9 @@ struct DashboardView: View {
                         Panel(title: "Limits", note: "limit at the line") {
                             VStack(alignment: .leading, spacing: 12) {
                                 ForEach(data.visibleLimits) {
-                                    LimitRailRow(window: $0, yellow: 60, red: 85)
+                                    LimitRailRow(window: $0, yellow: 60, red: 85,
+                                                 asOf: $0.provider == "Claude"
+                                                     ? data.claudeLimitsAsOf : nil)
                                 }
                                 if let note = data.limitsNote {
                                     Text(note)

@@ -78,6 +78,21 @@ enum StatuslineInstaller {
         return .installed(script: dest, chained: chained)
     }
 
+    /// Re-wires the feed when something else unwired it. Claude Code sessions that predate
+    /// the install hold settings.json in memory and write it back without the statusLine
+    /// chain (saving a model choice is enough), which silently stops the sidecar updating.
+    /// The script on disk is the marker of intent: it exists only while the feed is wanted
+    /// (install writes it, uninstall removes it), so wiring is restored whenever the file
+    /// outlives the settings entry. install() wraps whatever command sits there now, so a
+    /// statusline the user changed in the meantime is chained, not clobbered.
+    @discardableResult
+    static func repairIfNeeded(home: URL? = nil) -> Bool {
+        guard FileManager.default.fileExists(atPath: scriptURL(home: home).path),
+              !isInstalled(home: home) else { return false }
+        if case .installed = install(home: home) { return true }
+        return false
+    }
+
     /// Puts `settings.json` back the way the feed found it. Deleting the wrapper while the
     /// `statusLine` entry still points at it breaks the statusline on every draw, and takes
     /// any command chained behind it down too, so this must run before the script is removed.

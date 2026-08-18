@@ -37,6 +37,40 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(back, snap, "dates must survive the ISO8601 round trip")
     }
 
+    /// Claude's windows age on their own clock: the feed writes only while Claude Code runs,
+    /// so their stamp must survive the trip and drive staleness independently of updatedAt.
+    func testClaudeLimitsAsOfRoundTripsAndAges() throws {
+        let now = Date(timeIntervalSince1970: 1_755_400_000)
+        var agg = Agg()
+        agg.io = 1
+        let snap = Snapshot(updatedAt: now,
+                            limits: [LimitWindow(provider: "Claude", key: "seven_day",
+                                                 utilization: 30, resetsAt: nil)],
+                            today: agg, week: agg,
+                            claudeLimitsAsOf: now.addingTimeInterval(-1200))
+        XCTAssertTrue(SnapshotStore.write(snap, to: file))
+        let back = try XCTUnwrap(SnapshotStore.read(from: file))
+        XCTAssertEqual(back.claudeLimitsAsOf, snap.claudeLimitsAsOf)
+        XCTAssertFalse(back.isStale(now: now), "the snapshot itself is current")
+        XCTAssertTrue(back.claudeLimitsAreStale(now: now),
+                      "while its Claude windows are twenty minutes old")
+        XCTAssertFalse(back.claudeLimitsAreStale(now: now, tolerance: 1800))
+    }
+
+    /// Snapshots written before the field existed decode with no stamp, and no stamp must
+    /// read as "nothing to age" rather than stale.
+    func testOlderSnapshotsWithoutTheStampStillDecode() throws {
+        let snap = sample()
+        XCTAssertTrue(SnapshotStore.write(snap, to: file))
+        var json = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: file)) as! [String: Any]
+        json.removeValue(forKey: "claudeLimitsAsOf")
+        try JSONSerialization.data(withJSONObject: json).write(to: file)
+        let back = try XCTUnwrap(SnapshotStore.read(from: file))
+        XCTAssertNil(back.claudeLimitsAsOf)
+        XCTAssertFalse(back.claudeLimitsAreStale())
+    }
+
     func testTimestampsAreTruncatedToWholeSeconds() {
         // ISO8601 cannot carry sub-second precision, so the initializer normalizes rather
         // than leaving an instance that fails to equal its own round trip.

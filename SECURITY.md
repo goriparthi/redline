@@ -75,12 +75,12 @@ makes no request to Anthropic at all.
 
 ## Where it connects
 
-Four hosts, all Anthropic's, and only when Claude rate limits are enabled **and** the usage
+Three hosts, all Anthropic's, and only when Claude rate limits are enabled **and** the usage
 feed above is not already supplying the windows:
 
 - `https://claude.ai/oauth/authorize`, sign-in, in your browser
-- `https://console.anthropic.com/v1/oauth/token`, token exchange and refresh
-- `https://platform.claude.com/v1/oauth/token`, renewing a borrowed CLI token, see Credentials
+- `https://console.anthropic.com/v1/oauth/token`, token exchange and refresh of RedLine's
+  own grant, never of a borrowed one
 - `https://api.anthropic.com/api/oauth/usage`, rate-limit percentages
 
 One more host is reached on RedLine's own initiative:
@@ -101,25 +101,23 @@ they are `https`.
   callback, and the loopback listener binds `127.0.0.1` only, so it is unreachable from the
   network.
 - **`useCLIToken` is off by default.** Turning it on lets RedLine read the Claude CLI's
-  credential, which belongs to another application. macOS requires you to grant Keychain
-  access explicitly, once. RedLine uses the token as a bearer token against the usage
-  endpoint above and never copies it anywhere.
-- Reading that credential is tried three ways, cheapest first: the file at
-  `~/.claude/.credentials.json`, then the Keychain API, then `/usr/bin/security`. The last is
-  a subprocess spawn of an Apple-signed binary, used because the item's `apple-tool:`
-  partition already trusts it. Each read reports whether the item was absent, refused, or
-  unreadable, so a locked Keychain is retried and only a signed-out CLI is treated as final.
-- **Renewing a borrowed token, in two steps.** When the CLI's token has expired, RedLine first
-  runs `claude auth status` so Claude Code renews its own credential. That keeps one refresh
-  chain and cannot disturb your CLI login. Only if that does nothing does RedLine exchange the
-  CLI's refresh token itself, presenting Claude Code's public `client_id` against
-  `platform.claude.com`.
-- **That second step has a real cost, and you should know it.** Anthropic rotates refresh
-  tokens, so once RedLine mints one, the copy Claude Code holds may no longer be the live one
-  and `claude` can ask you to sign in again. RedLine keeps what it mints in its **own**
-  Keychain item and never writes back over the CLI's, because corrupting a credential another
-  tool depends on is worse than a missing percentage. A refusal that names the grant stops the
-  attempt permanently rather than retrying it.
+  credential, which belongs to another application. RedLine uses the token as a bearer token
+  against the usage endpoint above and never copies it anywhere.
+- Reading that credential is tried three ways, least intrusive first: the file at
+  `~/.claude/.credentials.json`, then `/usr/bin/security`, then the Keychain API. The
+  `security` step is a subprocess spawn of an Apple-signed binary, used because the item's
+  `apple-tool:` partition already trusts it, so it usually reads with no consent prompt at
+  all; the API call, the one path that prompts, is last. Each read reports whether the item
+  was absent, refused, or unreadable, so a locked Keychain is retried and only a signed-out
+  CLI is treated as final.
+- **A borrowed token is read, never refreshed.** When it has expired, RedLine runs
+  `claude auth status` so Claude Code renews its own credential, which keeps one refresh
+  chain and cannot disturb your CLI login. That is the whole recovery. An earlier build went
+  one step further and exchanged the CLI's refresh token itself ("minting"); Anthropic
+  rotates refresh tokens on use, so every mint left Claude Code holding a consumed token and
+  forced a fresh `/login`. That code is deleted, not just disabled: nothing in RedLine can
+  spend a credential another tool depends on. When the CLI will not renew, RedLine shows the
+  last reading drained to grey with its timestamp rather than a number pretending to be live.
 - The usage feed avoids all of the above. If it is supplying the windows, none of these token
   paths run at all.
 - No `client_id` for RedLine's own sign-in ships with the app. That sign-in stays disabled

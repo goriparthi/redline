@@ -458,13 +458,14 @@
       <div class="card">
         <div class="card-top"><h3>Claude Code</h3><span class="chip">usage · resets</span></div>
         <p>Token and cost totals come from transcripts already on disk, with no sign-in.
-           Remaining capacity needs a token: borrow the CLI's, or sign in with your Claude
-           account in a browser, which works for claude.ai users with no CLI at all. Both
-           are one click in the menu, and both are opt-in.</p>
+           Remaining capacity comes from the usage feed: the same windows Claude Code hands
+           its statusline, one click to set up, no token and no network. Between sessions the
+           figures grey out with their age; an opt-in browser sign-in or a read-only borrow
+           of the CLI's token keeps them live instead.</p>
         <div class="spec">
           <div><span class="t">Source</span><span class="d">~/.claude</span></div>
           <div><span class="t">Sign-in for usage</span><span class="d">none</span></div>
-          <div><span class="t">Sign-in for limits</span><span class="d">opt-in</span></div>
+          <div><span class="t">Limits</span><span class="d">usage feed · no sign-in</span></div>
         </div>
       </div>
 
@@ -541,7 +542,8 @@ PROMPT</pre>
       <div class="card">
         <div class="card-top"><h3>Credentials you control</h3><span class="chip">keychain</span></div>
         <p>Sign-in uses OAuth with PKCE and a loopback listener bound to localhost. Borrowing
-           the Claude CLI's own token is off by default and requires your explicit consent.</p>
+           the Claude CLI's own token is off by default, needs your explicit consent, and is
+           read-only: RedLine never refreshes it, so it cannot sign the CLI out.</p>
       </div>
     </div>
   </section>
@@ -669,10 +671,10 @@ codesign -dv --verbose=2 /Applications/Redline.app</pre>
       </div>
       <div class="rule-item">
         <h3>Your account, your call</h3>
-        <p>Claude percentages read an undocumented endpoint using Claude Code's own token.
-           Anthropic's policy says subscription credentials are for Claude Code and Claude.ai,
-           so this may fall outside their terms. They stay off until you switch them on, and
-           only you can make that call for your account.</p>
+        <p>The usage feed reads only what Claude Code writes locally. The two token routes
+           read an undocumented endpoint, and Anthropic's policy says subscription credentials
+           are for Claude Code and Claude.ai, so they may fall outside their terms. Both stay
+           off until you switch them on, and only you can make that call for your account.</p>
       </div>
       <div class="rule-item">
         <h3>Built with AI, owned by a human</h3>

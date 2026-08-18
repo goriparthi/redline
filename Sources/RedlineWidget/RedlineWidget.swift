@@ -153,6 +153,8 @@ private struct WindowBlock: View {
     let m: Metrics
     var showsReset = true
     var heroSize: CGFloat? = nil
+    /// Stale readings drain to steel; the StaleNote line below the card carries their age.
+    var stale = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -163,7 +165,8 @@ private struct WindowBlock: View {
             if let w = window {
                 Text("\(Int(w.utilization.rounded()))%")
                     .font(.system(size: heroSize ?? m.hero, weight: .bold, design: .rounded))
-                    .foregroundStyle(BrandUI.statusColor(w.utilization))
+                    .foregroundStyle(stale ? BrandUI.steel
+                                           : BrandUI.statusColor(w.utilization))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             } else {
@@ -173,7 +176,7 @@ private struct WindowBlock: View {
                     .foregroundStyle(BrandUI.steel)
             }
             LimitRail(utilization: window?.utilization ?? 0, height: m.rail,
-                      showsLimit: window != nil)
+                      showsLimit: window != nil, stale: stale)
             if showsReset, let r = window?.resetsAt {
                 Text("resets \(resetText(r))")
                     .font(.system(size: m.detail, design: .monospaced))
@@ -191,6 +194,7 @@ private struct WindowLine: View {
     let label: String
     let window: Snapshot.Window?
     let m: Metrics
+    var stale = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -201,7 +205,8 @@ private struct WindowLine: View {
             if let w = window {
                 Text("\(Int(w.utilization.rounded()))%")
                     .font(.system(size: m.label + 5, weight: .bold, design: .rounded))
-                    .foregroundStyle(BrandUI.statusColor(w.utilization))
+                    .foregroundStyle(stale ? BrandUI.steel
+                                           : BrandUI.statusColor(w.utilization))
             } else {
                 Text("—")
                     .font(.system(size: m.label + 5, weight: .bold))
@@ -241,6 +246,14 @@ private struct StaleNote: View {
     var body: some View {
         if snapshot.isStale() {
             Text("Last updated \(resetText(snapshot.updatedAt))")
+                .font(.system(size: m.detail, design: .monospaced))
+                .foregroundStyle(BrandUI.amber)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        } else if snapshot.claudeLimitsAreStale(), let at = snapshot.claudeLimitsAsOf {
+            // The snapshot is current but Claude's windows are not: the statusline feed
+            // writes only while Claude Code runs. Same amber, scoped to what actually aged.
+            Text("Limits as of \(resetText(at))")
                 .font(.system(size: m.detail, design: .monospaced))
                 .foregroundStyle(BrandUI.amber)
                 .lineLimit(1)
@@ -486,6 +499,12 @@ private struct UsageBody: View {
         provider.map { snapshot.windows(for: $0) } ?? snapshot.limits
     }
 
+    /// Only Claude's windows age separately: they come from the statusline feed, which
+    /// writes while Claude Code runs. Codex windows are re-read from disk on every poll.
+    private func isStale(_ w: Snapshot.Window?) -> Bool {
+        w?.provider == "Claude" && snapshot.claudeLimitsAreStale()
+    }
+
     // The title dot: this provider's report, or for the all track the worst anyone has.
     // nil when status was never published, so nothing is claimed that was not checked.
     private var headerStatusColor: Color? {
@@ -526,10 +545,10 @@ private struct UsageBody: View {
                 Spacer(minLength: 0)
             } else if family == .systemSmall {
                 WindowBlock(label: "Session · 5h", window: session, m: m,
-                            showsReset: detail != .lean)
+                            showsReset: detail != .lean, stale: isStale(session))
                 if detail != .lean {
                     Spacer(minLength: 0)
-                    WindowLine(label: "Week", window: week, m: m)
+                    WindowLine(label: "Week", window: week, m: m, stale: isStale(week))
                 }
             } else {
                 // A provider with one window gets the full width for it; an empty
@@ -537,11 +556,11 @@ private struct UsageBody: View {
                 HStack(alignment: .top, spacing: 16) {
                     if session != nil || week == nil {
                         WindowBlock(label: "Session · 5h", window: session, m: m,
-                                    showsReset: detail != .lean)
+                                    showsReset: detail != .lean, stale: isStale(session))
                     }
                     if week != nil {
                         WindowBlock(label: "Week", window: week, m: m,
-                                    showsReset: detail != .lean)
+                                    showsReset: detail != .lean, stale: isStale(week))
                     }
                 }
             }
@@ -573,7 +592,8 @@ private struct UsageBody: View {
                             Text("\(Int(w.utilization.rounded()))%")
                                 .font(.system(size: m.totals + 2, weight: .bold,
                                               design: .rounded))
-                                .foregroundStyle(BrandUI.statusColor(w.utilization))
+                                .foregroundStyle(isStale(w) ? BrandUI.steel
+                                                 : BrandUI.statusColor(w.utilization))
                         }
                     }
                 }

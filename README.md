@@ -45,14 +45,13 @@ is the route this project recommends.
 - What RedLine actually does, so you can weigh it yourself: it reads the token Claude Code
   already stored on your Mac and makes one **read-only** call to the usage endpoint. It sends
   no prompts, runs no inference, and consumes none of your quota.
-- **One part of this goes further, and it is opt-in within an opt-in.** When the borrowed token
-  has expired, RedLine first asks Claude Code to renew its own by running `claude auth status`.
-  If that does not renew it, RedLine exchanges the CLI's refresh token directly, and doing so
-  **presents Claude Code's `client_id`**. Earlier versions of this file said RedLine never
-  presents a client id; that stopped being true when this was added, and leaving the old
-  sentence in place would be the dishonest choice. It is the part of RedLine that sits closest
-  to what the policy prohibits, it can rotate your CLI's refresh token and make `claude` ask
-  you to sign in again, and the usage feed exists precisely so you never need it.
+- **The borrowed token is read, never refreshed.** When it has expired, RedLine asks Claude
+  Code to renew its own by running `claude auth status`, and that is the whole recovery. An
+  earlier build went one step further and exchanged the CLI's refresh token directly;
+  Anthropic rotates refresh tokens on use, so every such exchange left Claude Code holding a
+  consumed token and forced a fresh `/login`. That code is deleted. When nothing will renew
+  the token, RedLine shows the last reading drained to grey with its timestamp instead of a
+  number pretending to be live.
 - The endpoint can change, start refusing requests, or disappear without notice. It already
   rate-limits aggressively, and RedLine backs off when it does.
 
@@ -243,9 +242,12 @@ at a small wrapper which files those figures where RedLine reads them. No token,
 prompt, and no request to Anthropic. It keeps any statusline you already run: yours still
 draws the line, unchanged, and the wrapper only takes a copy of the limit block in passing.
 
-The figures update while Claude Code is running. Between sessions the menu shows when they
-were captured rather than pretending they are live, and a window that has already reset is
-dropped instead of reported.
+The figures update while Claude Code is running. Between sessions every surface drains them
+to grey and shows when they were captured in amber, rather than pretending they are live, and
+a window that has already reset is dropped instead of reported. If another Claude Code
+session overwrites `settings.json` and unwires the feed (saving a model choice from a session
+that predates the install is enough), RedLine notices on its next poll and re-wires it,
+keeping whatever statusline command is there chained in front.
 
 The remaining two routes are for when the feed is not installed or your build of Claude Code
 does not send the limits. Both live in **Settings ▸ Providers & Claude Limits…**, and both are
@@ -253,25 +255,25 @@ off by default:
 
 **2. Borrow the CLI's token** (`useCLIToken: true`). Needs Claude Code installed and signed
 in. Off by default, because that credential belongs to another application and reading it
-should never be a silent default. RedLine looks for it in `~/.claude/.credentials.json` first,
-then the Keychain. When macOS asks, click **Always Allow**. If you denied it, or the app runs
-as a background agent that is refused silently, grant it in Keychain Access.app: find
-`Claude Code-credentials`, open **Access Control**, and add `Redline.app`.
+should never be a silent default. RedLine looks for it in `~/.claude/.credentials.json`
+first, then via the Apple-signed `security` tool, which the item's own partition already
+trusts and which therefore usually reads with no prompt at all; the Keychain API, the one
+path that does prompt, is tried last. If macOS does ask, click **Always Allow**.
 
 When that token expires, RedLine asks Claude Code to renew its own by running
 `claude auth status`, which keeps a single refresh chain and cannot disturb your CLI login.
-Only if that does nothing does it exchange the CLI's refresh token itself. **That last step
-has a cost worth knowing:** Anthropic rotates refresh tokens, so it can leave Claude Code's
-copy stale and make `claude` ask you to sign in again. RedLine keeps what it mints in its own
-Keychain item and never writes back over the CLI's. Installing the feed avoids this entirely.
+That is the whole recovery: the refresh token is never spent, so borrowing cannot sign the
+CLI out. Until the CLI renews, the last percentages are shown drained to grey with their
+timestamp.
 
-**3. Sign in with your Claude account in a browser.** Built, tested, and **not usable today.**
-   The PKCE flow is complete and requests the `user:profile` scope the usage endpoint wants,
-   but it needs an OAuth client id (`oauth.clientId`), and **Anthropic does not register OAuth
-   clients for third-party applications**. Claude Code's client id is hard-coded to Claude
-   Code; using it would misrepresent RedLine as another application, which their policy
-   prohibits outright and this project will not do. The route stays in the code because it is
-   the right design and works the day a client id becomes obtainable.
+**3. Sign in with your Claude account in a browser.** The PKCE flow is complete and the
+   `user:profile` scope it requests is accepted by the usage endpoint, so the route works the
+   moment a client id is set (`oauth.clientId`). What this project will not do is ship one:
+   **Anthropic does not register OAuth clients for third-party applications**, and presenting
+   Claude Code's id would misrepresent RedLine as another application, which their policy
+   prohibits. If you configure an id on your own machine anyway, that decision, and whose id
+   it is, is yours. The grant lives in RedLine's own Keychain item on its own refresh chain,
+   so whatever happens to it, your CLI login is untouched.
 
 Chat-only users get percentages but no token or cost tables, since those are read from
 Claude Code's transcripts and there are none to read.
@@ -287,16 +289,12 @@ Claude Code's transcripts and there are none to read.
   Prompts…** under Settings takes you there, and the item disappears once it is granted. It is
   a broad permission, and RedLine still reads only what this document and SECURITY.md list.
 - **The Keychain prompt** for `Claude Code-credentials` appears only with `useCLIToken` on,
-  and **Always Allow** is the answer to give. Plain Allow grants a single read, so the prompt
-  returns. Once granted to a Developer ID build, the grant holds across RedLine's own updates,
-  because the item's access list matches on code signature rather than on file path.
-
-  Earlier versions of this file said the grant died every time Claude Code refreshed its
-  token, and that a daily **Reconnect** was inherent to borrowing another app's credential.
-  That was the wrong diagnosis. The item is updated in place and the access list survives.
-  What actually broke was RedLine's own handling: an expired token was indistinguishable from
-  a missing one, and a single failed read was cached permanently. Both are fixed, so a token
-  that expires overnight is now picked up again on its own. If you still see
+  and it should now be rare: reads go through the Apple-signed `security` tool first, which
+  the item's own partition trusts, so the prompting API call runs only when that quiet path
+  fails. If macOS does ask, **Always Allow** is the answer to give; plain Allow grants a
+  single read, so the prompt returns. In practice even Always Allow has been observed not to
+  survive Claude Code rewriting its item, which is exactly why the read order changed and why
+  every other tool that reads this credential does the same. If you still see
   **Reconnect Claude usage…** it means something specific, and the menu says which: the CLI is
   signed out, the Keychain refused the read, or the token is expired and waiting on Claude
   Code to renew it.

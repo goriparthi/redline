@@ -1,6 +1,7 @@
-// Reads the credential Claude Code already stored, in increasing order of cost and intrusion:
-// a plain file first, then the Keychain API, then the Apple-signed `security` tool. Every read
-// reports why it failed, because "signed out" and "not allowed yet" need opposite responses.
+// Reads the credential Claude Code already stored, in increasing order of intrusion: a plain
+// file, then the Apple-signed `security` tool, then the Keychain API last because it is the
+// one path that shows a consent prompt. Every read reports why it failed, because "signed
+// out" and "not allowed yet" need opposite responses.
 import Foundation
 import RedlineCore
 import Security
@@ -8,29 +9,33 @@ import Security
 enum ClaudeCredentialSource {
     static let keychainService = "Claude Code-credentials"
 
-    /// Tried in order. The file costs nothing and prompts for nothing, so it goes first even
-    /// though most installs keep the credential in the Keychain instead.
+    /// Tried in order of intrusion. The file costs nothing and prompts for nothing. The
+    /// `security` binary sits in the item's apple-tool: partition, so on most installs it
+    /// reads without any consent UI; this is how every peer tool avoids the recurring
+    /// password prompt, and Claude Code rewriting the item cannot revoke it. The direct API
+    /// call is last: it is the only rung that prompts, and the prompt has to be re-granted
+    /// every time Claude Code rewrites the item's ACL.
     /// Blocks on the Keychain consent prompt, so never call from the main thread.
     static func load(home: URL? = nil,
                      allowSecurityCLI: Bool = true) -> CredentialOutcome {
         let fileOutcome = fromFile(home: home)
         if case .found = fileOutcome { return fileOutcome }
 
+        var cliOutcome: CredentialOutcome = .notFound
+        if allowSecurityCLI {
+            cliOutcome = fromSecurityCLI()
+            if case .found = cliOutcome { return cliOutcome }
+        }
+
+        // The prompting path, reached only when the quiet ones came back empty-handed
         let keychainOutcome = fromKeychain()
         if case .found = keychainOutcome { return keychainOutcome }
 
-        // The `security` binary sits in the item's apple-tool: partition, so on an item that
-        // has already been consented to once it can read where a direct API call would ask
-        // again. Worth the process spawn only after the cheap paths have missed.
-        if allowSecurityCLI, keychainOutcome != .notFound {
-            let cliOutcome = fromSecurityCLI()
-            if case .found = cliOutcome { return cliOutcome }
-            if cliOutcome == .accessDenied { return .accessDenied }
-        }
-
         // Prefer the more specific answer: a present-but-locked item is not an absent one
-        return keychainOutcome == .notFound && fileOutcome == .notFound
-            ? .notFound : keychainOutcome
+        if keychainOutcome == .notFound, cliOutcome == .notFound, fileOutcome == .notFound {
+            return .notFound
+        }
+        return keychainOutcome == .notFound ? cliOutcome : keychainOutcome
     }
 
     // MARK: - File

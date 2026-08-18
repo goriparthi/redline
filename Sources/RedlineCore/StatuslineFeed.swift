@@ -16,10 +16,21 @@ public struct StatuslineSnapshot: Equatable {
     }
 
     public var isEmpty: Bool { windows.isEmpty }
+
+    /// Fresh enough to stand alone. The sidecar is rewritten on every statusline draw, so a
+    /// quiet quarter hour means Claude Code is idle and a live source should take over.
+    public func isFresh(now: Date = Date()) -> Bool {
+        guard let updatedAt else { return false }
+        return now.timeIntervalSince(updatedAt) <= StatuslineFeed.freshFor
+    }
 }
 
 public enum StatuslineFeed {
     public static let provider = "Claude"
+
+    /// How long a sidecar reading may stand in for a live one. Past this the caller should
+    /// prefer a fetch, and anything still shown from the feed is rendered as stale.
+    public static let freshFor: TimeInterval = 900
 
     /// Default sidecar location. Kept under the app's own directory rather than ~/.claude so
     /// RedLine never writes into a tree another tool owns.

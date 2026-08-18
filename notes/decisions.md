@@ -352,9 +352,10 @@ Three escapes were investigated and all are closed:
   moment the CLI refreshes, because expiry is why the CLI refreshes.
 - **Clone the refresh token and refresh independently.** Mechanically possible, rejected. If
   Anthropic rotates refresh tokens (RedLine's own code already handles rotation, implying they
-  do), whichever side refreshes last owns the session and the other is logged out — a menu bar
+  do), whichever side refreshes last owns the session and the other is logged out: a menu bar
   app that randomly ends your Claude Code session. It also means presenting Claude Code's
-  client id as if RedLine were Claude Code.
+  client id as if RedLine were Claude Code. (2026-08-17: this exact failure shipped anyway as
+  the mint rung and was observed live; see that day's entries. The rejection was right.)
 - **`claude setup-token`, the documented one-year token.** Tested against the endpoint:
   `403 · OAuth token does not meet scope requirement user:profile`. It is scoped to model
   requests. Only the `/login` token carries `user:profile`.
@@ -364,7 +365,7 @@ that Free/Pro/Max OAuth credentials are for Claude Code and Claude.ai, that prod
 use a Console API key, and that misrepresenting identity to Anthropic's servers is prohibited;
 server-side enforcement has rejected subscription credentials outside Claude Code since
 January 2026. Anthropic does not register OAuth clients for third-party apps, so RedLine's
-browser sign-in route — complete, PKCE, requesting `user:profile` — cannot be used by anyone.
+browser sign-in route (complete, PKCE, requesting `user:profile`) cannot be shipped enabled.
 It stays in the tree because it is the correct design the day a client id exists.
 
 Decision: **keep the percentages and disclose plainly.** They remain opt-in, off by default,
@@ -387,3 +388,59 @@ there was no update check. SECURITY.md now lists `api.github.com` alongside the 
 Anthropic hosts and marks it as the only request RedLine makes without being asked. Existing
 installs keep whatever their `config.json` already says, so the new default reaches only
 fresh ones.
+
+## 2026-08-17: minting is deleted, not gated
+
+The mint rung, exchanging the CLI's refresh token when delegation failed, did exactly what its
+own comment warned: Anthropic rotates refresh tokens on use, so each mint left Claude Code
+holding a consumed token and forced a fresh `/login`. Observed live: the CLI's login expired a
+day after signing in, with nothing connecting the two events. Nobody enabling "read my CLI
+token" consented to "and periodically sign my CLI out".
+
+A survey of five peer tools found none that spend a lineage they do not own. CodexBar encodes
+it as a type: credentials carry an owner, and owner==claudeCLI is never refreshed, only
+delegated. codeburn has no refresh path at all and re-reads the file on 401. Claude-Usage-
+Tracker refreshes only when the token is provably idle and writes the rotated credential back
+so the CLI keeps the live chain. Deleted rather than flagged off: a rung this destructive
+should not exist behind any setting. Delegation (`claude auth status`) is now the ceiling, and
+past it the answer is stale data honestly drawn, not a forked chain.
+
+## 2026-08-17: the 2026-08-11 "one family per client" hypothesis has a counter-test
+
+Defect 2 of that incident (save() silently dropping rotated tokens) fully explains the dead
+grant without the hypothesis, and people run Claude Code on several machines with one account
+without mutual logouts, which argues chains are per authorization. A browser sign-in (owner-
+supplied client id, this machine only) went live tonight alongside heavy CLI use. If the
+grant survives a few days of CLI rotation, the hypothesis is dead and the 08-12 "prefer the
+CLI's token" reasoning with it. Its worst case is self-contained either way: only RedLine's
+own grant can die, never the CLI's.
+
+## 2026-08-17: a non-empty feed is not necessarily a current one
+
+The sidecar won the source race whenever it was non-empty, and a reading hours old shadowed a
+live sign-in by five points (feed said 29% while the account was at 34%). Windows already
+carry reset-based expiry, but a week window stays "valid" for days. Now: the feed wins only
+within freshFor (15 min) of its own stamp; past that a live fetch takes over, and the feed's
+last unexpired reading is only a fallback, drawn stale. Staleness is a palette, not a
+footnote: percentages and rails drain to steel, the age rides beside them in amber, in the
+menu bar, dropdown, dashboard, and widget alike. The snapshot carries claudeLimitsAsOf so the
+widget can tell a fresh snapshot with old limits from a fresh everything.
+
+## 2026-08-17: the feed re-wires itself
+
+A Claude Code session that predates the feed holds settings.json in memory and writes it back
+without the statusLine chain; saving a model choice is enough. Observed live: the feed went
+quiet mid-evening and nobody knew until the percentages misled. The wrapper script on disk is
+the marker of intent (install writes it, uninstall removes it), so every poll now re-wires
+settings.json when the script outlives the entry, chaining whatever command sits there at
+repair time. Worst case is one poll of stale data instead of an unbounded silent gap.
+
+## 2026-08-17: the prompting Keychain path goes last
+
+Reads of Claude Code's credential ran file → API → security tool; the API is the only path
+that shows a consent prompt, and Claude Code rewriting its item revoked the grant repeatedly,
+three prompts in eight hours despite Always Allow. Every peer tool reads via the Apple-signed
+security binary, which the item's apple-tool partition trusts, and prompts never. Order is
+now file → security tool → API, so the prompt is reserved for the case where the quiet paths
+failed on an item that exists. The README paragraph claiming the access list survives rewrites
+was retired; observation beat the theory.

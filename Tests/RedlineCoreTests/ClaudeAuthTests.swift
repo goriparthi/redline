@@ -28,6 +28,24 @@ final class StatuslineFeedTests: XCTestCase {
         XCTAssertNotNil(snap.updatedAt)
     }
 
+    /// The gate that keeps a quiet sidecar from shadowing a live source: fresh within
+    /// StatuslineFeed.freshFor of its own stamp, stale past it, unusable with no stamp at all.
+    func testFreshnessFollowsTheSidecarStamp() throws {
+        let stamp = ISO8601DateFormatter().string(from: now.addingTimeInterval(-60))
+        let fresh = try XCTUnwrap(parse("""
+        {"updated_at":"\(stamp)",
+         "five_hour":{"used_percentage":10,"resets_at":1755450000}}
+        """))
+        XCTAssertTrue(fresh.isFresh(now: now))
+        XCTAssertFalse(fresh.isFresh(now: now.addingTimeInterval(StatuslineFeed.freshFor + 61)))
+
+        let unstamped = try XCTUnwrap(parse("""
+        {"five_hour":{"used_percentage":10,"resets_at":1755450000}}
+        """))
+        XCTAssertFalse(unstamped.isFresh(now: now),
+                       "age is the only thing that qualifies a sidecar; no stamp, no trust")
+    }
+
     /// The raw statusline payload, so a feeder that files the whole block still parses
     func testAcceptsTheRawRateLimitsWrapper() throws {
         let snap = try XCTUnwrap(parse("""
@@ -149,28 +167,8 @@ final class SecurityCLIOutputTests: XCTestCase {
 }
 
 final class ClaudeAuthPolicyTests: XCTestCase {
-    func testGrantErrorsAreTerminalAndTheRestAreNot() {
-        XCTAssertEqual(ClaudeAuthPolicy.disposition(
-            status: 400, body: Data(#"{"error":"invalid_grant"}"#.utf8)), .terminal)
-        XCTAssertEqual(ClaudeAuthPolicy.disposition(
-            status: 401, body: Data(#"{"error":"invalid_client"}"#.utf8)), .terminal)
-        XCTAssertEqual(ClaudeAuthPolicy.disposition(status: 400), .terminal)
-        // A bare 401 is usually a stale token rather than a dead grant, so it stays retryable
-        XCTAssertEqual(ClaudeAuthPolicy.disposition(status: 401), .transient)
-        XCTAssertEqual(ClaudeAuthPolicy.disposition(status: 429), .transient)
-        XCTAssertEqual(ClaudeAuthPolicy.disposition(status: 503), .transient)
-    }
-
-    func testRetryAfterAcceptsSecondsAndHTTPDates() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        XCTAssertEqual(ClaudeAuthPolicy.retryAfter("120", now: now),
-                       now.addingTimeInterval(120))
-        XCTAssertNotNil(ClaudeAuthPolicy.retryAfter("Wed, 21 Oct 2026 07:28:00 GMT", now: now))
-        XCTAssertNil(ClaudeAuthPolicy.retryAfter(nil, now: now))
-        XCTAssertNil(ClaudeAuthPolicy.retryAfter("", now: now))
-        XCTAssertNil(ClaudeAuthPolicy.retryAfter("soon", now: now))
-    }
-
+    // disposition() and retryAfter() left with mint(): RedLine no longer spends the CLI's
+    // refresh token, so only the usage-endpoint backoff remains to test.
     func testBackoffGrowsThenCaps() {
         XCTAssertEqual(ClaudeAuthPolicy.backoff(consecutiveFailures: 0), 0)
         XCTAssertEqual(ClaudeAuthPolicy.backoff(consecutiveFailures: 1), 300)
