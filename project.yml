@@ -52,6 +52,9 @@ targets:
       # Shipped so a DMG or cask install has the Ollama shim too, not just a clone
       - path: scripts/ollama-shim.sh
         buildPhase: resources
+      # Same reason: the Claude usage feed has to be installable without a clone
+      - path: scripts/claude-statusline.sh
+        buildPhase: resources
     dependencies:
       - target: RedlineCore
         embed: true

@@ -63,28 +63,6 @@ struct TokenStore: Codable {
     }
 }
 
-// Reads the CLI's own credential item. A background LSUIElement agent is denied silently
-// rather than prompted, so a failure here is expected until access is granted once.
-enum CLICredentials {
-    static let service = "Claude Code-credentials"
-
-    // Can block on a Keychain consent prompt, so never call from the main thread
-    static func accessToken() -> String? {
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecReturnData: true,
-            kSecMatchLimit: kSecMatchLimitOne,
-        ]
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return nil }
-        return CredentialScan.accessToken(in: json)
-    }
-}
-
 // Minimal one-shot HTTP listener that catches the OAuth redirect on localhost
 final class CallbackServer {
     private var listener: NWListener?
@@ -146,8 +124,22 @@ final class OAuthManager {
     private var signInTimeout: DispatchWorkItem?
     private let probeQueue = DispatchQueue(label: "oauth-cli-probe", qos: .utility)
     private let lock = NSLock()
-    private var cliProbe: (token: String?, at: Date)?
-    private var cliRejected = false
+    /// The borrowed credential and when it was read. Held with its expiry rather than as a
+    /// bare string, so the token is re-read when it dies instead of after it fails.
+    private var cliProbe: (credential: BorrowedCredential?, at: Date, outcome: CredentialOutcome)?
+    /// Modification date of the CLI's Keychain item at the last read. Attribute-only reads do
+    /// not decrypt the secret, so watching this costs nothing and no consent.
+    private var cliSeenModifiedAt: Date?
+    /// Only a genuinely signed-out CLI latches. Everything else retries, because the old
+    /// behaviour cached a single failed read forever and needed a manual Reconnect.
+    private var cliSignedOut = false
+    /// Set once delegated refresh proves it does not renew the token on this machine, so the
+    /// process spawn is not repeated on every expiry.
+    private var delegationIneffective = false
+    /// Minting state: a refused grant is final, a rate limit is not.
+    private var mintFailures = 0
+    private var mintBlockedUntil: Date?
+    private var mintGrantDead = false
     // The usage endpoint rate-limits hard and stays limited, so back off rather than
     // hammering it every poll. See anthropics/claude-code issues 31021 and 31637.
     private var backoffUntil: Date?
@@ -174,12 +166,42 @@ final class OAuthManager {
     func resetCLIProbe() {
         lock.lock()
         cliProbe = nil
-        cliRejected = false
+        cliSeenModifiedAt = nil
+        cliSignedOut = false
+        delegationIneffective = false
         lock.unlock()
+        DelegatedRefresh.resetCooldown()
     }
 
-    // Reads only the cached probe; the Keychain itself is touched on probeQueue
-    var isSignedIn: Bool { cachedCLIToken() != nil || TokenStore.load() != nil }
+    // Reads only the cached probe; the Keychain itself is touched on probeQueue.
+    // A merely expired credential still counts as signed in: it means "renew me", not "gone",
+    // and treating it as gone is what discarded the last good percentages mid-day.
+    var isSignedIn: Bool {
+        lock.lock()
+        let haveCredential = cliProbe?.credential != nil
+        lock.unlock()
+        return haveCredential || TokenStore.load() != nil
+    }
+
+    /// Says which of the several different nothings this is. "No Claude token available" was
+    /// shown for a signed-out CLI, a locked Keychain and an expired token alike, and those
+    /// need three different actions from the user.
+    private func tokenUnavailableReason() -> String {
+        lock.lock()
+        let signedOut = cliSignedOut
+        let outcome = cliProbe?.outcome
+        let expired = cliProbe?.credential != nil
+        let dead = mintGrantDead
+        lock.unlock()
+        if !useCLIToken {
+            return settings.isConfigured ? "Not signed in" : "No Claude token available"
+        }
+        if signedOut { return "Claude Code is signed out; run claude to sign in" }
+        if outcome == .accessDenied { return "Keychain access needed; choose Reconnect" }
+        if dead { return "Claude sign-in expired; run claude to refresh it" }
+        if expired { return "Claude token expired; waiting for Claude Code to renew it" }
+        return settings.isConfigured ? "Not signed in" : "No Claude token available"
+    }
 
     // Sign In is only offered when a client id has been configured
     var canSignIn: Bool { settings.isConfigured }
@@ -191,24 +213,182 @@ final class OAuthManager {
     private func cachedCLIToken() -> String? {
         lock.lock()
         defer { lock.unlock() }
-        return cliRejected ? nil : cliProbe?.token
+        guard let c = cliProbe?.credential, c.isFresh() else { return nil }
+        return c.accessToken
     }
 
-    // Caches the miss as well as the hit so a denied prompt is not re-asked on every poll
-    private func refreshCLIProbe() {
+    /// How long to wait before re-reading after a read that did not produce a usable token.
+    /// A denied prompt must not be re-asked every poll, but it must be re-asked eventually:
+    /// caching that miss forever is what forced a manual Reconnect once or twice a day.
+    private static let deniedRetry: TimeInterval = 600
+    private static let unreadableRetry: TimeInterval = 120
+
+    /// Decides whether the Keychain is worth touching again, then touches it. The whole point
+    /// is that every "no" here is temporary except a signed-out CLI.
+    private func refreshCLIProbe(force: Bool = false, now: Date = Date()) {
         guard useCLIToken else { return }
         lock.lock()
-        let have = cliProbe != nil
-        let rejected = cliRejected
+        let signedOut = cliSignedOut
+        let probe = cliProbe
+        let seenModified = cliSeenModifiedAt
         lock.unlock()
-        guard !rejected, !have else { return }
-        // One Keychain read, kept until something invalidates it. A time-based re-read
-        // fired the macOS consent prompt on every menu open for anyone who clicked plain
-        // Allow, which grants a single read.
-        let token = CLICredentials.accessToken()
+        guard !signedOut || force else { return }
+
+        // Free change detection: an attribute-only query never decrypts the secret, so it
+        // neither consults the ACL nor prompts. A moved timestamp means the CLI rotated the
+        // token underneath us and the cached copy is already worthless.
+        let modifiedAt = ClaudeCredentialSource.keychainModifiedAt()
+        let rotated = modifiedAt != nil && modifiedAt != seenModified
+
+        if !force, !rotated, let probe {
+            if let credential = probe.credential {
+                // A live token needs nothing. An expired one is re-read, because the CLI may
+                // have renewed it since, and that is the ordinary daily case.
+                if credential.isFresh(now: now) { return }
+            } else {
+                let wait = probe.outcome == .accessDenied ? Self.deniedRetry
+                                                          : Self.unreadableRetry
+                if now.timeIntervalSince(probe.at) < wait { return }
+            }
+        }
+
+        let outcome = ClaudeCredentialSource.load()
         lock.lock()
-        cliProbe = (token, Date())
+        cliProbe = (outcome.credential, now, outcome)
+        cliSeenModifiedAt = modifiedAt
+        // Only an absent item is durable news; the user has to sign the CLI back in.
+        cliSignedOut = outcome.isTerminal
         lock.unlock()
+    }
+
+    /// The stale-token ladder, in ascending order of intrusion. Returns a fresh access token
+    /// when one of the rungs produced it.
+    ///
+    /// Rung 1 asks Claude Code to renew its own credential, which keeps a single refresh chain
+    /// and cannot invalidate the CLI's login. Rung 2 mints one directly, which works when the
+    /// CLI is absent but forks the chain away from it, so it is deliberately last.
+    private func escalate(now: Date = Date()) -> String? {
+        lock.lock()
+        let credential = cliProbe?.credential
+        let skipDelegation = delegationIneffective
+        lock.unlock()
+        guard let credential, !credential.isFresh(now: now) else { return nil }
+
+        if !skipDelegation {
+            let before = credential.expiresAt
+            switch DelegatedRefresh.attempt(now: now) {
+            case .ran:
+                refreshCLIProbe(force: true, now: now)
+                if let token = cachedCLIToken() { return token }
+                // It ran and changed nothing, so this build of the CLI does not renew on a
+                // status check. Stop paying for the process and let the next rung answer.
+                lock.lock()
+                if cliProbe?.credential?.expiresAt == before { delegationIneffective = true }
+                lock.unlock()
+            case .cliUnavailable:
+                lock.lock()
+                delegationIneffective = true
+                lock.unlock()
+            case .skippedByCooldown, .failed:
+                break
+            }
+        }
+
+        guard credential.canRefresh else { return nil }
+        return mint(using: credential)
+    }
+
+    /// Claude Code's own OAuth client id. A public identifier rather than a secret, and the
+    /// only one the borrowed refresh token is valid for. Overridable because it is not a
+    /// published constant and Anthropic can change it without notice.
+    static let claudeClientID = ProcessInfo.processInfo
+        .environment["REDLINE_CLAUDE_CLIENT_ID"] ?? "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+    static let claudeTokenURL = ProcessInfo.processInfo
+        .environment["REDLINE_CLAUDE_TOKEN_URL"] ?? "https://platform.claude.com/v1/oauth/token"
+
+    /// Exchanges the CLI's refresh token for an access token of our own.
+    ///
+    /// This forks the refresh chain: Anthropic rotates the refresh token, so once this runs
+    /// the CLI's stored copy may no longer be the live one and `claude` can need a fresh
+    /// `/login`. That is why it sits below delegated refresh rather than beside it, and why a
+    /// refusal that names the grant is treated as final instead of retried.
+    private func mint(using credential: BorrowedCredential, now: Date = Date()) -> String? {
+        lock.lock()
+        if let until = mintBlockedUntil, until > now {
+            lock.unlock()
+            return nil
+        }
+        if mintGrantDead {
+            lock.unlock()
+            return nil
+        }
+        lock.unlock()
+
+        guard let refresh = credential.refreshToken,
+              let url = URL(string: Self.claudeTokenURL) else { return nil }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 30
+        req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        var comps = URLComponents()
+        comps.queryItems = [
+            URLQueryItem(name: "grant_type", value: "refresh_token"),
+            URLQueryItem(name: "refresh_token", value: refresh),
+            URLQueryItem(name: "client_id", value: Self.claudeClientID),
+        ]
+        req.httpBody = (comps.percentEncodedQuery ?? "").data(using: .utf8)
+
+        // Called from the probe queue, never the main thread, so blocking here is safe and
+        // keeps the ladder readable as a sequence rather than nested completions.
+        var body: Data?
+        var status = 0
+        var retryAfter: String?
+        let done = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: req) { data, resp, _ in
+            body = data
+            let http = resp as? HTTPURLResponse
+            status = http?.statusCode ?? 0
+            retryAfter = http?.value(forHTTPHeaderField: "Retry-After")
+            done.signal()
+        }.resume()
+        _ = done.wait(timeout: .now() + 35)
+
+        guard (200..<300).contains(status),
+              let body,
+              let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+              let access = json["access_token"] as? String else {
+            record(mintFailure: status, body: body, retryAfter: retryAfter, now: now)
+            return nil
+        }
+
+        lock.lock()
+        mintFailures = 0
+        mintBlockedUntil = nil
+        lock.unlock()
+
+        let expiresIn = (json["expires_in"] as? Double) ?? 3600
+        // Kept in this app's own item, never written back over the CLI's. Corrupting the
+        // credential another tool depends on is a worse failure than a missing percentage.
+        TokenStore(accessToken: access,
+                   refreshToken: (json["refresh_token"] as? String) ?? refresh,
+                   expiresAt: now.addingTimeInterval(expiresIn - 60)).save()
+        return access
+    }
+
+    private func record(mintFailure status: Int, body: Data?, retryAfter: String?, now: Date) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard ClaudeAuthPolicy.disposition(status: status, body: body) == .transient else {
+            // The grant itself is refused. Retrying cannot help, and hammering a dead grant
+            // is exactly the behaviour that gets an endpoint closed.
+            mintGrantDead = true
+            return
+        }
+        mintFailures += 1
+        mintBlockedUntil = ClaudeAuthPolicy.retryAfter(retryAfter, now: now)
+            ?? now.addingTimeInterval(ClaudeAuthPolicy.backoff(consecutiveFailures: mintFailures))
     }
 
     /// One deliberate Keychain read, for the moment the user enables the CLI token: warms
@@ -236,9 +416,12 @@ final class OAuthManager {
         lock.unlock()
     }
 
+    /// A deliberate stop, not a failure. Only Sign Out uses it, and only resetCLIProbe undoes
+    /// it; nothing in the fetch path may latch this way any more.
     private func rejectCLIToken() {
         lock.lock()
-        cliRejected = true
+        cliProbe = nil
+        cliSignedOut = true
         lock.unlock()
     }
 
@@ -344,9 +527,13 @@ final class OAuthManager {
             completion(cli, nil)
             return
         }
+        // Stale rather than absent: ask the CLI to renew, then mint if that does nothing.
+        if useCLIToken, let escalated = escalate() {
+            completion(escalated, nil)
+            return
+        }
         guard let store = TokenStore.load() else {
-            completion(nil, settings.isConfigured ? "Not signed in"
-                                                 : "No Claude token available")
+            completion(nil, tokenUnavailableReason())
             return
         }
         if store.expiresAt > Date() {
@@ -420,17 +607,12 @@ final class OAuthManager {
                 guard let data,
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       (200..<300).contains(status) else {
-                    // The CLI rotates its token underneath us, so a refusal usually just
-                    // means ours is stale: read the Keychain once more before giving up
-                    // on it. If the fresh token is refused too, the next pass falls back
-                    // to this app's own grant via the rejection latch.
-                    if usingCLI, status == 401 || status == 403 {
-                        if allowRetry {
-                            self.resetCLIProbe()
-                            self.refreshCLIProbe()
-                        } else {
-                            self.rejectCLIToken()
-                        }
+                    // The CLI rotates its token underneath us, so a refusal usually just means
+                    // ours is stale: force a fresh read, then climb the ladder. Nothing here
+                    // latches, because a refusal is evidence about one token, not about
+                    // whether the Keychain can be read at all.
+                    if usingCLI, status == 401 || status == 403, allowRetry {
+                        self.refreshCLIProbe(force: true)
                         self.loadLimits(allowRetry: false, completion: completion)
                         return
                     }

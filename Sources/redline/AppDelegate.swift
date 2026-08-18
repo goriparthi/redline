@@ -470,6 +470,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // The percentages without a credential: Claude Code already reports its own rate limits to
+    // whatever statusline command is configured, so this points that at a wrapper which files
+    // them where RedLine can read them.
+    @objc func installStatuslineFeed(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        switch StatuslineInstaller.install() {
+        case .failed(let message):
+            alert.messageText = "Could not set up the usage feed"
+            alert.informativeText = message
+            alert.runModal()
+        case .alreadyInstalled(let script):
+            alert.messageText = "The usage feed is already set up"
+            alert.informativeText = "\(script.path)\n\nStart or continue a Claude Code session "
+                + "and the percentages appear at the next refresh."
+            alert.runModal()
+        case .installed(let script, let chained):
+            alert.messageText = "Claude usage feed is set up"
+            var text = """
+                Installed at \(script.path) and pointed to by statusLine in \
+                ~/.claude/settings.json.
+
+                Claude Code passes its rate-limit windows to that command, so RedLine reads \
+                them from disk. No token, no Keychain, and no request to Anthropic.
+
+                The figures update while Claude Code is running and carry their own timestamp \
+                between sessions.
+                """
+            if let chained {
+                text += "\n\nYour existing statusline is kept and still draws the line:\n"
+                    + chained
+            }
+            alert.informativeText = text
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Show in Finder")
+            if alert.runModal() == .alertSecondButtonReturn {
+                NSWorkspace.shared.activateFileViewerSelecting([script])
+            }
+            refresh()
+        }
+    }
+
     @objc func toggleLaunchAtLogin(_ sender: Any?) {
         if LaunchAgent.isInstalled {
             LaunchAgent.remove()
@@ -1006,6 +1048,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return
         }
+        // Claude Code hands its statusline command the same rate-limit windows this app used
+        // to borrow a token to fetch. When the feed is installed they are already on disk, so
+        // nothing here needs a credential, a Keychain prompt, or a request. Windows that have
+        // rolled over are dropped on read, so a feed that has gone quiet falls through to the
+        // token path on its own rather than reporting a percentage that no longer exists.
+        if let snapshot = StatuslineFeed.read(path: StatuslineFeed.defaultPath()),
+           !snapshot.isEmpty {
+            claudeLimits = snapshot.windows
+            claudeLimitsAt = snapshot.updatedAt
+            limitsStatus = nil
+            dashboardModel.data.limitsNote = nil
+            updateTitle()
+            publishSnapshot()
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
         oauth.fetchLimits { [weak self] limits, err in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -1297,7 +1355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         addSection(menu, label: "Last 5 hours", agg: block5h, detail: false)
         menu.addItem(.separator())
-        addSection(menu, label: "Last 7 days", agg: week, detail: true)
+        addSection(menu, label: "Last 7 days", agg: week, detail: true, showIdle: true)
         menu.addItem(.separator())
 
         let updated = lastRefresh.map {
@@ -1433,6 +1491,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(w)
         }
 
+        // Only when Claude is present, and only while the feed is not already wired up
+        if availability.has(UsageStore.provider), !StatuslineInstaller.isInstalled() {
+            let f = NSMenuItem(title: "Set Up Claude Usage Feed…",
+                               action: #selector(installStatuslineFeed(_:)), keyEquivalent: "")
+            f.target = self
+            f.toolTip = "Reads Claude Code's own rate-limit figures from its statusline, so "
+                      + "the percentages need no token and no Keychain access"
+            menu.addItem(f)
+        }
+
         let e = NSMenuItem(title: "Edit Config…", action: #selector(editConfig(_:)),
                            keyEquivalent: ",")
         e.target = self
@@ -1484,12 +1552,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return "  (last updated \(f.string(from: at)))"
     }
 
-    private func addSection(_ menu: NSMenu, label: String, agg: Agg, detail: Bool) {
+    private func addSection(_ menu: NSMenu, label: String, agg: Agg, detail: Bool,
+                            showIdle: Bool = false) {
         let partial = agg.hasUnpriced ? "+" : ""
         addInfo(menu, "\(label): \(fmtCost(agg.cost))\(partial) est, \(fmtTokens(agg.io)) in+out")
         addInfo(menu, "    cache read \(fmtTokens(agg.cacheRead)), write \(fmtTokens(agg.cacheWrite))",
                 secondary: true)
-        guard detail, agg.io > 0 else { return }
+        guard detail else { return }
 
         for (provider, usage) in agg.rankedProviders {
             addRow(menu, indent: 1, dot: Brandkit.nsColor(for: provider),
@@ -1513,6 +1582,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             addInfo(menu, "    + no pricing entry for models shown with a dash",
                     secondary: true)
         }
+        // An installed provider that simply went quiet is not the same as one that is absent
+        // or broken. Saying so stops a silent gap reading as failed tracking.
+        if showIdle {
+            for provider in idleProviders(in: agg) {
+                addIdleRow(menu, provider: provider, period: label.lowercased())
+            }
+        }
+    }
+
+    /// Providers this Mac has, and the config reads, that produced nothing in this window.
+    private func idleProviders(in agg: Agg) -> [String] {
+        availability.installed.filter { config.wants($0) && agg.providers[$0] == nil }
+    }
+
+    /// A hollow dot rather than a filled one, and words rather than a zero: a $0.00 row here
+    /// would read as "ran, cost nothing" instead of "did not run".
+    private func addIdleRow(_ menu: NSMenu, provider: String, period: String) {
+        let pad = "    "
+        let marker = "○ "
+        let nameWidth = max(4, Self.leadWidth - pad.count - marker.count)
+        addStatic(menu, monoTitle([
+            ("\(pad)\(marker)", contrasted(Brandkit.nsColor(for: provider))),
+            (Sparkline.pad(provider, to: nameWidth), Brandkit.menuSecondary),
+            ("no usage in the \(period)", Brandkit.menuSecondary),
+        ]))
     }
 
     // Only the name indents. Every column after it sits at a fixed offset so provider and
