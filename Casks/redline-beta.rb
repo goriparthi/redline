@@ -5,10 +5,9 @@
 #   brew install --cask ./Casks/redline-beta.rb
 #
 # Bump version and sha256 after each beta release; scripts/release.sh prints both.
-# The sha256 below is a placeholder until the first beta release is cut.
 cask "redline-beta" do
   version "0.4.0-beta.1"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "407e10a873b0ae3825a46e097d0d1805b50821937cf3bd235adb215101ed3b69"
 
   url "https://github.com/goriparthi/redline/releases/download/v#{version}/Redline-#{version}.dmg"
   name "RedLine Beta"
