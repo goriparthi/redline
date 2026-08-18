@@ -161,7 +161,9 @@ struct DashboardData {
     var limitsNote: String?
     var visibleServices: [Snapshot.Service] { services.filter { matches($0.provider) } }
     var today = Agg()
-    var week = Agg()
+    /// Totals over the selected range, not a fixed week. Named for what it is so a future
+    /// edit cannot read it as seven days again.
+    var ranged = Agg()
     var loading = true
     var scannedAt: Date?
     var ollamaReachableHint = false
@@ -194,7 +196,10 @@ struct DashboardData {
     }
 
     var todaySlice: Slice { slice(today) }
-    var weekSlice: Slice { slice(week) }
+    var rangedSlice: Slice { slice(ranged) }
+
+    /// "7 days", "14 days", "30 days". One source for every label that names the window.
+    var rangeLabel: String { "\(range) days" }
 
     var visibleTrends: [ProviderTrend] { trends.filter { matches($0.provider) } }
     var visibleHourly: [ProviderTrend] { hourly.filter { matches($0.provider) } }
@@ -258,20 +263,21 @@ final class DashboardModel: ObservableObject {
                 entries += self.ollama.scan(lookbackDays: days)
             }
             let now = Date()
+            // One cutoff drives every ranged figure. Separate hardcoded windows are how the
+            // tiles and the model mix stayed on 7 days while the charts moved to 14 or 30.
+            let since = now.addingTimeInterval(-Double(days) * 86400)
             let trends = Trends.trend(entries, by: .day, count: days, now: now, config: cfg)
             let hourly = Trends.trend(entries, by: .hour, count: 24, now: now, config: cfg)
-            let models = Trends.byModel(entries,
-                                        since: now.addingTimeInterval(-7 * 86400), config: cfg)
+            let models = Trends.byModel(entries, since: since, config: cfg)
             let today = aggregate(entries, since: Calendar.current.startOfDay(for: now),
                                  config: cfg)
-            let week = aggregate(entries, since: now.addingTimeInterval(-7 * 86400),
-                                 config: cfg)
+            let ranged = aggregate(entries, since: since, config: cfg)
             DispatchQueue.main.async {
                 self.data.trends = trends
                 self.data.hourly = hourly
                 self.data.models = models
                 self.data.today = today
-                self.data.week = week
+                self.data.ranged = ranged
                 self.data.scannedAt = now
                 self.data.loading = false
             }
@@ -379,6 +385,18 @@ private struct StatTile: View {
 
 // MARK: - Charts
 
+// Both daily charts share one x-axis cadence, or the same 30 day range reads as two
+// different spans stacked on top of each other.
+private enum DailyStride {
+    static func days(for range: Int) -> Int {
+        switch range {
+        case ...7:   return 1
+        case ...14:  return 2
+        default:     return 5
+        }
+    }
+}
+
 private struct DailyTokensChart: View {
     let trends: [ProviderTrend]
     let range: Int
@@ -417,7 +435,7 @@ private struct DailyTokensChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .day, count: range > 14 ? 5 : 2)) { _ in
+            AxisMarks(values: .stride(by: .day, count: DailyStride.days(for: range))) { _ in
                 AxisGridLine().foregroundStyle(Brandkit.steel.opacity(0.10))
                 AxisValueLabel(format: .dateTime.month(.abbreviated).day(),
                                centered: false)
@@ -431,6 +449,7 @@ private struct DailyTokensChart: View {
 
 private struct DailyCostChart: View {
     let trends: [ProviderTrend]
+    let range: Int
 
     private struct Row: Identifiable {
         let id = UUID()
@@ -473,7 +492,7 @@ private struct DailyCostChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .day, count: 3)) { _ in
+            AxisMarks(values: .stride(by: .day, count: DailyStride.days(for: range))) { _ in
                 AxisGridLine().foregroundStyle(Brandkit.steel.opacity(0.10))
                 AxisValueLabel(format: .dateTime.month(.abbreviated).day())
                     .font(.system(size: 12, design: .monospaced))
@@ -781,14 +800,15 @@ struct DashboardView: View {
                     if data.focus == OllamaStore.provider {
                         OllamaPanel(service: ollama)
                     }
-                    Panel(title: "Tokens per day", note: "\(data.range) days") {
+                    Panel(title: "Tokens per day", note: data.rangeLabel) {
                         if data.visibleTrends.isEmpty { empty } else {
                             DailyTokensChart(trends: data.visibleTrends, range: data.range)
                         }
                     }
-                    Panel(title: "Estimated cost per day", note: "configured pricing") {
+                    Panel(title: "Estimated cost per day",
+                          note: "\(data.rangeLabel) · configured pricing") {
                         if data.visibleTrends.isEmpty { empty } else {
-                            DailyCostChart(trends: data.visibleTrends)
+                            DailyCostChart(trends: data.visibleTrends, range: data.range)
                         }
                     }
                     Panel(title: "Last 24 hours") {
@@ -796,7 +816,7 @@ struct DashboardView: View {
                             HourlyChart(trends: data.visibleHourly)
                         }
                     }
-                    Panel(title: "Models", note: "last 7 days") {
+                    Panel(title: "Models", note: "last \(data.rangeLabel)") {
                         if data.visibleModels.isEmpty { empty } else {
                             ModelMix(models: data.visibleModels)
                         }
@@ -940,15 +960,15 @@ struct DashboardView: View {
         // Labels name the track so a focused figure cannot be read as the global one
         let scope = data.focusingAll ? "" : " · \(data.focus)"
         let today = data.todaySlice
-        let week = data.weekSlice
+        let ranged = data.rangedSlice
         let peak = data.visibleTrends.compactMap(\.peak).map(\.io).max()
         return HStack(spacing: 12) {
             StatTile(label: "Today\(scope)", value: fmtTokens(today.io),
                      sub: "\(fmtCost(today.cost))\(today.hasUnpriced ? "+" : "") est")
-            StatTile(label: "Last 7 days\(scope)", value: fmtTokens(week.io),
-                     sub: "\(fmtCost(week.cost))\(week.hasUnpriced ? "+" : "") est")
-            StatTile(label: "Cache read", value: fmtTokens(week.cacheRead),
-                     sub: "7 days")
+            StatTile(label: "Last \(data.rangeLabel)\(scope)", value: fmtTokens(ranged.io),
+                     sub: "\(fmtCost(ranged.cost))\(ranged.hasUnpriced ? "+" : "") est")
+            StatTile(label: "Cache read", value: fmtTokens(ranged.cacheRead),
+                     sub: data.rangeLabel)
             StatTile(label: "Busiest day",
                      value: peak.map(fmtTokens) ?? "—", sub: "in range")
         }
