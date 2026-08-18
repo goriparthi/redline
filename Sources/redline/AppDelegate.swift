@@ -113,6 +113,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// reading whose origin cannot be named is a reading that cannot be trusted or fixed.
     enum ClaudeLimitsSource { case feed, signIn, cliToken }
     private var claudeLimitsSource: ClaudeLimitsSource?
+    /// Watches the feed sidecar so the title tracks Claude Code in near real time. The poll
+    /// remains for everything that genuinely needs a scan; the feed no longer waits on it.
+    private var feedWatcher: DispatchSourceFileSystemObject?
+    private var feedWatchDebounce: DispatchWorkItem?
+    private var feedSeenMtime: Date?
     private var ollamaSection: Snapshot.Ollama?
     // Recomputed on each refresh so a provider installed later shows up without a restart
     private var availability = ProviderAvailability.detect()
@@ -143,6 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         scheduleTimer()
         scheduleUpdateTimer()
+        watchFeedDirectory()
         refresh()
         if CommandLine.arguments.contains("--dashboard") { openDashboard(nil) }
         // Ask once what to read, rather than switching every provider on by default
@@ -983,6 +989,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Refresh
 
+    /// Claude Code rewrites the feed sidecar on every statusline draw, so waiting for the
+    /// next poll leaves the title up to five minutes behind a file that already holds the
+    /// answer. This watches the app's own data directory and re-reads limits when the
+    /// sidecar's mtime moves. The directory is watched rather than the file because the
+    /// feeder replaces the file atomically, which would orphan a file-level watcher; the
+    /// mtime check is what keeps our own snapshot writes into the same directory from
+    /// turning this into a refresh loop.
+    private func watchFeedDirectory() {
+        let dir = StatuslineFeed.defaultPath().deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fd = open(dir.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: .write, queue: .main)
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            // Coalesce the burst of writes a statusline redraw produces into one read
+            self.feedWatchDebounce?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                let mtime = (try? FileManager.default.attributesOfItem(
+                    atPath: StatuslineFeed.defaultPath().path))?[.modificationDate] as? Date
+                guard let mtime, mtime != self.feedSeenMtime else { return }
+                self.feedSeenMtime = mtime
+                self.refreshLimits()
+            }
+            self.feedWatchDebounce = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        feedWatcher = source
+    }
+
     private func refresh() {
         // Cheap wiring check first, so a clobbered settings.json costs at most one poll of
         // stale percentages rather than going quietly dark until someone notices.
@@ -1459,7 +1499,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let updated = lastRefresh.map {
             DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .medium)
         } ?? "never"
-        addInfo(menu, "Updated \(updated), polling every \(Int(config.pollIntervalSeconds))s")
+        // Human units, not developer ones: "polling every 300s" made users ask whether
+        // something was wrong. Limits also update live while Claude Code feeds the sidecar.
+        let every = config.pollIntervalSeconds.truncatingRemainder(dividingBy: 60) == 0
+            ? "\(Int(config.pollIntervalSeconds / 60))m"
+            : "\(Int(config.pollIntervalSeconds))s"
+        addInfo(menu, "Updated \(updated) · rescans every \(every)")
 
         let d = NSMenuItem(title: "Open Usage Dashboard…",
                            action: #selector(openDashboard(_:)), keyEquivalent: "d")

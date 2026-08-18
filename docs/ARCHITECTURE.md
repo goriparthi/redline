@@ -85,7 +85,12 @@ wrapper script on disk outlives the settings entry. The script is the marker of 
 install writes it, uninstall removes it.
 
 Polling is `pollIntervalSeconds` (default 300), plus a refresh on wake and on menu open if
-the data is over 60s old.
+the data is over 60s old. The feed does not wait for any of that: a dispatch source watches
+the app's data directory and re-reads limits when the sidecar's mtime moves, so the title
+tracks Claude Code in near real time while it runs. The directory is watched rather than the
+file because the feeder replaces the file atomically, which would orphan a file-level
+watcher, and the mtime comparison keeps the app's own snapshot writes into the same
+directory from becoming a refresh loop.
 
 ## Auth, and why it is shaped this way
 
