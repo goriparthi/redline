@@ -63,9 +63,34 @@ json_field() {
     else bad "json $field is $actual, expected $expected"; fi
 }
 
+# Fixed so a laptop and a CI runner bucket days identically. history rolls up by UTC day
+# while cadence counts local days, so a machine east or west of UTC could pass one and fail
+# the other on the same fixtures.
+export TZ=UTC
+
 # Timestamps are generated relative to now so the cadence and history windows see them as
-# recent. Every fixture is written by the same helpers the tests below call.
-iso() { /bin/date -u -v"$1" +"%Y-%m-%dT%H:%M:%S.000Z"; }
+# recent, and scaled so they cannot reach back into yesterday.
+#
+# The assertions below expect exactly one active day. A fixture written "3 hours ago" lands
+# in yesterday whenever the run starts less than 3 hours into the UTC day, which failed CI
+# every night between 00:00 and 03:00Z. Offsets are therefore expressed in minutes and
+# squeezed into whatever part of today has already elapsed; a run just after midnight gets a
+# tighter spread rather than a fixture in the wrong day.
+# One anchor for the whole run, not a fresh clock read per fixture: a suite that takes a
+# minute would otherwise straddle midnight if it started at 23:59.
+FIXTURE_SPAN=180
+NOW_EPOCH=$(/bin/date -u +%s)
+DAY_MINUTES=$(( 10#$(/bin/date -u -r "$NOW_EPOCH" +%H) * 60 + 10#$(/bin/date -u -r "$NOW_EPOCH" +%M) ))
+# Never reach further back than the day is old. A minute of headroom where there is one, so
+# nothing lands exactly on the boundary.
+USABLE=$(( DAY_MINUTES > 1 ? DAY_MINUTES - 1 : DAY_MINUTES ))
+if (( USABLE > FIXTURE_SPAN )); then USABLE=$FIXTURE_SPAN; fi
+
+# iso <minutes-ago>, scaled. Order is preserved; only the spread shrinks.
+iso() {
+    /bin/date -u -r $(( NOW_EPOCH - ($1 * USABLE / FIXTURE_SPAN) * 60 )) \
+        +"%Y-%m-%dT%H:%M:%S.000Z"
+}
 
 claude_line() {
     local id="$1" ts="$2" input="${3:-1000}" output="${4:-100}"
@@ -102,10 +127,10 @@ run 20 cadence
 echo
 echo "first ingest"
 {
-    claude_line a "$(iso -3H)"
-    claude_line b "$(iso -2H)" 2000 200
+    claude_line a "$(iso 180)"
+    claude_line b "$(iso 120)" 2000 200
 } > "$CLAUDE_DIR/session.jsonl"
-codex_line "$(iso -1H)" 42 > "$CODEX_DIR/rollout.jsonl"
+codex_line "$(iso 60)" 42 > "$CODEX_DIR/rollout.jsonl"
 
 run 0 ingest --json
 json_field added 3
@@ -144,14 +169,14 @@ json_field records 3
 
 echo
 echo "appending"
-claude_line c "$(iso -10M)" 500 50 >> "$CLAUDE_DIR/session.jsonl"
+claude_line c "$(iso 10)" 500 50 >> "$CLAUDE_DIR/session.jsonl"
 run 0 ingest --json
 json_field added 1
 json_field records 4
 
 # A line being written right now ends mid record. It must not be parsed until it is whole.
 printf '{"timestamp":"%s","requestId":"req_partial","message":{"id":"partial","model":"claude-sonnet-5","usage":{"input_tok' \
-    "$(iso -1M)" >> "$CLAUDE_DIR/session.jsonl"
+    "$(iso 1)" >> "$CLAUDE_DIR/session.jsonl"
 run 0 ingest --json
 json_field added 0
 printf 'ens":900,"output_tokens":90,"cache_read_input_tokens":0}}}\n' >> "$CLAUDE_DIR/session.jsonl"
@@ -193,7 +218,7 @@ cat > "$E2E_HOME/.config/redline/config.json" <<'JSON'
 { "providers": ["Ollama"] }
 JSON
 mkdir -p "$CLAUDE_DIR"
-claude_line z "$(iso -5M)" 7000 700 > "$CLAUDE_DIR/second.jsonl"
+claude_line z "$(iso 5)" 7000 700 > "$CLAUDE_DIR/second.jsonl"
 run 0 ingest --json
 json_field added 0
 rm "$E2E_HOME/.config/redline/config.json"
