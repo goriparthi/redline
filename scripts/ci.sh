@@ -17,9 +17,21 @@ done
 
 step() { printf '\n\033[1;35m===\033[0m %s\n' "$*"; }
 
+# One toolchain for the whole run. test.sh and build-widget.sh each resolve this for
+# themselves, so exporting it here only makes them agree; what it really fixes is the report
+# below, which used to run xcodebuild directly and abort the suite on its first step on any
+# machine whose active developer directory is the Command Line Tools.
+DEV_DIR="$(resolve_developer_dir)"
+if [[ -n "$DEV_DIR" ]]; then export DEVELOPER_DIR="$DEV_DIR"; fi
+
 step "Toolchain"
 swift --version
-if command -v xcodebuild >/dev/null; then xcodebuild -version; fi
+info "DEVELOPER_DIR=${DEVELOPER_DIR:-unset}"
+# Reporting only. A machine without Xcode still runs everything up to the widget steps, which
+# say so themselves, so failing to print a version must not end the suite here.
+if command -v xcodebuild >/dev/null; then
+    xcodebuild -version || warn "xcodebuild is present but no Xcode is selected"
+fi
 
 # Written notes are part of the change, not a release day scramble. Missing is a warning
 # here and fatal in release.sh; one that reads like a commit dump fails either way.
