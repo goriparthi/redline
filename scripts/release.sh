@@ -33,8 +33,21 @@ if [[ "$VERSION" == *-* ]]; then
     info "Prerelease version; publishing $TAG to the beta channel"
 fi
 
+# Written notes, not a commit dump. --generate-notes shipped releases whose entire body was a
+# compare link, which tells nobody whether this build is worth installing.
+NOTES="$REPO_ROOT/notes/releases/$VERSION.md"
+if [[ "${NOTES_ANYWAY:-0}" == "1" ]]; then
+    NOTES_ARGS=(--generate-notes)
+elif [[ -f "$NOTES" ]]; then
+    NOTES_ARGS=(--notes-file "$NOTES")
+else
+    die "no release notes at notes/releases/$VERSION.md
+Write what changed for someone deciding whether to update, then run this again.
+Set NOTES_ANYWAY=1 to fall back to generated notes."
+fi
+
 info "Creating release $TAG"
-gh release create "$TAG" "$DMG" --title "$APP_NAME $TAG" --generate-notes $PRERELEASE_FLAG
+gh release create "$TAG" "$DMG" --title "$APP_NAME $TAG" "${NOTES_ARGS[@]}" $PRERELEASE_FLAG
 
 SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
 info "Release published. Update $CASK_FILE:"
