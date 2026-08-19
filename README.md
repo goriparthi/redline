@@ -379,12 +379,12 @@ poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it
 | `autoCheckUpdates` | `true` | Ask once a day whether a newer release exists; speaks up only when one does |
 | `statusChecks` | `false` | Poll the providers' public status pages every 15 minutes |
 | `dashboardTheme` | `auto` | Dashboard appearance: `auto` follows the OS, or force `light` or `dark` |
-| `alerts` | `false` | Notify when a window crosses a threshold, is about to run out, or resets |
+| `alerts` | `true` | Notify when a window crosses a threshold, is about to run out, or resets |
 | `recordHistory` | `true` | Keep a daily rollup so history outlives Claude Code's transcript cleanup |
 | `publishSidecar` | `true` | Write the current windows where other local tools can read them |
 | `externalUsagePath` | empty | Absolute path to another tool's usage sidecar, read as a fallback |
 | `findingsScans` | `true` | Look through transcripts for setup findings in the background |
-| `mindfulCues` | `false` | Say when a run has gone long, when you are still going late, and when days have run together |
+| `mindfulCues` | `true` | Say when a run has gone long, when you are still going late, and when days have run together |
 | `stretchMinutes` | `90` | How long an unbroken run reaches before it is worth saying |
 | `lateHour` | `23` | The local hour after which activity counts as late |
 | `streakDays` | `7` | How many consecutive days with activity before that is worth saying |

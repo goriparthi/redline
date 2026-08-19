@@ -371,9 +371,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         return NSAttributedString(attachment: attachment)
     }
 
-    /// Alerts are opt-in, and turning them on is when macOS is asked for permission. Asking
-    /// at launch, before the app has anything to say, is how an app gets refused once and
-    /// forever.
+    /// Switching this back on is one of the moments macOS is asked for permission; the other
+    /// is the first delivery. Asking at launch, before the app has anything to say, is how an
+    /// app gets refused once and forever.
     @objc func toggleAlerts(_ sender: Any?) {
         let next = !config.alerts
         guard Config.write(["alerts": next]) else { return }

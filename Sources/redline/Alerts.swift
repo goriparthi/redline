@@ -1,9 +1,9 @@
 // Delivery for the events Alerting decides on. The decision is in the core and tested; this
 // is the part that talks to macOS.
 //
-// Nothing is posted until the user turns alerts on, and the authorization prompt is raised at
-// that moment rather than on first launch: an app that asks to notify before it has anything
-// to say is an app people say no to.
+// Alerts are on by default, but the authorization prompt is raised at the first delivery
+// rather than on first launch: an app that asks to notify before it has anything to say is an
+// app people say no to.
 import Foundation
 import RedlineCore
 import UserNotifications
@@ -63,8 +63,9 @@ final class AlertCenter {
         }
     }
 
-    /// Called when the setting is switched on. macOS only shows the prompt once per app, so
-    /// a refusal is remembered by the system and this simply stops delivering.
+    /// Called at the first delivery, and when the setting is switched back on. macOS only
+    /// shows the prompt once per app, so a refusal is remembered by the system and this
+    /// simply stops delivering.
     func requestAuthorization(completion: ((Bool) -> Void)? = nil) {
         guard available else {
             completion?(false)

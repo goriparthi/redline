@@ -186,6 +186,19 @@ final class FormatTests: XCTestCase {
 }
 
 final class ConfigTests: XCTestCase {
+    /// A fresh install speaks up: it warns before a cap arrives and says how the day is
+    /// spread out. Neither prompts macOS at launch; permission is asked at the first
+    /// delivery, when there is finally something to say.
+    func testFreshInstallSpeaksUp() {
+        let cfg = Config()
+        XCTAssertTrue(cfg.alerts, "a monitor that never speaks is a monitor nobody hears")
+        XCTAssertTrue(cfg.mindfulCues)
+        // Explicit false in the file still wins; a default is not a policy
+        let off = Config.apply(["alerts": false, "mindfulCues": false], to: Config())
+        XCTAssertFalse(off.alerts)
+        XCTAssertFalse(off.mindfulCues)
+    }
+
     func testNoDefaultClientIdSoSignInStaysDisabled() {
         XCTAssertFalse(Config().oauth.isConfigured,
                        "shipping a borrowed client id by default is not ours to do")

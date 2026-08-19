@@ -59,9 +59,10 @@ public struct Config {
     public var updateChannel = "stable"
     /// Dashboard appearance: "auto" follows the OS, "light" and "dark" force it
     public var dashboardTheme = "auto"
-    // Off by default: a notification is an interruption, and macOS asks for permission the
-    // first time one is posted. Turning it on is the user saying they want to be told.
-    public var alerts = false
+    // On by default: a monitor nobody is looking at should still speak up before a cap
+    // arrives. macOS is asked for permission at the first delivery, not at launch, so the
+    // prompt lands when there is finally something to say.
+    public var alerts = true
     /// Records a daily rollup of what was scanned, so history outlives Claude Code's own
     /// 30 day cleanup. On by default: it is a small local file, and the data it keeps
     /// cannot be recovered later if it was never written.
@@ -76,9 +77,9 @@ public struct Config {
     /// every few hours, and never on the main thread.
     public var findingsScans = true
     /// Says how the work is spread out: a long unbroken run, activity after an hour you
-    /// nominated, a run of consecutive days. Off by default, because it is the one thing
-    /// here that is about the shape of your day rather than about an account.
-    public var mindfulCues = false
+    /// nominated, a run of consecutive days. On by default. It stays descriptive, it never
+    /// makes a sound, and it can only fire when there has been recent activity.
+    public var mindfulCues = true
     /// How long an unbroken run has to reach before it is worth saying, in minutes. Said
     /// again at each multiple of it.
     public var stretchMinutes: Double = 90
@@ -204,7 +205,7 @@ public struct Config {
     static func writeDefault(to url: URL) {
         let cfg = Config()
         let dict: [String: Any] = [
-            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https. updateChannel: stable | beta; beta also offers prerelease builds. alerts posts a notification when a window crosses a threshold or resets, off by default. recordHistory keeps a daily rollup under ~/.local/share/redline/history so history outlives Claude Code's 30 day cleanup. publishSidecar writes the current windows to ~/.local/share/redline/usage-snapshot.json for other local tools to read. externalUsagePath reads another tool's sidecar as a fallback; it must be an absolute path to a .json file. findingsScans looks through transcripts for setup findings in the background. mindfulCues says how the work is spread out (an unbroken stretch past stretchMinutes, activity after lateHour, streakDays consecutive days) and is off by default. agentFleet lists the Claude Code sessions running on this Mac and badges the menu bar when one is waiting on you.",
+            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https. updateChannel: stable | beta; beta also offers prerelease builds. alerts posts a notification when a window crosses a threshold or resets; on by default, and macOS is asked for permission at the first delivery rather than at launch. recordHistory keeps a daily rollup under ~/.local/share/redline/history so history outlives Claude Code's 30 day cleanup. publishSidecar writes the current windows to ~/.local/share/redline/usage-snapshot.json for other local tools to read. externalUsagePath reads another tool's sidecar as a fallback; it must be an absolute path to a .json file. findingsScans looks through transcripts for setup findings in the background. mindfulCues says how the work is spread out (an unbroken stretch past stretchMinutes, activity after lateHour, streakDays consecutive days) and is on by default; cues never make a sound. agentFleet lists the Claude Code sessions running on this Mac and badges the menu bar when one is waiting on you.",
             "pollIntervalSeconds": 300,
             "menuBarDisplay": "limits",
             "limitYellowPct": 60,
