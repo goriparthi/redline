@@ -23,6 +23,12 @@ enum StatuslineInstaller {
             .appendingPathComponent(".local/share/redline/claude-statusline.sh")
     }
 
+    /// The feed as a standing choice: the script exists only while it is wanted, the same
+    /// marker repairIfNeeded trusts, so a settings.json another tool rewrote cannot unset it.
+    static func isWanted(home: URL? = nil) -> Bool {
+        FileManager.default.fileExists(atPath: scriptURL(home: home).path)
+    }
+
     /// True when settings.json already points at our wrapper, whatever else has changed
     /// around it.
     static func isInstalled(home: URL? = nil) -> Bool {

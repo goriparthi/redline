@@ -27,13 +27,15 @@ write_sidecar() {
     mkdir -p "$dir" 2>/dev/null || return 0
     tmp="$OUT.$$.tmp"
 
-    # Absent rate_limits means this build of Claude Code did not send them, or there are none
-    # yet this session. Keeping the previous file beats overwriting a real reading with nulls.
-    filter='if .rate_limits then {
+    # Claude Code also sends rate_limits with every window null, on draws that made no API call.
+    # Only a payload carrying at least one window may be written; nulls would erase a real one.
+    filter='(.rate_limits // {}) as $r
+    | if ($r.five_hour // $r.seven_day
+          // (($r.model_scoped // []) | if length > 0 then true else null end)) then {
         updated_at: (now | todate),
-        five_hour: (.rate_limits.five_hour // null),
-        seven_day: (.rate_limits.seven_day // null),
-        model_scoped: (.rate_limits.model_scoped // null)
+        five_hour: ($r.five_hour // null),
+        seven_day: ($r.seven_day // null),
+        model_scoped: ($r.model_scoped // null)
     } else empty end'
 
     if command -v jq >/dev/null 2>&1; then
@@ -46,7 +48,9 @@ try:
 except Exception:
     sys.exit(1)
 r = p.get("rate_limits")
-if not r:
+if not isinstance(r, dict):
+    sys.exit(1)
+if not (r.get("five_hour") or r.get("seven_day") or r.get("model_scoped")):
     sys.exit(1)
 json.dump({
     "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

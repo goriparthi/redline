@@ -1201,6 +1201,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             if let menu = statusItem.menu { rebuildMenu(menu) }
             return
         }
+        // Nothing to fetch without a credential, and asking anyway reported the feed's own
+        // quiet moment as a missing source. The sidecar's last reading is the whole answer.
+        guard oauth.isSignedIn || config.useCLIToken else {
+            applyFeedOnly(feed)
+            return
+        }
         // The feed is quiet or absent, so a live fetch fills the gap: sign-in first, borrowed
         // token when the user enabled that instead.
         oauth.fetchLimits { [weak self] limits, err in
@@ -1221,14 +1227,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                     self.claudeLimitsSource = .feed
                     self.limitsStatus = self.oauth.isSignedIn ? err : nil
                 } else {
-                    // Losing the token invalidates the cached percentages; keeping them would
-                    // show a stale "usage left" in the menu bar with no hint it is stale.
-                    if err != nil && !self.oauth.isSignedIn {
+                    // A lost token invalidates the cached percentages, but a feed the user
+                    // still wants is only quiet, so its windows stay and drain by age instead.
+                    if err != nil, !self.oauth.isSignedIn, !StatuslineInstaller.isWanted() {
                         self.claudeLimits = []
                         self.claudeLimitsAt = nil
                         self.claudeLimitsSource = nil
+                    } else {
+                        self.claudeLimits = LimitParser.unexpired(self.claudeLimits)
                     }
                     self.limitsStatus = err
+                        ?? (self.claudeLimits.isEmpty ? self.claudeSourceNote : nil)
                 }
                 // The dashboard gets the same honesty as the menu: a missing rail with no
                 // reason attached reads as broken
@@ -1240,6 +1249,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                 if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
             }
         }
+    }
+
+    /// The feed alone, with no credential behind it. Its sidecar moves only while Claude Code
+    /// draws, so a gap between readings keeps the last windows rather than blanking them.
+    private func applyFeedOnly(_ feed: StatuslineSnapshot?) {
+        if let feed, !feed.isEmpty {
+            claudeLimits = feed.windows
+            claudeLimitsAt = feed.updatedAt
+            claudeLimitsSource = .feed
+        } else {
+            claudeLimits = LimitParser.unexpired(claudeLimits)
+            if claudeLimits.isEmpty {
+                claudeLimitsAt = nil
+                claudeLimitsSource = nil
+            }
+        }
+        limitsStatus = claudeLimits.isEmpty ? claudeSourceNote : nil
+        dashboardModel.data.limitsNote = limitsStatus.map { "Claude limits: \($0)" }
+        dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
+        updateTitle()
+        publishSnapshot()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
+    private static let feedWaiting = "Waiting for Claude Code to report usage"
+
+    /// Which nothing this is. A wired-up feed holding no reading yet waits on Claude Code;
+    /// only an unwired one is a source the user still has to pick.
+    private var claudeSourceNote: String {
+        StatuslineInstaller.isWanted() ? Self.feedWaiting : "No limits source set up"
     }
 
     // MARK: - UI
@@ -1268,15 +1307,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             // Never fall back to tokens+cost here: it reads as a real limit figure and hid
             // an expired sign-in behind a plausible-looking title.
             let signedIn = oauth.isSignedIn
+            // A source that is merely between readings is pending, not disconnected. Signal
+            // red belongs to the one state where clicking through actually fixes something.
+            let pending = signedIn || config.useCLIToken || StatuslineInstaller.isWanted()
             button.attributedTitle = coloredTitle([
-                                (signedIn ? "…" : "Connect", signedIn ? .tertiaryLabelColor
+                                (pending ? "…" : "Connect", pending ? .tertiaryLabelColor
                                                       : contrasted(NSColor(Brand.signal))),
             ])
             // Naming the cause here saves opening the menu to find out what broke
             button.toolTip = signedIn ? "Usage loading…"
                 : config.useCLIToken
                     ? "Claude Code's Keychain token is not readable; open RedLine to fix it"
-                    : "Connect Claude to view usage"
+                    : StatuslineInstaller.isWanted() ? Self.feedWaiting
+                                                     : "Connect Claude to view usage"
         case "cost":
             button.title = fmtCost(today.cost)
         case "tokens":
@@ -1520,7 +1563,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         // "off" is reserved for when nothing is producing them. The full set of source
         // choices lives in one place, Settings > Claude Limits Source; this row is the door.
         if config.wants(UsageStore.provider), !oauth.isSignedIn, !config.useCLIToken,
-           claudeLimits.isEmpty {
+           claudeLimits.isEmpty, !StatuslineInstaller.isWanted() {
             addInfo(menu, "    Claude percentages are off", secondary: true)
             // One door, opening on the right room: the feed needs Claude Code, so a
             // claude.ai-only user is sent to the browser sign-in instead.
