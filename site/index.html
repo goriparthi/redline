@@ -351,7 +351,8 @@
     <div class="hero-copy">
       <h1>Every model.<br>One clear <span class="line">line</span>.</h1>
       <p class="sub">Claude, Codex, and Ollama usage in a quiet macOS menu-bar app.
-         Know what remains before your flow gets interrupted.</p>
+         Know what remains before your flow gets interrupted, and which of your agents is
+         sitting there waiting on you.</p>
       <div class="actions">
         <a class="btn btn-primary" href="https://github.com/goriparthi/redline/releases/latest">Download for macOS</a>
         <a class="btn btn-quiet" href="https://github.com/goriparthi/redline">View source</a>
@@ -448,6 +449,43 @@
       <figcaption>The dropdown: limits first, then usage grouped under each provider, with a
         share bar so weight reads without doing arithmetic.</figcaption>
     </figure>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="label">The fleet</p>
+      <h2>Which agents are working, and which are stuck</h2>
+      <p>Run sessions across a dozen project directories and one of them is always sitting on
+         a prompt you have not noticed. Claude Code writes a record for every session running
+         on this Mac, so RedLine can list them, and say plainly which one is waiting on you.</p>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>Waiting first</h3><span class="chip">sorted</span></div>
+        <p>Every session on this Mac, with the folder it is working in and how long it has
+           been in its current state. Waiting sorts above busy, busy above idle, and inside
+           each the one that has been there longest floats to the top. The session stuck for
+           an hour is the first line you read.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>A dot when you are needed</h3><span class="chip">menu bar</span></div>
+        <p>An amber dot ahead of the readout the moment a session blocks on input, counted
+           once there is more than one. Busy never earns a badge, because a badge that is
+           always lit says nothing. It clears itself when you answer.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Straight to the tab</h3><span class="chip">iTerm2 · Terminal</span></div>
+        <p>Clicking a session goes to the tab it is actually running in, matched on the
+           terminal device the kernel reports. Split panes too. Where a terminal cannot say
+           where a session lives, it brings that app forward instead, and the menu says which
+           of the two it is about to do.</p>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top: 1.25rem">Read only, always. RedLine never writes into <code>~/.claude</code>,
+       never opens the key files beside the records, and never touches the sockets they name.
+       Cloud sessions and other machines are out of scope; there is no public API for them.</p>
   </section>
 
   <section>
@@ -574,11 +612,12 @@ PROMPT</pre>
            something you see rather than something you calculate.</p>
       </div>
       <div class="card">
-        <div class="card-top"><h3>Notifications</h3><span class="chip">opt in</span></div>
-        <p>Off until you switch them on, which is also when macOS is asked for permission.
-           Then RedLine speaks up when a window crosses your threshold, when it is about to
-           run out before it resets, and when it rolls over and capacity comes back. Once per
-           window, and never from a reading it cannot vouch for.</p>
+        <div class="card-top"><h3>Notifications</h3><span class="chip">on by default</span></div>
+        <p>RedLine speaks up when a window crosses your threshold, when it is about to run out
+           before it resets, and when it rolls over and capacity comes back. Once per window,
+           and never from a reading it cannot vouch for. macOS is asked for permission at the
+           first one rather than at launch, so the prompt lands when there is finally
+           something to say.</p>
       </div>
       <div class="card">
         <div class="card-top"><h3>Findings</h3><span class="chip">setup</span></div>
@@ -593,9 +632,10 @@ PROMPT</pre>
       <div class="card">
         <div class="card-top"><h3>History that lasts</h3><span class="chip">local</span></div>
         <p>Claude Code prunes its own transcripts, so a chart built from what is still there
-           gets shallower every week. RedLine rolls each day up as it polls and keeps it. A
-           smaller scan never overwrites a fuller one, so a pruned transcript cannot erase
-           what was already recorded.</p>
+           gets shallower every week. RedLine keeps its own copy in a SQLite file, on the
+           library macOS already ships, and reads each transcript once by remembering the byte
+           it stopped at. A day already recorded is never written back down, so a pruned
+           transcript cannot erase it. Any SQLite client can open the file.</p>
       </div>
       <div class="card">
         <div class="card-top"><h3>A sidecar others can read</h3><span class="chip">interop</span></div>

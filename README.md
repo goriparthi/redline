@@ -94,12 +94,16 @@ the totals, the small keeps the window nearest its limit.
 ## What it shows
 
 - **Usage and remaining capacity** per provider for the session and week windows, coloured by the brand thresholds (Clear, Amber, Signal).
+- **Which agents are running, and which are stuck.** The dropdown lists every Claude Code
+  session on this Mac, waiting first, and the menu bar carries an amber dot when one is
+  blocked on you. Clicking a session goes to the terminal tab it is running in.
 - **How long that leaves you.** A percentage says how much is gone; RedLine also says whether
   the window runs out before it resets, and roughly when. Rails carry a marker for where the
   clock has reached, so spending faster than the window refills is visible rather than
   arithmetic.
-- **Notifications, if you want them.** Off until you turn them on, and never fired from a
-  stale reading.
+- **Notifications, on out of the box.** RedLine speaks up before a cap arrives rather than
+  after, and never fires from a stale reading. macOS is asked for permission at the first
+  one, not at launch.
 - **The nearest limit in the menu bar**, or a provider you pick. By default the title shows
   whichever provider is closest to its limit, since that is the one that will interrupt you
   first. Choose a single provider from **Settings ▸ Menu Bar** if you would rather
@@ -493,15 +497,50 @@ runs out early.
 
 ### Notifications
 
-**Settings ▸ Notify at Thresholds** is off until you switch it on, and switching it on is
-when macOS is asked for permission. Then RedLine speaks up when a window crosses your amber
-or signal percentage, when the projection says it will run out before it resets, when it
-reaches the cap, and when it rolls over and capacity comes back.
+**Settings ▸ Notify at Thresholds** is on by default. RedLine speaks up when a window crosses
+your amber or signal percentage, when the projection says it will run out before it resets,
+when it reaches the cap, and when it rolls over and capacity comes back.
+
+macOS is asked for permission at the first notification rather than at launch, because an app
+that asks to interrupt you before it has anything to say is one you refuse once and forever.
+Nothing is posted until you answer.
 
 Each of those fires once per window instance, so a window that sits at 86% for an hour is one
 notification rather than twelve, and a fresh window re-arms them. A stale reading never fires
 anything: RedLine would rather say nothing than interrupt you over a percentage it cannot
 vouch for.
+
+## Agent fleet
+
+Claude Code writes a small record for every session running on this Mac and deletes it when
+the session exits. RedLine reads that registry and lists those sessions in the dropdown under
+**Agents**: the session name, the folder it is working in, its status, and how long it has
+been in that status.
+
+Rows sort **waiting first**, then busy, then idle, and inside each state the one that has been
+there longest floats to the top, so the session that has been sitting on a prompt for an hour
+is the first line you read. When any session is waiting, an amber dot appears ahead of the
+menu bar readout, counted once there is more than one. Busy never earns a badge; a badge that
+is always lit says nothing.
+
+Clicking a row goes to the tab that session is running in. A record names the app but not the
+window, so RedLine reads the process's controlling terminal from the kernel and matches it
+against the tty that iTerm2 and Terminal publish for every tab. Split panes work the same way.
+macOS asks once for permission to control your terminal; decline it and the row still brings
+the right app forward, which is also what happens in Ghostty, WezTerm and Alacritty, since
+those expose no way to say where a session is. The menu item says which of the two it will do
+rather than promising a tab it cannot reach. Each row also offers the folder path and **Open
+in claude.ai**, the one link between a local session and its cloud view that Claude Code
+hands out.
+
+The desktop app and the IDE extensions run the same binary, so they register in the same place
+and are covered without any extra setup. Cloud sessions and sessions on other machines are
+deliberately out of scope: there is no public API for them. Codex publishes no live registry
+at all.
+
+This is **read only**. RedLine never writes into `~/.claude`, never opens the key files that
+sit beside the records, and never connects to the sockets they name. **Settings ▸ Show
+Running Agents** turns the whole pane off, or `agentFleet` in the config.
 
 ## Setup findings
 
@@ -557,7 +596,7 @@ of activity that has gone past `stretchMinutes` with no break longer than 15 min
 still happening after `lateHour`, and `streakDays` consecutive days with usage. Each is said
 once, at the threshold and again at multiples of it, never per poll.
 
-It is off by default and it stays descriptive on purpose. RedLine can see the keyboard and
+It is on by default and it stays descriptive on purpose. A cue never makes a sound. RedLine can see the keyboard and
 cannot see the person at it, so nothing here infers tiredness or wellbeing and nothing here
 gives advice; a cue states what was counted and stops. A cue can only fire when there is
 recent activity, so a machine nobody is using is silent without needing a quiet hours setting.
