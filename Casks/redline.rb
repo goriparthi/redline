@@ -32,6 +32,8 @@ cask "redline" do
 
   zap trash: [
     "~/.config/redline",
+    # Snapshot, recorded history, alert state and the feed script all live here
+    "~/.local/share/redline",
     "~/Library/Logs/redline.log",
     "~/Library/Logs/redline.err",
     "~/Library/LaunchAgents/com.goriparthi.redline.plist",

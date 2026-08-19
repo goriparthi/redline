@@ -6,8 +6,8 @@
 #
 # Bump version and sha256 after each beta release; scripts/release.sh prints both.
 cask "redline-beta" do
-  version "0.4.0-beta.1"
-  sha256 "407e10a873b0ae3825a46e097d0d1805b50821937cf3bd235adb215101ed3b69"
+  version "0.6.0-beta.1"
+  sha256 "5194e3dc280d267ea4f1f83e28637fe18763be8d413521369563b03d0c24c244"
 
   url "https://github.com/goriparthi/redline/releases/download/v#{version}/Redline-#{version}.dmg"
   name "RedLine Beta"
@@ -31,6 +31,8 @@ cask "redline-beta" do
 
   zap trash: [
     "~/.config/redline",
+    # Snapshot, recorded history, alert state and the feed script all live here
+    "~/.local/share/redline",
     "~/Library/Logs/redline.log",
     "~/Library/Logs/redline.err",
     "~/Library/LaunchAgents/com.goriparthi.redline.plist",
