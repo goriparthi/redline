@@ -9,6 +9,7 @@ Sources/RedlineCore/     Pure parsing and aggregation. No AppKit, no network, no
   Limits.swift           LimitWindow plus per-provider limit parsers
   UsageStore.swift       Claude transcript scanner
   CodexSessions.swift    Codex rollout scanner (limits + tokens)
+  ClaudeFleet.swift      Claude Code's live session registry: who is running, who is blocked
   OllamaUsage.swift      Ollama shim-log scanner
   Ollama.swift           Local server model list and running-model shapes
   Availability.swift     Which providers are installed on this Mac
@@ -30,6 +31,7 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
   Updates.swift          Release check and the verified in-place install
   FirstRun.swift         The providers and limits setup window
   MenuRowView.swift      Menu rows that read as information, not controls
+  TerminalFocus.swift    Walks a session's process tree to the app hosting it, and raises it
   OAuth.swift            Keychain token storage, CLI-token borrowing, PKCE sign-in
   ClaudeCredentialSource Reads the CLI's credential from file, Keychain, or security(1)
   DelegatedRefresh.swift Asks Claude Code to renew its own token instead of doing it for it
@@ -37,7 +39,7 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
 
 Sources/RedlineWidget/   The WidgetKit extension. Renders the snapshot, parses nothing.
 
-Tests/RedlineCoreTests/  150 tests over the core
+Tests/RedlineCoreTests/  261 tests over the core
 scripts/                 Build, test, bundle, install, DMG, release, Ollama shim,
                          Claude usage feed
 Casks/redline.rb         Homebrew cask
@@ -91,6 +93,33 @@ tracks Claude Code in near real time while it runs. The directory is watched rat
 file because the feeder replaces the file atomically, which would orphan a file-level
 watcher, and the mtime comparison keeps the app's own snapshot writes into the same
 directory from becoming a refresh loop.
+
+## The agent fleet
+
+`ClaudeFleetStore` reads `~/.claude/sessions/<PID>.json`, Claude Code's live session registry:
+one record per running session, deleted on exit. Read only, always; RedLine never writes into
+`~/.claude`, never opens the `<PID>.<hash>.key` siblings, and never touches the messaging
+sockets the records name.
+
+Two things about it are not obvious:
+
+- **Two watchers, not one.** A session starting or exiting changes the directory, so a
+  directory watcher sees it. A *status* change rewrites the record in place, which never
+  touches the directory, so each live record is watched individually as well. A 30 second
+  sweep sits under both, because a killed session writes nothing at all and its leftover
+  record has to be reaped on a timer.
+- **`procStart` names no timezone.** It is written in UTC, which is not what a ctime string
+  usually means; reading it as local rejected every live session on this machine. Both
+  readings are now accepted. The check exists only to catch a recycled PID, and a guard that
+  can empty the whole pane is worse than the rare leftover it prevents.
+
+Every field except `pid` and `cwd` is optional, and `status` and `entrypoint` are kept as
+open strings rather than enums: this is undocumented internals, and an upstream addition
+should cost a row's detail rather than the row.
+
+Scope is local sessions only. Cloud sessions and sessions on other Macs have no public API,
+and Codex publishes no live registry at all, so `CodexStore` reads finished transcripts and
+the two must not be unified.
 
 ## Auth, and why it is shaped this way
 

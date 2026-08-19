@@ -388,6 +388,7 @@ poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it
 | `stretchMinutes` | `90` | How long an unbroken run reaches before it is worth saying |
 | `lateHour` | `23` | The local hour after which activity counts as late |
 | `streakDays` | `7` | How many consecutive days with activity before that is worth saying |
+| `agentFleet` | `true` | List the Claude Code sessions running on this Mac, and mark the menu bar when one is waiting on you |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
 | `oauth.clientId` | empty | Required for the app's own Sign In, which Anthropic does not issue to third-party apps |
 

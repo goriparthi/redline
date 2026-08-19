@@ -89,6 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private lazy var oauth = OAuthManager(settings: config.oauth,
                                           useCLIToken: config.useCLIToken)
     private let queue = DispatchQueue(label: "usage-scan", qos: .utility)
+    // Its own queue: a fleet read behind a full transcript ingest would answer minutes late
+    private let fleetQueue = DispatchQueue(label: "fleet-scan", qos: .utility)
 
     private var lastRefresh: Date?
     private var refreshing = false
@@ -139,6 +141,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     /// The windows last handed to the recorder, so an unchanged reading does not queue
     /// another pass over the history file
     private var recordedWindows: [LimitWindow] = []
+    /// Which Claude Code sessions are running on this Mac, and which are blocked on the user
+    private let fleetStore = ClaudeFleetStore()
+    private var fleet = FleetSnapshot()
+    /// Session records are rewritten in place on every status change, so a watcher gives
+    /// push semantics with no subprocess. The sweep is only a backstop for missed events.
+    private var fleetWatcher: DispatchSourceFileSystemObject?
+    /// One per live record. A status change rewrites the file in place, which never touches
+    /// the directory, so the directory watcher alone would only see sessions come and go.
+    private var fleetRecordWatchers: [String: DispatchSourceFileSystemObject] = [:]
+    private var fleetWatchDebounce: DispatchWorkItem?
+    private var fleetTimer: Timer?
     // Recomputed on each refresh so a provider installed later shows up without a restart
     private var availability = ProviderAvailability.detect()
     private var dashboardWindow: NSWindow?
@@ -187,6 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         scheduleTimer()
         scheduleUpdateTimer()
         watchFeedDirectory()
+        watchFleetDirectory()
         refresh()
         // Deliberately after the first refresh and off the critical path: a findings pass
         // reads more of each transcript than the usage scan does, and nothing waits on it.
@@ -1162,6 +1176,222 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         feedWatcher = source
     }
 
+    // MARK: - Agent fleet
+
+    /// Claude Code rewrites a session's record in place on every status change, so watching
+    /// the registry directory turns "which agent is blocked" into a push signal rather than
+    /// a poll. The sweep beside it is a backstop: a killed session writes nothing at all, so
+    /// its leftover record has to be reaped on a timer.
+    private func watchFleetDirectory() {
+        guard config.agentFleet else { return }
+        if fleetTimer == nil {
+            let t = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+                self?.refreshFleet()
+            }
+            t.tolerance = 5
+            fleetTimer = t
+        }
+        guard fleetWatcher == nil else { return }
+        // Never created here. This feature is read only against ~/.claude, and a missing
+        // directory only means Claude Code has not run yet; the sweep retries the watch.
+        let fd = open(ClaudeFleetStore.defaultRoot.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: [.write, .delete, .rename], queue: .main)
+        source.setEventHandler { [weak self] in self?.scheduleFleetRead() }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        fleetWatcher = source
+    }
+
+    /// Follows the current records, so a session that starts is watched and one that exits
+    /// stops being. Cheap: a handful of descriptors that turn over only as sessions do.
+    private func syncFleetRecordWatchers() {
+        let wanted = Set(fleet.sessions.compactMap { $0.recordPath })
+        for (path, source) in fleetRecordWatchers where !wanted.contains(path) {
+            source.cancel()
+            fleetRecordWatchers[path] = nil
+        }
+        for path in wanted where fleetRecordWatchers[path] == nil {
+            let fd = open(path, O_EVTONLY)
+            guard fd >= 0 else { continue }
+            // A rewrite in place is .write; an atomic replace arrives as .rename or .delete,
+            // and either way the answer is to read the directory again
+            let source = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: fd, eventMask: [.write, .extend, .delete, .rename],
+                queue: .main)
+            source.setEventHandler { [weak self] in self?.scheduleFleetRead() }
+            source.setCancelHandler { close(fd) }
+            source.resume()
+            fleetRecordWatchers[path] = source
+        }
+    }
+
+    /// A fleet of ten writes ten records for one user-visible change, so the burst is
+    /// collapsed into a single read.
+    private func scheduleFleetRead() {
+        fleetWatchDebounce?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.refreshFleet() }
+        fleetWatchDebounce = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    private func stopWatchingFleet() {
+        fleetWatcher?.cancel()
+        fleetWatcher = nil
+        fleetRecordWatchers.values.forEach { $0.cancel() }
+        fleetRecordWatchers.removeAll()
+        fleetWatchDebounce?.cancel()
+        fleetWatchDebounce = nil
+        fleetTimer?.invalidate()
+        fleetTimer = nil
+    }
+
+    /// Off the main thread because it is a directory walk plus a kernel lookup per record,
+    /// and the watcher can ask for it several times a second while a fleet is working.
+    private func refreshFleet() {
+        guard config.agentFleet else { return }
+        // Claude Code may have started since launch, when the directory did not exist
+        if fleetWatcher == nil { watchFleetDirectory() }
+        fleetQueue.async { [weak self] in
+            guard let self else { return }
+            let snap = self.fleetStore.scan()
+            DispatchQueue.main.async {
+                guard snap != self.fleet else { return }
+                self.fleet = snap
+                self.syncFleetRecordWatchers()
+                // The badge is the whole point, so it cannot wait for the next poll
+                self.updateTitle()
+                if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+            }
+        }
+    }
+
+    /// One row per session, waiting first. Sessions are what the agents are; the sections
+    /// above are what they cost, which is why this sits between the limits and the volume.
+    ///
+    /// Local sessions only. Cloud sessions and sessions on other Macs have no public API,
+    /// and Codex publishes no live registry at all, so neither belongs here; see the note on
+    /// ClaudeFleetStore before trying to widen this.
+    private func addFleet(_ menu: NSMenu) {
+        guard config.agentFleet, !fleet.isEmpty else { return }
+        let now = Date()
+        addInfo(menu, "Agents:")
+        for s in fleet.sessions {
+            let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            item.attributedTitle = fleetRowTitle(s, now: now)
+            item.toolTip = s.cwd
+            item.submenu = fleetRowMenu(s)
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+    }
+
+    private func fleetRowTitle(_ s: FleetSession, now: Date) -> NSAttributedString {
+        let tone = fleetTone(s.state)
+        var parts: [(String, NSColor?)] = [("    ● ", contrasted(Brandkit.nsTone(tone)))]
+        parts.append((s.label, Brandkit.menuPrimary))
+        // The folder earns its place only when it is not already the name
+        if s.folder != s.label { parts.append(("  \(s.folder)", Brandkit.menuSecondary)) }
+        parts.append(("  \(fleetStatusPhrase(s, now: now))",
+                      s.state == .waiting ? contrasted(Brandkit.nsTone(.warning))
+                                          : Brandkit.menuSecondary))
+        return monoTitle(parts, mono: false)
+    }
+
+    /// "waiting 14m, input needed". The status string is echoed verbatim when it is one this
+    /// build has never seen, so an upstream addition reads as itself rather than as nothing.
+    private func fleetStatusPhrase(_ s: FleetSession, now: Date) -> String {
+        var phrase = s.status ?? "unknown"
+        if let seconds = s.timeInStatus(now: now) {
+            phrase += " \(Pace.short(seconds))"
+        }
+        if s.state == .waiting, let waitingFor = s.waitingFor, !waitingFor.isEmpty {
+            phrase += ", \(waitingFor)"
+        }
+        return phrase
+    }
+
+    private func fleetTone(_ state: FleetState) -> ServiceGlyph.Tone {
+        switch state {
+        case .waiting: return .warning
+        case .busy:    return .healthy
+        case .idle:    return .unknown
+        case .unknown: return .unknown
+        }
+    }
+
+    private func fleetRowMenu(_ s: FleetSession) -> NSMenu {
+        let m = NSMenu()
+        // Same reason as the parent menu: an item with no action is dimmed otherwise
+        m.autoenablesItems = false
+        // Resolved up front so an unfocusable session offers the copy instead of a dead row
+        let owner = TerminalFocus.owner(of: s.pid)
+        if let owner {
+            let f = NSMenuItem(title: "Focus in \(owner.localizedName ?? "Terminal")",
+                               action: #selector(focusFleetSession(_:)), keyEquivalent: "")
+            f.target = self
+            f.representedObject = NSNumber(value: s.pid)
+            f.toolTip = "Brings the app the session is running in forward. Which tab or "
+                      + "window it is in is not something the session record says."
+            m.addItem(f)
+        }
+        let c = NSMenuItem(title: "Copy Folder Path", action: #selector(copyFleetPath(_:)),
+                           keyEquivalent: "")
+        c.target = self
+        c.representedObject = s.cwd
+        c.toolTip = s.cwd
+        m.addItem(c)
+        if let url = s.claudeURL {
+            let o = NSMenuItem(title: "Open in claude.ai", action: #selector(openFleetURL(_:)),
+                               keyEquivalent: "")
+            o.target = self
+            o.representedObject = url
+            o.toolTip = "The same session on the web. The only link between the local and "
+                      + "cloud views that Claude Code hands out."
+            m.addItem(o)
+        }
+        m.addItem(.separator())
+        var detail = "PID \(s.pid)"
+        if let v = s.version { detail += " · Claude Code \(v)" }
+        if let e = s.entrypoint { detail += " · \(e)" }
+        addInfo(m, detail, secondary: true)
+        addInfo(m, s.cwd, secondary: true)
+        return m
+    }
+
+    @objc func focusFleetSession(_ sender: NSMenuItem) {
+        guard let pid = (sender.representedObject as? NSNumber)?.int32Value else { return }
+        // A session that exited between the menu opening and the click has nothing to raise
+        if !TerminalFocus.focus(pid: pid) { refreshFleet() }
+    }
+
+    @objc func copyFleetPath(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(path, forType: .string)
+    }
+
+    @objc func openFleetURL(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc func toggleAgentFleet(_ sender: Any?) {
+        let next = !config.agentFleet
+        guard Config.write(["agentFleet": next]) else { return }
+        config.agentFleet = next
+        if next {
+            watchFleetDirectory()
+            refreshFleet()
+        } else {
+            stopWatchingFleet()
+            fleet = FleetSnapshot()
+            updateTitle()
+        }
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
     private func refresh() {
         // Cheap wiring check first, so a clobbered settings.json costs at most one poll of
         // stale percentages rather than going quietly dark until someone notices.
@@ -1169,6 +1399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         refreshLocal()
         refreshLimits()
         refreshOllamaSection()
+        refreshFleet()
         refreshAvailability()
         refreshServiceStatus()
         findingsService.refreshIfDue(config: config)
@@ -1523,6 +1754,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     // MARK: - UI
 
     private func updateTitle() {
+        renderTitle()
+        // After the readout, never inside it: every branch below returns early, and a badge
+        // wired into one of them would have been invisible in the ordinary case
+        applyFleetBadge()
+    }
+
+    private func renderTitle() {
         guard let button = statusItem.button else { return }
         button.toolTip = nil
         switch config.menuBarDisplay {
@@ -1572,6 +1810,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         default:
             button.title = "\(fmtTokens(today.io)) \(fmtCost(today.cost))"
         }
+    }
+
+    /// An amber dot ahead of the readout while a session is blocked on the user, counted once
+    /// there is more than one. Only waiting earns it: a busy fleet is the ordinary state, and
+    /// a badge that is always lit says nothing.
+    private func applyFleetBadge() {
+        guard config.agentFleet, let button = statusItem.button else { return }
+        let waiting = fleet.waiting
+        guard !waiting.isEmpty else { return }
+        let badge = NSMutableAttributedString(attributedString: coloredTitle([
+            (waiting.count > 1 ? "●\(waiting.count) " : "● ",
+             contrasted(Brandkit.nsTone(.warning))),
+        ]))
+        badge.append(button.attributedTitle)
+        button.attributedTitle = badge
+        let head = waiting.count == 1 ? "1 agent waiting on you"
+                                      : "\(waiting.count) agents waiting on you"
+        let names = waiting.map { $0.label }.joined(separator: ", ")
+        button.toolTip = [head + ": " + names, button.toolTip]
+            .compactMap { $0 }.joined(separator: "\n")
     }
 
     // In auto, the binding constraint is whichever provider is closest to its limit. When a
@@ -1836,6 +2094,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         menu.addItem(.separator())
 
+        addFleet(menu)
         addSection(menu, label: "Today", agg: today, detail: true)
         menu.addItem(.separator())
         addSection(menu, label: "Last 5 hours", agg: block5h, detail: false)
@@ -2065,6 +2324,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                      + "\(config.lateHour):00, and when \(config.streakDays) days have run "
                      + "together. Counted from timestamps, stated once, no advice."
         menu.addItem(cues)
+
+        let agents = NSMenuItem(title: "Show Running Agents",
+                                action: #selector(toggleAgentFleet(_:)), keyEquivalent: "")
+        agents.target = self
+        agents.state = config.agentFleet ? .on : .off
+        agents.toolTip = "Lists the Claude Code sessions running on this Mac and marks the "
+                       + "menu bar when one is waiting on you. Reads Claude Code's own "
+                       + "session registry; nothing is written there."
+        menu.addItem(agents)
 
         let sidecar = NSMenuItem(title: "Publish Usage Sidecar",
                                  action: #selector(toggleSidecar(_:)), keyEquivalent: "")
