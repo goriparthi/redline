@@ -22,6 +22,8 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>RedLine asks your terminal which tab a Claude Code session is running in, so clicking an agent takes you to that session rather than only to the app. It sends nothing and reads nothing else.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>MIT licensed</string>
 </dict>

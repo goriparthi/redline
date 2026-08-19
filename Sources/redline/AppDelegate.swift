@@ -1325,15 +1325,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         let m = NSMenu()
         // Same reason as the parent menu: an item with no action is dimmed otherwise
         m.autoenablesItems = false
-        // Resolved up front so an unfocusable session offers the copy instead of a dead row
+        // Resolved up front so an unfocusable session offers the copy instead of a dead row,
+        // and so the wording promises a tab only where one can actually be reached
         let owner = TerminalFocus.owner(of: s.pid)
         if let owner {
-            let f = NSMenuItem(title: "Focus in \(owner.localizedName ?? "Terminal")",
+            let app = owner.localizedName ?? "Terminal"
+            let toTab = TerminalFocus.canFocusTab(pid: s.pid)
+            let f = NSMenuItem(title: toTab ? "Go to This Session in \(app)"
+                                            : "Focus \(app)",
                                action: #selector(focusFleetSession(_:)), keyEquivalent: "")
             f.target = self
             f.representedObject = NSNumber(value: s.pid)
-            f.toolTip = "Brings the app the session is running in forward. Which tab or "
-                      + "window it is in is not something the session record says."
+            f.toolTip = toTab
+                ? "Selects the tab or split pane this session is running in, matched on its "
+                    + "terminal device. macOS asks once for permission to ask \(app)."
+                : "Brings \(app) forward. It publishes no way to say which tab a session is "
+                    + "in, so the tab is yours to find."
             m.addItem(f)
         }
         let c = NSMenuItem(title: "Copy Folder Path", action: #selector(copyFleetPath(_:)),
@@ -1362,8 +1369,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     @objc func focusFleetSession(_ sender: NSMenuItem) {
         guard let pid = (sender.representedObject as? NSNumber)?.int32Value else { return }
-        // A session that exited between the menu opening and the click has nothing to raise
-        if !TerminalFocus.focus(pid: pid) { refreshFleet() }
+        TerminalFocus.focus(pid: pid) { [weak self] result in
+            // A session that exited between the menu opening and the click has nothing to
+            // raise, and the row that offered it is already wrong
+            if result == .failed { self?.refreshFleet() }
+        }
     }
 
     @objc func copyFleetPath(_ sender: NSMenuItem) {

@@ -18,15 +18,22 @@ cp "$REPO_ROOT/scripts/ollama-shim.sh" "$APP_BUNDLE/Contents/Resources/"
 chmod 755 "$APP_BUNDLE/Contents/Resources/ollama-shim.sh"
 plutil -lint "$APP_BUNDLE/Contents/Info.plist" >/dev/null
 
+# The same entitlements the Xcode path signs with. Without this the two build paths differ
+# in what the app is allowed to do, and the hardened runtime silently kills every Apple
+# event, which is how the fleet pane reaches a session's own terminal tab.
+ENTITLEMENTS="$REPO_ROOT/Resources/Redline.entitlements"
+[[ -f "$ENTITLEMENTS" ]] || die "missing $ENTITLEMENTS"
+
 IDENTITY="$(find_signing_identity)"
 if [[ -n "$IDENTITY" ]]; then
     info "Signing with: $IDENTITY"
     # Hardened runtime is required for notarization
     codesign --force --options runtime --timestamp \
-        --sign "$IDENTITY" "$APP_BUNDLE"
+        --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_BUNDLE"
 else
     warn "No Developer ID Application cert found; signing ad-hoc."
     warn "Ad-hoc builds run locally but downloads stay Gatekeeper-quarantined."
-    codesign --force --sign - --identifier "$BUNDLE_ID" "$APP_BUNDLE"
+    codesign --force --entitlements "$ENTITLEMENTS" \
+        --sign - --identifier "$BUNDLE_ID" "$APP_BUNDLE"
 fi
 codesign --verify --strict "$APP_BUNDLE" && info "Signature verified"

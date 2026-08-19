@@ -2,10 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Intentionally empty. Redline is not sandboxed, and it needs no special capability:
-         it reads files in the user's own home directory. An App Group was declared here once,
-         but a capability entitlement requires a provisioning profile, which forces development
-         signing and makes the build unnotarizable. The widget reads the snapshot from its own
-         container instead, which needs no entitlement at all. -->
+    <!-- Redline is not sandboxed and declares no capability. An App Group was declared here
+         once, but a capability entitlement requires a provisioning profile, which forces
+         development signing and makes the build unnotarizable. The widget reads the snapshot
+         from its own container instead, which needs no entitlement at all.
+
+         The one entry below is a hardened runtime exception rather than a capability, so it
+         needs no profile and signs with Developer ID unchanged. Without it the runtime kills
+         every Apple event, which is how the fleet pane focuses a session's own terminal tab
+         instead of only raising the app. macOS still asks the user per target app. -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
 </dict>
 </plist>

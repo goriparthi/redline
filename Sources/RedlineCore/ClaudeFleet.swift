@@ -102,6 +102,25 @@ public struct ProcessProbe {
     /// Start time from the kernel's process table. Absent means the process is gone, which
     /// is also the liveness answer, so one call covers both questions.
     public static func sysctlStartTime(pid: Int32) -> Date? {
+        guard let info = procInfo(pid: pid) else { return nil }
+        let tv = info.kp_proc.p_un.__p_starttime
+        return Date(timeIntervalSince1970: Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000)
+    }
+
+    /// The process's controlling terminal, as `/dev/ttysNNN`, or nil when it has none.
+    ///
+    /// This is what identifies a session inside its terminal app. A record says which app a
+    /// session runs in but not which tab, and both iTerm2 and Terminal publish the tty of
+    /// every tab, so the tty is the join between the two.
+    public static func ttyPath(pid: Int32) -> String? {
+        guard let info = procInfo(pid: pid) else { return nil }
+        let dev = info.kp_eproc.e_tdev
+        guard dev != -1, let name = devname(dev, S_IFCHR) else { return nil }
+        let base = String(cString: name)
+        return base.isEmpty ? nil : "/dev/" + base
+    }
+
+    private static func procInfo(pid: Int32) -> kinfo_proc? {
         var info = kinfo_proc()
         var size = MemoryLayout<kinfo_proc>.stride
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
@@ -109,8 +128,7 @@ public struct ProcessProbe {
             sysctl(buf.baseAddress, UInt32(buf.count), &info, &size, nil, 0) == 0
         }
         guard ok, size > 0, info.kp_proc.p_pid == pid else { return nil }
-        let tv = info.kp_proc.p_un.__p_starttime
-        return Date(timeIntervalSince1970: Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000)
+        return info
     }
 }
 

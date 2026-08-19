@@ -31,7 +31,7 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
   Updates.swift          Release check and the verified in-place install
   FirstRun.swift         The providers and limits setup window
   MenuRowView.swift      Menu rows that read as information, not controls
-  TerminalFocus.swift    Walks a session's process tree to the app hosting it, and raises it
+  TerminalFocus.swift    Finds the app and tab a session runs in, by process tree and tty
   OAuth.swift            Keychain token storage, CLI-token borrowing, PKCE sign-in
   ClaudeCredentialSource Reads the CLI's credential from file, Keychain, or security(1)
   DelegatedRefresh.swift Asks Claude Code to renew its own token instead of doing it for it
@@ -116,6 +116,15 @@ Two things about it are not obvious:
 Every field except `pid` and `cwd` is optional, and `status` and `entrypoint` are kept as
 open strings rather than enums: this is undocumented internals, and an upstream addition
 should cost a row's detail rather than the row.
+
+Focusing a session goes one step further than raising its app. A record names no window, but
+the process has a controlling terminal, and iTerm2 and Terminal both publish the tty of every
+tab, so the tty is the join. `TerminalFocus` reads it from the kernel and asks the terminal
+over AppleScript to select that tab. The app is raised first and unconditionally, so a
+refused consent dialog or an unscriptable terminal degrades to "the right app came forward"
+rather than to nothing, and the menu item says which of the two it will do. This is the one
+place RedLine sends an Apple event, which is why the hardened runtime entitlement
+`com.apple.security.automation.apple-events` exists; both build paths sign with it.
 
 Scope is local sessions only. Cloud sessions and sessions on other Macs have no public API,
 and Codex publishes no live registry at all, so `CodexStore` reads finished transcripts and

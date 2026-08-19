@@ -186,6 +186,19 @@ final class ClaudeFleetStoreTests: XCTestCase {
         XCTAssertNil(snap.sessions[0].timeInStatus(now: now))
     }
 
+    /// The tty is what joins a session to the tab it is drawn in, so a malformed one would
+    /// silently downgrade every focus to "the app came forward"
+    func testTTYPathIsADeviceOrNothing() {
+        let tty = ProcessProbe.ttyPath(pid: getpid())
+        // A test runner may have no controlling terminal, which is a real answer, not a bug
+        if let tty {
+            XCTAssertTrue(tty.hasPrefix("/dev/"), tty)
+            XCTAssertGreaterThan(tty.count, 5)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: tty), tty)
+        }
+        XCTAssertNil(ProcessProbe.ttyPath(pid: Int32.max))
+    }
+
     /// The real probe, against this very process: a start time that exists and is not absurd
     func testLiveProbeAnswersForThisProcess() {
         let start = ProcessProbe.live.startTime(getpid())
