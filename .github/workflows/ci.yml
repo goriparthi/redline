@@ -22,6 +22,11 @@ jobs:
           swift --version
           xcodebuild -version
 
+      # Release notes are part of the change, not a release-day scramble. A missing file is
+      # only a warning here and fatal in release.sh; one that reads like a commit dump fails.
+      - name: Check release notes
+        run: scripts/check-notes.sh --allow-missing
+
       # The committed project is written by whatever Xcode generated it, and a runner with an
       # older Xcode cannot open a newer project format. Regenerating from project.yml here
       # makes CI independent of that entirely.

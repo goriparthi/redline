@@ -233,6 +233,9 @@ final class DashboardModel: ObservableObject {
     private let codex = CodexStore()
     private let ollama = OllamaStore()
     private let queue = DispatchQueue(label: "dashboard-scan", qos: .userInitiated)
+    /// Bumped on every load. A scan the user has already moved past must not publish
+    /// over the newer one, or picking 30 days shows 14 days until the next reload.
+    private var generation = 0
 
     func setFocus(_ provider: String) {
         data.focus = provider
@@ -247,6 +250,8 @@ final class DashboardModel: ObservableObject {
     }
 
     func load(range: Int, limits: [LimitWindow]) {
+        generation += 1
+        let gen = generation
         data.range = range
         data.loading = true
         data.limits = limits
@@ -282,6 +287,7 @@ final class DashboardModel: ObservableObject {
                                  config: cfg)
             let ranged = aggregate(entries, since: since, config: cfg)
             DispatchQueue.main.async {
+                guard gen == self.generation else { return }
                 self.data.trends = trends
                 self.data.hourly = hourly
                 self.data.models = models

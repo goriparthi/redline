@@ -217,6 +217,27 @@ final class ClaudeStoreTests: XCTestCase {
         XCTAssertEqual(out.count, 1, "the same message must not be counted twice")
     }
 
+    func testWideningTheRangeRereadsCachedFiles() throws {
+        let now = Date()
+        let iso = ISO8601DateFormatter()
+        let body = [line(id: "m1", requestId: "r1",
+                         ts: iso.string(from: now.addingTimeInterval(-3 * 86400)),
+                         model: "claude-sonnet-5", input: 10, output: 1),
+                    line(id: "m2", requestId: "r2",
+                         ts: iso.string(from: now.addingTimeInterval(-20 * 86400)),
+                         model: "claude-sonnet-5", input: 20, output: 2)]
+            .joined(separator: "\n")
+        try body.write(to: dir.appendingPathComponent("a.jsonl"), atomically: true,
+                       encoding: .utf8)
+        // One store across both scans, which is what the dashboard does on a range change
+        let store = UsageStore(root: dir)
+        XCTAssertEqual(store.scan(lookbackDays: 7, now: now).count, 1)
+        XCTAssertEqual(store.scan(lookbackDays: 30, now: now).count, 2,
+                       "widening the range must re-read files cached for a narrower one")
+        XCTAssertEqual(store.scan(lookbackDays: 7, now: now).count, 1,
+                       "narrowing again must not leak the wider window's entries")
+    }
+
     func testSkipsSyntheticModel() throws {
         let ts = ISO8601DateFormatter().string(from: Date())
         try line(id: "m", requestId: "r", ts: ts, model: "<synthetic>", input: 5, output: 5)

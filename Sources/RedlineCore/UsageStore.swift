@@ -1,11 +1,12 @@
-// Parses Claude Code transcripts (~/.claude/projects/**/*.jsonl) into usage entries,
-// with per-file caching keyed on mtime+size so unchanged files are not re-read.
+// Parses Claude Code transcripts (~/.claude/projects/**/*.jsonl) into usage entries, with
+// per-file caching keyed on mtime+size+cutoff so unchanged files are not re-read.
 import Foundation
 
 public final class UsageStore {
     public static let provider = "Claude"
     private let root: URL
-    private var fileCache: [String: (mtime: Date, size: Int, entries: [Entry])] = [:]
+    private var fileCache:
+        [String: (mtime: Date, size: Int, cutoff: Date, entries: [Entry])] = [:]
     private let isoFrac: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -39,8 +40,11 @@ public final class UsageStore {
                 let size = vals.fileSize, mtime > cutoff else { continue }
             let path = url.path
             livePaths.insert(path)
-            if let c = fileCache[path], c.mtime == mtime, c.size == size { continue }
-            fileCache[path] = (mtime, size, parse(url: url, cutoff: cutoff))
+            // The cutoff is part of the key because entries are filtered at parse time: a
+            // cache built for 14 days answered a 30 day scan with 14 days of data.
+            if let c = fileCache[path], c.mtime == mtime, c.size == size,
+               c.cutoff <= cutoff { continue }
+            fileCache[path] = (mtime, size, cutoff, parse(url: url, cutoff: cutoff))
         }
         fileCache = fileCache.filter { livePaths.contains($0.key) }
 
@@ -48,7 +52,9 @@ public final class UsageStore {
         var seen = Set<String>()
         var out: [Entry] = []
         for (_, c) in fileCache {
-            for e in c.entries {
+            // A cache parsed for a wider window reaches past this scan's cutoff, so the
+            // window is enforced again here rather than trusted from the parse
+            for e in c.entries where e.ts > cutoff {
                 if let k = e.key {
                     if seen.contains(k) { continue }
                     seen.insert(k)

@@ -387,6 +387,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         setStyle(["limitWindows": choice])
     }
 
+    /// Switching channels rechecks straight away, so the choice answers with the build it
+    /// found rather than with silence until tomorrow's poll.
+    @objc func pickUpdateChannel(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? String,
+              choice != config.updateChannel else { return }
+        guard Config.write(["updateChannel": choice]) else {
+            updateStatus = "Could not write config"
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
+        config = Config.load()
+        checkForUpdates(nil)
+    }
+
     private func setStyle(_ values: [String: Any]) {
         guard Config.write(values) else {
             limitsStatus = "Could not write config"
@@ -1789,14 +1803,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         l.state = LaunchAgent.isInstalled ? .on : .off
         menu.addItem(l)
 
-        let auto = NSMenuItem(title: "Check Daily for Updates",
+        // Updates under one roof: how often RedLine looks, and which releases it will offer.
+        // The channel used to be reachable only by hand-editing config.json.
+        let updItem = NSMenuItem(title: "Updates", action: nil, keyEquivalent: "")
+        let upd = NSMenu()
+        let auto = NSMenuItem(title: "Check Daily",
                               action: #selector(toggleAutoUpdates(_:)), keyEquivalent: "")
         auto.target = self
         auto.state = config.autoCheckUpdates ? .on : .off
         auto.toolTip = "Asks the GitHub releases API once a day and speaks up only when an "
                      + "update exists. This is the one network request RedLine makes without "
                      + "being asked; switch it off and updates are yours to check for."
-        menu.addItem(auto)
+        upd.addItem(auto)
+        upd.addItem(.separator())
+        for (title, value) in [("Stable Releases", "stable"), ("Beta Releases", "beta")] {
+            let item = NSMenuItem(title: title, action: #selector(pickUpdateChannel(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = config.updateChannel == value ? .on : .off
+            item.toolTip = value == "beta"
+                ? "Also offers prerelease builds such as 0.5.0-beta.1. Newest always wins, so "
+                    + "a stable release still reaches you the moment it outranks them."
+                : "Full releases only. Picked while running a beta, RedLine stays on that "
+                    + "build until a stable release outranks it."
+            upd.addItem(item)
+        }
+        updItem.submenu = upd
+        menu.addItem(updItem)
 
         // Only shown while the durable grant is missing; once FDA is on there is nothing
         // left to fix

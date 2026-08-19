@@ -1,6 +1,6 @@
 # Every target delegates to a script in scripts/, so the Makefile stays a thin index and
 # CI, humans and agents all run the identical code path.
-.PHONY: help build test bundle install uninstall purge dmg release clean widget xcodeproj
+.PHONY: help build test bundle install uninstall purge dmg notes release clean widget xcodeproj
 
 help:
 	@echo "redline targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make uninstall  Remove app, LaunchAgent and Keychain token (keeps config)"
 	@echo "  make purge      Same as uninstall, and delete config and logs"
 	@echo "  make dmg        Build dist/Redline-<version>.dmg (notarizes when configured)"
+	@echo "  make notes      Check this version's release notes are written and readable"
 	@echo "  make release    Test, build DMG, publish a GitHub release"
 	@echo "  make clean      Remove .build and dist"
 
@@ -42,6 +43,9 @@ purge:
 
 dmg:
 	@scripts/package-dmg.sh
+
+notes:
+	@scripts/check-notes.sh
 
 release:
 	@scripts/release.sh

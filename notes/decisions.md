@@ -444,3 +444,40 @@ security binary, which the item's apple-tool partition trusts, and prompts never
 now file → security tool → API, so the prompt is reserved for the case where the quiet paths
 failed on an item that exists. The README paragraph claiming the access list survives rewrites
 was retired; observation beat the theory.
+
+## 2026-08-18: betas have to end in a promotion
+
+The beta channel shipped without any pressure to leave it, which is how a beta channel
+becomes the only channel: every build goes out as a prerelease, stable users quietly stop
+receiving anything, and the tested-then-promoted path stops being a path. `scripts/release.sh`
+now refuses a fourth prerelease on one core version, or any prerelease more than 14 days after
+that version's first, and the answer to either is the promotion. Both limits are needed: a
+count alone lets a build sit on beta.2 forever, an age alone lets a whole run ship in an
+afternoon. The mirror gate refuses a stable release for a version that never saw a beta, or
+the cheapest way past the first gate would be to skip beta entirely. `GATE_ANYWAY=1` overrides
+both, because a hotfix cannot wait on process.
+
+A third nightly channel was considered and dropped. The cost is not the plumbing: the updater
+requires notarization, so a nightly means a Developer ID cert and notarytool credentials living
+in CI, which is a larger surface than the feature earns. Semver also sorts `nightly` above
+`beta` on identical cores, so a nightly would outrank a later beta of the same version, and the
+beta channel's "newest wins" rule would drag beta users onto nightlies.
+
+Release notes lost their escape hatch in the same pass. `NOTES_ANYWAY=1` fell back to a
+generated commit list, which is exactly what the written notes exist instead of;
+`scripts/check-notes.sh` now enforces the shape (a summary line, titled sections, 40 words of
+prose, no commit dump, no em dashes) and CI runs it on every push.
+
+## 2026-08-18: a cached parse only answers for the window it was parsed with
+
+Picking 30 days in the dashboard scanned 30 days and still drew 14. `UsageStore` caches parsed
+entries per file on mtime plus size, and `parse` drops entries older than the cutoff, so every
+transcript touched in the last two weeks answered the wider scan from a cache that had already
+been truncated at 14 days. Only files nobody had touched recently came back with 30 days of
+data, which is to say the quiet ones. The cutoff is now part of the cache key, reusable only
+when it reaches at least as far back as the scan asks, and the window is enforced again on the
+way out so a wider cache cannot inflate a narrower caller.
+
+The dashboard hid how long that lasted. The 14 day scan still in flight published its results
+and cleared the loading state, so the older data appeared as the answer to the newer click. A
+generation counter now drops any scan the user has already moved past.

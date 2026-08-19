@@ -186,7 +186,7 @@ RedLine asks the GitHub releases API **once a day** whether a newer version exis
 nothing unless one does; a quiet check never interrupts. This is on by default and is the
 only request RedLine makes without being asked. An app that installs updates in place has to
 learn about them to be worth trusting, and a security fix nobody hears about is not a fix.
-Turn it off with **Settings ▸ Check Daily for Updates** and RedLine goes back to making
+Turn it off with **Settings ▸ Updates ▸ Check Daily** and RedLine goes back to making
 no network requests at all; **Check for Updates…** then checks on demand, whenever you ask.
 
 When a newer release exists, **Install Update…** replaces the app in place: it downloads the
@@ -201,19 +201,24 @@ make install`.
 
 ### Beta channel
 
-Prerelease builds (versions like `0.4.0-beta.1`) ship as GitHub prereleases, which the
+Prerelease builds (versions like `0.5.0-beta.1`) ship as GitHub prereleases, which the
 stable channel never sees: `releases/latest` excludes them by definition, so the daily
-check and the `redline` cask stay on full releases. To opt in, set
-`"updateChannel": "beta"` in `~/.config/redline/config.json`, or install the beta cask:
+check and the `redline` cask stay on full releases. Opt in with
+**Settings ▸ Updates ▸ Beta Releases**, which rechecks immediately, or set
+`"updateChannel": "beta"` in `~/.config/redline/config.json`. Homebrew has its own channel:
 
 ```bash
 brew install --cask ./Casks/redline-beta.rb
 ```
 
 The beta channel offers whichever version is newest, so a stable release still reaches
-beta users the moment it outranks the last prerelease. Switching back is
-`"updateChannel": "stable"` plus waiting for the next stable release, or reinstalling
-the stable cask.
+beta users the moment it outranks the last prerelease. Picking **Stable Releases** again
+leaves the running beta in place until a stable release outranks it.
+
+Betas exist to become stable, so `scripts/release.sh` will not cut an unbounded run of
+them: after 3 prereleases on one version, or 14 days since its first, the next release has
+to be the promotion. Stable releases are gated the other way, and never ship a version that
+saw no beta at all. `GATE_ANYWAY=1` overrides both for a hotfix that cannot wait.
 
 ### Uninstalling
 
@@ -379,14 +384,21 @@ Guessing a price tier would silently misreport spend, so it does not.
 
 ```sh
 make help       # list targets
-make test       # 127 tests
+make test       # 162 tests
 make build      # release binary
 make bundle     # dist/Redline.app, signed
 make widget     # app + desktop widget via Xcode
 make dmg        # dist/Redline-<version>.dmg
+make notes      # this version's release notes are written and readable
 make uninstall  # remove app, LaunchAgent and Keychain token
 make purge      # the same, and delete config, logs and history
 ```
+
+Every release carries written notes at `notes/releases/<version>.md`: a summary line,
+titled sections, prose a person can act on. `make notes` checks the shape, CI checks it on
+every push, and `scripts/release.sh` refuses to publish without it. There is no fallback to
+a generated commit list, because a release body that lists commits tells nobody whether the
+build is worth installing.
 
 Tests need XCTest, which ships with Xcode rather than the Command Line Tools.
 `scripts/test.sh` finds a usable Xcode automatically, so no `sudo xcode-select` is needed.
