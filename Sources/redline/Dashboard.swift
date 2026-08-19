@@ -156,6 +156,23 @@ struct DashboardData {
     var hourly: [ProviderTrend] = []
     var models: [ModelShare] = []
     var limits: [LimitWindow] = []
+    /// Burn rate and projection per window, computed by the app from stored readings
+    var paces: [Pace] = []
+    /// Setup findings, refreshed in the background rather than on every open
+    var findings: FindingsReport?
+    /// What the local warehouse holds. Separate from the charts on purpose: the charts are
+    /// what the transcripts still say, this is what was recorded before they were pruned.
+    var history: HistorySummary?
+
+    struct HistorySummary {
+        var days = 0
+        var earliest: String?
+        var latest: String?
+        var tokens = 0
+        var cost = 0.0
+        var complete = true
+        var sizeBytes: Int64 = 0
+    }
     var services: [Snapshot.Service] = []
     var servicesCheckedAt: Date?
     var theme = Config.load().dashboardTheme
@@ -214,6 +231,10 @@ struct DashboardData {
     var visibleLimits: [LimitWindow] {
         limits.filter { !$0.isUninformative && matches($0.provider) }
     }
+
+    func pace(for window: LimitWindow) -> Pace? {
+        paces.first { $0.provider == window.provider && $0.key == window.key }
+    }
 }
 
 // Not @MainActor: AppDelegate drives it from its own non-isolated methods. Published
@@ -229,6 +250,8 @@ final class DashboardModel: ObservableObject {
     /// only reached the window on the next state change, so following the OS again left the
     /// content on the old theme until the window lost focus.
     var onThemeChange: ((String) -> Void)?
+    /// Set by the app: runs the findings checks again on demand
+    var onRescanFindings: (() -> Void)?
     private let claude = UsageStore()
     private let codex = CodexStore()
     private let ollama = OllamaStore()
@@ -236,6 +259,22 @@ final class DashboardModel: ObservableObject {
     /// Bumped on every load. A scan the user has already moved past must not publish
     /// over the newer one, or picking 30 days shows 14 days until the next reload.
     private var generation = 0
+
+    /// Read on the scan thread with everything else, since it is another file walk.
+    static func historySummary() -> DashboardData.HistorySummary? {
+        let warehouse = Warehouse()
+        let records = warehouse.load()
+        guard !records.isEmpty else { return nil }
+        let byDay = Warehouse.byDay(records)
+        return DashboardData.HistorySummary(
+            days: byDay.count,
+            earliest: byDay.first?.day,
+            latest: byDay.last?.day,
+            tokens: byDay.reduce(0) { $0 + $1.io },
+            cost: byDay.reduce(0) { $0 + $1.cost },
+            complete: records.allSatisfy(\.priced),
+            sizeBytes: warehouse.sizeBytes)
+    }
 
     func setFocus(_ provider: String) {
         data.focus = provider
@@ -286,6 +325,7 @@ final class DashboardModel: ObservableObject {
             let today = aggregate(entries, since: Calendar.current.startOfDay(for: now),
                                  config: cfg)
             let ranged = aggregate(entries, since: since, config: cfg)
+            let history = cfg.recordHistory ? Self.historySummary() : nil
             DispatchQueue.main.async {
                 guard gen == self.generation else { return }
                 self.data.trends = trends
@@ -294,6 +334,7 @@ final class DashboardModel: ObservableObject {
                 self.data.today = today
                 self.data.ranged = ranged
                 self.data.scannedAt = now
+                self.data.history = history
                 self.data.loading = false
             }
         }
@@ -334,6 +375,9 @@ private struct LimitRailRow: View {
     let window: LimitWindow
     let yellow: Double
     let red: Double
+    /// Burn rate and projection, when there is enough to say something. Nil is common and
+    /// means the row simply says less rather than guessing.
+    var pace: Pace? = nil
     /// When this window was last true; nil means live. Stale rails drain to steel and carry
     /// their timestamp in amber, so an old reading can never impersonate a current one.
     var asOf: Date? = nil
@@ -379,15 +423,98 @@ private struct LimitRailRow: View {
                         .fill(Brandkit.signal)
                         .frame(width: 2)
                         .offset(x: geo.size.width - 2)
+                    // Where the clock has got to. Level with the fill means the window is
+                    // being spent at exactly the rate it refills; ahead of it means it runs
+                    // out early. No arithmetic required to see which.
+                    if !stale, let elapsed = pace?.elapsedFraction, elapsed > 0, elapsed < 1 {
+                        Rectangle()
+                            .fill(Brandkit.chalk.opacity(0.65))
+                            .frame(width: 1)
+                            .offset(x: geo.size.width * elapsed)
+                            .help("where the clock is: \(Int((elapsed * 100).rounded()))% "
+                                  + "of this window has passed")
+                    }
                 }
             }
             .frame(height: 8)
-            if let r = window.resetsAt {
-                Text("Resets \(r.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.system(size: 13, design: .monospaced))
-                    .foregroundStyle(Brandkit.steel)
+            HStack(spacing: 8) {
+                if let r = window.resetsAt {
+                    Text("Resets \(r.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(Brandkit.steel)
+                }
+                if !stale, let pace, let summary = pace.summary() {
+                    Text("· " + summary)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(pace.hitsLimitBeforeReset ? BrandUI.amber
+                                                                   : Brandkit.steel)
+                        .help(pace.basisNote)
+                }
+                Spacer()
             }
         }
+    }
+}
+
+/// One finding, with its numbers labelled. A finding without a figure shows no figure:
+/// inventing one to fill the space is the failure this panel exists to avoid.
+private struct FindingRow: View {
+    let finding: Finding
+
+    private var kindColor: Color {
+        switch finding.kind {
+        case .fixNow: return BrandUI.amber
+        case .habit:  return Brandkit.chalk
+        case .fyi:    return Brandkit.steel
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(finding.kind.label.uppercased())
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .tracking(1.1)
+                    .foregroundStyle(kindColor)
+                Text(finding.title)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brandkit.chalk)
+                Spacer()
+                if let usd = finding.estimatedUSD {
+                    Text("~\(fmtCost(usd))")
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(Brandkit.money)
+                        .help("estimated, not measured")
+                }
+            }
+            Text(finding.detail)
+                .font(.system(size: 12))
+                .foregroundStyle(Brandkit.steel)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(finding.evidence.prefix(5), id: \.self) { row in
+                Text("· " + row)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Brandkit.steel)
+                    .lineLimit(1)
+            }
+            if finding.evidence.count > 5 {
+                Text("· +\(finding.evidence.count - 5) more")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Brandkit.steel)
+            }
+            if let fix = finding.fix {
+                Text(fix)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brandkit.chalk.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(finding.basis == .measured
+                 ? "counted from your transcripts"
+                 : "estimated; the assumptions are in the text above")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Brandkit.steel.opacity(0.85))
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -822,6 +949,7 @@ struct DashboardView: View {
                             }
                         }
                     }
+                    findingsPanel
                     if data.focus == OllamaStore.provider {
                         OllamaPanel(service: ollama)
                     }
@@ -846,6 +974,7 @@ struct DashboardView: View {
                             ModelMix(models: data.visibleModels)
                         }
                     }
+                    historyPanel
                 }
             }
             .padding(16)
@@ -862,9 +991,10 @@ struct DashboardView: View {
         if !data.visibleLimits.isEmpty || data.limitsNote != nil {
             Panel(title: "Limits", note: "the red line marks the limit") {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(data.visibleLimits) {
-                        LimitRailRow(window: $0, yellow: 60, red: 85,
-                                     asOf: $0.provider == "Claude"
+                    ForEach(data.visibleLimits) { window in
+                        LimitRailRow(window: window, yellow: 60, red: 85,
+                                     pace: data.pace(for: window),
+                                     asOf: window.provider == "Claude"
                                          ? data.claudeLimitsAsOf : nil)
                     }
                     if let note = data.limitsNote {
@@ -889,6 +1019,74 @@ struct DashboardView: View {
                         .help("Reads the windows Claude Code hands its statusline. "
                               + "No sign-in, no Keychain, no network.")
                     }
+                }
+            }
+        }
+    }
+
+    /// Findings are about Claude Code's setup, so they are shown when Claude is in view.
+    /// An empty report still gets a panel: "nothing found" is an answer, and hiding the
+    /// panel would leave a user unsure whether it had ever run.
+    @ViewBuilder
+    private var findingsPanel: some View {
+        if data.matches("Claude"), let report = data.findings {
+            Panel(title: "Findings",
+                  note: "\(report.sessionsScanned) sessions · \(report.windowDays) days") {
+                VStack(alignment: .leading, spacing: 12) {
+                    if report.isEmpty {
+                        Text("Nothing worth changing in this window.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brandkit.steel)
+                    } else {
+                        ForEach(report.findings) { FindingRow(finding: $0) }
+                        Text("Dollar figures are estimates over measured counts, never a "
+                             + "bill. Findings with nothing honest to put on them carry no "
+                             + "figure at all.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brandkit.steel)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    HStack(spacing: 8) {
+                        Button {
+                            model.onRescanFindings?()
+                        } label: {
+                            Label("Scan again", systemImage: "arrow.clockwise")
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Brandkit.steel)
+                        Text("last run " + report.generatedAt.formatted(
+                            date: .omitted, time: .shortened))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Brandkit.steel)
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+
+    /// What has been recorded, as opposed to what can still be read. The two diverge the
+    /// moment Claude Code prunes a transcript, and this panel is the only place that says so.
+    @ViewBuilder
+    private var historyPanel: some View {
+        if let history = data.history, history.days > 0 {
+            Panel(title: "Recorded history", note: "kept locally, UTC days") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 22) {
+                        StatTile(label: "Days", value: "\(history.days)",
+                                 sub: [history.earliest, history.latest]
+                                    .compactMap { $0 }.joined(separator: " to "))
+                        StatTile(label: "Tokens", value: fmtTokens(history.tokens))
+                        StatTile(label: "Estimated cost",
+                                 value: fmtCost(history.cost) + (history.complete ? "" : "+"),
+                                 sub: history.complete ? nil : "some models have no price")
+                        Spacer()
+                    }
+                    Text("Recorded as RedLine polls, so it survives Claude Code's own "
+                         + "transcript cleanup. \(ByteCountFormatter.string(fromByteCount: history.sizeBytes, countStyle: .file)) on disk.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brandkit.steel)
                 }
             }
         }

@@ -481,3 +481,82 @@ way out so a wider cache cannot inflate a narrower caller.
 The dashboard hid how long that lasted. The 14 day scan still in flight published its results
 and cleared the loading state, so the older data appeared as the answer to the newer click. A
 generation counter now drops any scan the user has already moved past.
+
+## 2026-08-18: history is written before it is needed
+
+Claude Code prunes its own transcripts, so every chart in this app has a horizon that moves
+forward without anyone noticing. The warehouse (`~/.local/share/redline/history`) records a
+daily rollup as RedLine polls, and it went in before the features that will read it, because
+a day nobody wrote down cannot be recovered afterwards.
+
+Three choices worth keeping:
+
+- **UTC days.** A record whose span depends on where it was written cannot be summed. The
+  dashboard's own charts still bucket by local day, and the two are deliberately not blended
+  yet: a boundary day would be double counted. The export says `day_basis: UTC`.
+- **The fullest reading of a day wins.** Merge replaces a stored record only when the incoming
+  one carries at least as many tokens. A plain overwrite would have let a pruned transcript
+  erase a week at a time, which is the exact failure the file exists to prevent.
+- **Limit readings are sampled, not polled into.** A sample is written when the percentage
+  moves, the window rolls over, or fifteen minutes pass. Without that, a five minute poll
+  writes a file full of identical rows and the burn rate gains nothing from any of them.
+
+## 2026-08-18: two rates, and saying which one you got
+
+Time to limit needs a rate, and there are two. Differencing stored readings inside one window
+instance describes what is happening now; utilization over elapsed time describes the window
+as a whole. The first is better and is not always available, so `Pace.Basis` carries which one
+produced the answer and the UI puts it in the tooltip.
+
+Guards that matter more than the arithmetic: no projection without a known window length, none
+from readings less than ten minutes apart, and none differenced across a rollover. That last
+one is why `LimitSample.sameWindowInstance` keys on the reset time; without it, a window that
+had just reset would produce a large negative rate and a confident nonsense answer.
+
+The pace marker on the rails came out of the same work and is the cheapest part of it: the
+elapsed fraction of the window, drawn as a tick. Fill level with the tick is break-even. It
+needs no history at all, which is why it appears even on the first reading.
+
+## 2026-08-18: notifications are opt-in, and permission is asked late
+
+macOS asks once per app, and an app that asks before it has ever had anything to say gets
+refused permanently. The prompt is therefore raised when the setting is switched on, not at
+launch. Alerts stay off by default for the same reason the percentages do: interrupting
+someone is a decision that belongs to them.
+
+The rules live in `Alerting`, away from the notification centre, so they can be tested. Two of
+them are the whole point: once per threshold per window instance, and never from a stale
+reading. A stale poll still records its utilization, or the next fresh one would read the gap
+as a reset and announce a rollover that never happened.
+
+## 2026-08-18: findings report what can be counted, and no more
+
+The new panel is the first thing in RedLine that gives advice rather than a number, which is
+exactly where a monitor starts inventing figures to look useful. The rule adopted instead: a
+finding with nothing honest to attach carries no figure. An unused MCP server pays for its
+tool schemas in every session that loads it, that cost is real, and it is not visible from
+here, so it is described and left uncosted.
+
+Where a figure exists it says how it was made. Characters are measured and divided by four to
+estimate tokens; session counts are measured. A project's `CLAUDE.md` is priced against the
+sessions that ran in that project rather than every session on the machine, which was the
+first version and overstated it by the number of projects you work in.
+
+The scan is separate from the usage scan because it reads more of each transcript, and runs at
+most every six hours: configuration changes at the speed of someone editing a file.
+
+## 2026-08-18: the sidecar is a contract, so publish it too
+
+ClaudeHUD, claude-monitor and CodexBar independently arrived at the same file: current windows
+as JSON, written by whoever has them. RedLine has read that shape since the usage feed landed.
+Writing it costs almost nothing and turns a competitor into a consumer, so
+`~/.local/share/redline/usage-snapshot.json` now carries the standard keys, with both the
+`used_percentage` and `utilization` spellings because readers exist for each, and everything
+of ours namespaced under `redline` where a foreign parser will ignore it.
+
+Reading someone else's is the same trade in reverse, with one extra rule: it is used only
+while fresh. A sidecar another tool stopped updating is exactly as misleading as one of ours
+would be, and that is a lesson this project already paid for once with the feed.
+
+The bundled CLI exists for the same reason. Its exit codes are the part to keep stable:
+`0/10/11/20/30`, so a shell prompt or a CI step never has to parse prose.

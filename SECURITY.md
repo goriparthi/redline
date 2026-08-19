@@ -14,6 +14,10 @@ exactly what it touches so you can decide whether to trust it, and how to report
 | `~/.config/redline/config.json` | settings | no credentials |
 | `~/.claude/settings.json` | to find and preserve an existing statusline | your Claude Code settings |
 | `~/.claude/.credentials.json` | **only if you set `useCLIToken: true`** | the Claude CLI's token, on installs that keep it in a file |
+| `~/.claude.json` | which MCP servers are configured, for the findings checks | server names only, never their arguments or environment |
+| `~/.claude/skills`, `agents`, `commands` | which are defined, for the findings checks | names only |
+| `~/.claude/CLAUDE.md` and a project's own `CLAUDE.md` | their size, for the findings checks | measured in characters; the text is never copied or transmitted |
+| whatever `externalUsagePath` points at | another tool's usage sidecar, when you set one | limit percentages and reset times |
 | Keychain item `redline` | its own OAuth token, if you sign in | access and refresh token |
 | Keychain item `Claude Code-credentials` | **only if you set `useCLIToken: true`** | the Claude CLI's token |
 
@@ -60,6 +64,10 @@ every Claude Code session on the machine.
 | `~/.local/share/redline/claude-statusline.sh` | the usage feed, written only when you run **Set Up Claude Tracking** | `0755` |
 | `~/.local/share/redline/claude-usage.json` | Claude limit percentages and reset times, written by that feed | `0600` |
 | `~/.claude/settings.json` | its `statusLine` entry only, and only on that same explicit action, preserving any command already there | unchanged |
+| `~/.local/share/redline/history/daily.jsonl` | a daily rollup by provider and model, so history outlives Claude Code's own cleanup | `0600` |
+| `~/.local/share/redline/history/limits.jsonl` | limit readings, kept 60 days, used for burn rate | `0600` |
+| `~/.local/share/redline/usage-snapshot.json` | the current windows, for other local tools to read; removed when you turn the setting off | `0600` |
+| `~/.local/share/redline/alerts.json` | which notifications have already been posted | `0600` |
 
 ## The undocumented endpoint
 
@@ -96,6 +104,9 @@ One more host is reached on RedLine's own initiative:
 There is no analytics, telemetry, or crash reporting. Codex and Ollama are read entirely
 from disk and make no network calls. Config overrides for these URLs are rejected unless
 they are `https`.
+
+Nothing added in 0.6.0 connects: local history, the published sidecar, the findings checks,
+the command line tool and the notifications are all files on this machine.
 
 ## Credentials
 
@@ -142,6 +153,13 @@ they are `https`.
   rather than as an argument or environment variable, because both are readable by other
   processes running as your user. The usage feed reads the statusline payload on stdin for
   the same reason, and writes only the rate-limit block.
+- **The findings checks measure, they do not copy.** They count tool calls, read the size of
+  your memory files, and list the names of configured servers, skills and commands. No file
+  content is copied, stored or transmitted, and the report itself is held in memory rather
+  than written to disk.
+- **Notifications carry percentages, not work.** An alert says which window, what percentage
+  and when it resets. Nothing about what you were doing goes into it, and none of it leaves
+  the machine.
 - **No writing back into another tool's credential.** RedLine reads
   `Claude Code-credentials` and never updates it, even when doing so would keep its own
   borrowed token alive longer.

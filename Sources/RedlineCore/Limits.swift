@@ -10,12 +10,29 @@ public struct LimitWindow: Equatable, Identifiable {
     public let key: String
     public let utilization: Double
     public let resetsAt: Date?
+    /// Which kind of source produced this percentage. Defaulted so every existing caller
+    /// keeps compiling, and so an unlabelled window says "unknown" rather than implying more.
+    public let source: Provenance
 
-    public init(provider: String, key: String, utilization: Double, resetsAt: Date?) {
+    public init(provider: String, key: String, utilization: Double, resetsAt: Date?,
+                source: Provenance = .unknown) {
         self.provider = provider
         self.key = key
         self.utilization = utilization
         self.resetsAt = resetsAt
+        self.source = source
+    }
+
+    /// The nominal length of this window, used for pace and projection. Nil when the key
+    /// does not name a duration, in which case nothing here should be inferred.
+    public var length: TimeInterval? {
+        if key == "five_hour" { return 5 * 3600 }
+        if key.hasPrefix("seven_day") { return 7 * 86400 }
+        if key.hasPrefix("window_"), key.hasSuffix("m"),
+           let m = Double(key.dropFirst(7).dropLast()) { return m * 60 }
+        if key.hasPrefix("window_"), key.hasSuffix("d"),
+           let d = Double(key.dropFirst(7).dropLast()) { return d * 86400 }
+        return nil
     }
 
     public var displayName: String {
@@ -79,8 +96,11 @@ public enum LimitParser {
                 if let util {
                     let resets = (d["resets_at"] as? String)
                         .flatMap { isoFrac.date(from: $0) ?? iso.date(from: $0) }
+                    // The usage endpoint is undocumented, and every number read from it
+                    // carries that fact with it rather than passing as official.
                     out.append(LimitWindow(provider: "Claude", key: k,
-                                           utilization: util, resetsAt: resets))
+                                           utilization: util, resetsAt: resets,
+                                           source: .experimental))
                 } else if depth < 2 {
                     walk(d, depth: depth + 1)
                 }
@@ -99,8 +119,9 @@ public enum LimitParser {
                   let pct = number(d["used_percent"]) else { continue }
             let minutes = number(d["window_minutes"]) ?? 0
             let resets = number(d["resets_at"]).map { Date(timeIntervalSince1970: $0) }
+            // Codex writes these itself, into its own session files
             out.append(LimitWindow(provider: "Codex", key: key(forWindowMinutes: minutes),
-                                   utilization: pct, resetsAt: resets))
+                                   utilization: pct, resetsAt: resets, source: .official))
         }
         return sorted(out)
     }

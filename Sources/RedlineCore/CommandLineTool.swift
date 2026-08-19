@@ -1,0 +1,334 @@
+// The bundled command line tool. `Redline.app/Contents/MacOS/redline status --json` is the
+// supported way for a status bar, a shell prompt, a CI step or an agent to ask what RedLine
+// already knows, without any of them racing for the same sources.
+//
+// Exit codes are part of the contract, because a script should not have to parse prose:
+//   0  fine        10  near a limit      11  at a limit
+//  20  indeterminate (nothing to report) 30  no data or unreadable config
+import Foundation
+
+public enum RedlineCLI {
+    public struct Result {
+        public let text: String
+        public let code: Int32
+
+        public init(text: String, code: Int32) {
+            self.text = text
+            self.code = code
+        }
+    }
+
+    public enum Code {
+        public static let ok: Int32 = 0
+        public static let near: Int32 = 10
+        public static let hit: Int32 = 11
+        public static let indeterminate: Int32 = 20
+        public static let noData: Int32 = 30
+    }
+
+    /// The words that mean "run the tool and exit" rather than "launch the app". Kept here
+    /// so the entry point and the help text cannot disagree about what exists.
+    public static let commands = ["status", "findings", "history", "help"]
+
+    public static let usage = """
+    redline <command> [options]
+
+      status              current limits, tokens and cost
+      findings            setup findings from your transcripts
+      history             recorded daily history from the local warehouse
+      help                this text
+
+    options
+      --json              machine-readable output
+      --csv               comma-separated output (history only)
+      --days N            window to report on (findings, history)
+
+    exit codes
+      0 ok · 10 near a limit · 11 at a limit · 20 nothing to report · 30 no data
+    """
+
+    public static func run(_ args: [String], version: String = "dev",
+                           now: Date = Date()) -> Result {
+        var args = args
+        let command = args.first.map { $0.hasPrefix("--") ? "status" : args.removeFirst() }
+            ?? "status"
+        let json = args.contains("--json")
+        let csv = args.contains("--csv")
+        let days = intOption(args, name: "--days")
+
+        switch command {
+        case "status":   return status(json: json, now: now)
+        case "findings": return findings(json: json, days: days ?? 7, now: now)
+        case "history":  return history(json: json, csv: csv, days: days ?? 30, now: now)
+        case "help", "--help", "-h": return Result(text: usage, code: Code.ok)
+        default:
+            return Result(text: "unknown command: \(command)\n\n" + usage,
+                          code: Code.noData)
+        }
+    }
+
+    static func intOption(_ args: [String], name: String) -> Int? {
+        guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
+        return Int(args[i + 1])
+    }
+
+    // MARK: - status
+
+    /// Reads what the app published, and tops it up from the statusline feed when that is
+    /// fresher. The CLI never fetches anything: if the app is not running, the honest answer
+    /// is a stale reading with its age attached.
+    static func status(json: Bool, now: Date) -> Result {
+        let config = Config.load()
+        let snapshot = SnapshotStore.readAny()
+        let feed = StatuslineFeed.read(path: StatuslineFeed.defaultPath(), now: now)
+
+        var windows: [LimitWindow] = (snapshot?.limits ?? []).map {
+            LimitWindow(provider: $0.provider, key: $0.key, utilization: $0.utilization,
+                        resetsAt: $0.resetsAt, source: .unknown)
+        }
+        var limitsAsOf = snapshot?.claudeLimitsAsOf
+        if let feed, !feed.isEmpty, let at = feed.updatedAt,
+           limitsAsOf == nil || at > limitsAsOf! {
+            windows = windows.filter {
+                $0.provider.caseInsensitiveCompare(StatuslineFeed.provider) != .orderedSame
+            } + feed.windows
+            limitsAsOf = at
+        }
+        // Grouped by provider, then in window order inside each, so the rows read the way
+        // the dropdown does rather than interleaving two providers' weeks. Spelled as one
+        // comparator because Swift's sort is not stable, so sorting twice would not hold.
+        windows = LimitParser.unexpired(windows, now: now)
+            .filter { !$0.isUninformative }
+            .sorted { a, b in
+                if a.provider != b.provider { return a.provider < b.provider }
+                let ra = LimitParser.order[a.key] ?? 9, rb = LimitParser.order[b.key] ?? 9
+                return ra == rb ? a.key < b.key : ra < rb
+            }
+
+        guard snapshot != nil || feed != nil else {
+            return Result(text: json ? "{\"error\":\"no data\"}" :
+                "No reading available. Start RedLine, or set up the usage feed.",
+                          code: Code.noData)
+        }
+        let samples = Warehouse().limitSamples(since: now.addingTimeInterval(-86400))
+        let paces = PaceEstimator.paces(for: windows, samples: samples, now: now)
+        let code = exitCode(for: windows, config: config)
+
+        if json {
+            return Result(text: statusJSON(windows: windows, paces: paces,
+                                           snapshot: snapshot, limitsAsOf: limitsAsOf,
+                                           now: now),
+                          code: code)
+        }
+        return Result(text: statusText(windows: windows, paces: paces, snapshot: snapshot,
+                                       limitsAsOf: limitsAsOf, now: now),
+                      code: code)
+    }
+
+    static func exitCode(for windows: [LimitWindow], config: Config) -> Int32 {
+        guard !windows.isEmpty else { return Code.indeterminate }
+        let worst = windows.map(\.utilization).max() ?? 0
+        if worst >= 100 { return Code.hit }
+        if worst >= config.limitRedPct { return Code.near }
+        return Code.ok
+    }
+
+    static func statusText(windows: [LimitWindow], paces: [Pace], snapshot: Snapshot?,
+                           limitsAsOf: Date?, now: Date) -> String {
+        var lines: [String] = []
+        if windows.isEmpty {
+            lines.append("No limit windows are being reported.")
+        }
+        for w in windows {
+            let pace = paces.first { $0.provider == w.provider && $0.key == w.key }
+            var row = pad(w.provider, 7) + pad(w.displayName, 20)
+            row += pad(String(format: "%.0f%%", w.utilization), 6)
+            if let r = w.resetsAt, r > now {
+                row += pad("resets in " + Pace.short(r.timeIntervalSince(now)), 22)
+            } else {
+                row += pad("", 22)
+            }
+            if let summary = pace?.summary(now: now) { row += summary }
+            lines.append(row.trimmingCharacters(in: .whitespaces))
+        }
+        if let snapshot {
+            let today = snapshot.today
+            let week = snapshot.week
+            lines.append("")
+            lines.append("today   \(fmtTokens(today.io)) tokens  "
+                + "\(fmtCost(today.cost))\(today.hasUnpriced ? "+" : "") (estimate)")
+            lines.append("7 days  \(fmtTokens(week.io)) tokens  "
+                + "\(fmtCost(week.cost))\(week.hasUnpriced ? "+" : "") (estimate)")
+            let age = now.timeIntervalSince(snapshot.updatedAt)
+            lines.append("")
+            lines.append("snapshot \(Pace.short(age)) old"
+                + (limitsAsOf.map { ", limits \(Pace.short(now.timeIntervalSince($0))) old" }
+                   ?? ""))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    static func statusJSON(windows: [LimitWindow], paces: [Pace], snapshot: Snapshot?,
+                           limitsAsOf: Date?, now: Date) -> String {
+        let iso = ISO8601DateFormatter()
+        var root: [String: Any] = ["generated_at": iso.string(from: now)]
+        root["windows"] = windows.map { w -> [String: Any] in
+            var out: [String: Any] = [
+                "provider": w.provider,
+                "key": w.key,
+                "display_name": w.displayName,
+                "utilization": w.utilization,
+                "provenance": w.source.rawValue,
+            ]
+            if let r = w.resetsAt { out["resets_at"] = iso.string(from: r) }
+            if let pace = paces.first(where: { $0.provider == w.provider && $0.key == w.key }) {
+                var block: [String: Any] = [
+                    "rate_per_hour": pace.ratePerHour,
+                    "basis": pace.basisNote,
+                    "hits_limit_before_reset": pace.hitsLimitBeforeReset,
+                ]
+                if let e = pace.exhaustsAt { block["exhausts_at"] = iso.string(from: e) }
+                if let d = pace.paceDelta { block["pace_delta"] = d }
+                out["pace"] = block
+            }
+            return out
+        }
+        if let snapshot {
+            root["updated_at"] = iso.string(from: snapshot.updatedAt)
+            root["today"] = totals(snapshot.today)
+            root["week"] = totals(snapshot.week)
+        }
+        if let limitsAsOf { root["claude_limits_as_of"] = iso.string(from: limitsAsOf) }
+        return encode(root)
+    }
+
+    static func totals(_ t: Snapshot.Totals) -> [String: Any] {
+        [
+            "tokens": t.io,
+            "cost_usd": t.cost,
+            "tokens_basis": Provenance.official.rawValue,
+            "cost_basis": Provenance.localEstimate.rawValue,
+            // True when a model in the mix had no pricing entry: the figure is arithmetic
+            // over what could be priced, not the whole of it. The menu spells this "+".
+            "cost_partial": t.hasUnpriced,
+        ]
+    }
+
+    // MARK: - findings
+
+    static func findings(json: Bool, days: Int, now: Date) -> Result {
+        let config = Config.load()
+        let scanner = TranscriptScanner()
+        let sessions = scanner.scan(lookbackDays: days, now: now)
+        guard !sessions.isEmpty else {
+            return Result(text: json ? "{\"findings\":[]}" : "No transcripts in this window.",
+                          code: Code.indeterminate)
+        }
+        let input = ClaudeSetup.findingsInput(sessions: sessions, windowDays: days, now: now)
+        let report = Findings.report(input, config: config)
+        if json {
+            let iso = ISO8601DateFormatter()
+            var root: [String: Any] = [
+                "generated_at": iso.string(from: report.generatedAt),
+                "window_days": report.windowDays,
+                "sessions_scanned": report.sessionsScanned,
+            ]
+            root["findings"] = report.findings.map { f -> [String: Any] in
+                var out: [String: Any] = [
+                    "id": f.id,
+                    "kind": f.kind.rawValue,
+                    "basis": f.basis.rawValue,
+                    "title": f.title,
+                    "detail": f.detail,
+                    "evidence": f.evidence,
+                ]
+                if let t = f.estimatedTokens { out["estimated_tokens"] = t }
+                if let u = f.estimatedUSD { out["estimated_usd"] = u }
+                if let fix = f.fix { out["fix"] = fix }
+                return out
+            }
+            return Result(text: encode(root), code: Code.ok)
+        }
+        var lines = ["\(report.summary) · \(report.sessionsScanned) sessions "
+                        + "· \(report.windowDays) days"]
+        for f in report.findings {
+            lines.append("")
+            var head = "[\(f.kind.label)] \(f.title)"
+            if let usd = f.estimatedUSD { head += "  ~\(fmtCost(usd))" }
+            lines.append(head)
+            lines.append("  \(f.detail)")
+            for row in f.evidence.prefix(6) { lines.append("    · \(row)") }
+            if let fix = f.fix { lines.append("  fix: \(fix)") }
+            lines.append("  basis: \(f.basis.rawValue)")
+        }
+        return Result(text: lines.joined(separator: "\n"), code: Code.ok)
+    }
+
+    // MARK: - history
+
+    static func history(json: Bool, csv: Bool, days: Int, now: Date) -> Result {
+        let warehouse = Warehouse()
+        let since = now.addingTimeInterval(-Double(days) * 86400)
+        let records = warehouse.records(since: since)
+        guard !records.isEmpty else {
+            return Result(text: json ? "{\"records\":[]}" :
+                "No history recorded yet. RedLine writes it as it polls.",
+                          code: Code.indeterminate)
+        }
+        if csv {
+            var rows = ["day,provider,model,input,output,cache_read,cache_write,"
+                        + "cost_usd,priced"]
+            rows += records.map {
+                "\($0.day),\($0.provider),\(csvField($0.model)),\($0.input),\($0.output),"
+                    + "\($0.cacheRead),\($0.cacheWrite),"
+                    + String(format: "%.6f", $0.cost) + ",\($0.priced)"
+            }
+            return Result(text: rows.joined(separator: "\n"), code: Code.ok)
+        }
+        if json {
+            var root: [String: Any] = ["day_basis": "UTC", "records": records.map {
+                [
+                    "day": $0.day, "provider": $0.provider, "model": $0.model,
+                    "input": $0.input, "output": $0.output, "cache_read": $0.cacheRead,
+                    "cache_write": $0.cacheWrite, "cost_usd": $0.cost,
+                    "priced": $0.priced, "cost_basis": $0.costBasis.rawValue,
+                ]
+            }]
+            let byDay = Warehouse.byDay(records)
+            root["days"] = byDay.count
+            root["tokens"] = byDay.reduce(0) { $0 + $1.io }
+            root["cost_usd"] = byDay.reduce(0) { $0 + $1.cost }
+            return Result(text: encode(root), code: Code.ok)
+        }
+        var lines = ["day         tokens      cost"]
+        for row in Warehouse.byDay(records) {
+            lines.append("\(row.day)  " + pad(fmtTokens(row.io), 11)
+                + fmtCost(row.cost) + (row.priced ? "" : "+"))
+        }
+        let tokens = records.reduce(0) { $0 + $1.io }
+        let cost = records.reduce(0.0) { $0 + $1.cost }
+        lines.append("")
+        lines.append("\(records.count) records · \(fmtTokens(tokens)) tokens · "
+            + "\(fmtCost(cost)) estimated · days are UTC")
+        return Result(text: lines.joined(separator: "\n"), code: Code.ok)
+    }
+
+    // MARK: - Helpers
+
+    static func csvField(_ s: String) -> String {
+        s.contains(",") || s.contains("\"")
+            ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+            : s
+    }
+
+    static func pad(_ s: String, _ width: Int) -> String {
+        s.count >= width ? s + " " : s + String(repeating: " ", count: width - s.count)
+    }
+
+    static func encode(_ object: [String: Any]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: object,
+                                                     options: [.prettyPrinted, .sortedKeys]),
+              let text = String(data: data, encoding: .utf8) else { return "{}" }
+        return text
+    }
+}

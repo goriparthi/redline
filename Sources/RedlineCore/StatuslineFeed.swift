@@ -66,7 +66,7 @@ public enum StatuslineFeed {
             guard let pct = LimitParser.number(d["used_percentage"])
                 ?? LimitParser.number(d["utilization"]) else { continue }
             out.append(LimitWindow(provider: provider, key: key, utilization: pct,
-                                   resetsAt: date(d["resets_at"])))
+                                   resetsAt: date(d["resets_at"]), source: .official))
         }
 
         // Model-scoped weekly windows (Fable, Opus). Claude Code names them at runtime, so the
@@ -78,7 +78,8 @@ public enum StatuslineFeed {
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !name.isEmpty else { continue }
             out.append(LimitWindow(provider: provider, key: scopedKey(for: name),
-                                   utilization: pct, resetsAt: date(entry["resets_at"])))
+                                   utilization: pct, resetsAt: date(entry["resets_at"]),
+                                   source: .official))
         }
 
         let stamp = date(json["updated_at"])

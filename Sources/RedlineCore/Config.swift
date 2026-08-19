@@ -59,6 +59,22 @@ public struct Config {
     public var updateChannel = "stable"
     /// Dashboard appearance: "auto" follows the OS, "light" and "dark" force it
     public var dashboardTheme = "auto"
+    // Off by default: a notification is an interruption, and macOS asks for permission the
+    // first time one is posted. Turning it on is the user saying they want to be told.
+    public var alerts = false
+    /// Records a daily rollup of what was scanned, so history outlives Claude Code's own
+    /// 30 day cleanup. On by default: it is a small local file, and the data it keeps
+    /// cannot be recovered later if it was never written.
+    public var recordHistory = true
+    /// Publishes the current windows to a sidecar other tools already know how to read.
+    /// Local file, no network, and nothing here is sent anywhere.
+    public var publishSidecar = true
+    /// Absolute path to another tool's usage sidecar, read as a fallback when RedLine's own
+    /// feed is quiet. Empty by default; nothing is read until a path is set.
+    public var externalUsagePath = ""
+    /// Scans transcripts for setup findings in the background. On by default, at most once
+    /// every few hours, and never on the main thread.
+    public var findingsScans = true
 
     public init() {}
 
@@ -113,6 +129,16 @@ public struct Config {
            ["stable", "beta"].contains(c) { cfg.updateChannel = c }
         if let t = json["dashboardTheme"] as? String,
            ["auto", "light", "dark"].contains(t) { cfg.dashboardTheme = t }
+        if let b = json["alerts"] as? Bool { cfg.alerts = b }
+        if let b = json["recordHistory"] as? Bool { cfg.recordHistory = b }
+        if let b = json["publishSidecar"] as? Bool { cfg.publishSidecar = b }
+        if let b = json["findingsScans"] as? Bool { cfg.findingsScans = b }
+        // Validated on the way in rather than at every use: a relative path or a file that
+        // is not .json is a mistake to report once, not to re-discover on every poll.
+        if let p = json["externalUsagePath"] as? String,
+           p.isEmpty || Sidecar.validExternalPath(p) != nil {
+            cfg.externalUsagePath = p
+        }
         if let p = json["providers"] as? [String], !p.isEmpty { cfg.providers = p }
         if let m = json["menuBarProvider"] as? String,
            let match = menuBarProviderChoices.first(where: {
@@ -157,7 +183,7 @@ public struct Config {
     static func writeDefault(to url: URL) {
         let cfg = Config()
         let dict: [String: Any] = [
-            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https. updateChannel: stable | beta; beta also offers prerelease builds.",
+            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https. updateChannel: stable | beta; beta also offers prerelease builds. alerts posts a notification when a window crosses a threshold or resets, off by default. recordHistory keeps a daily rollup under ~/.local/share/redline/history so history outlives Claude Code's 30 day cleanup. publishSidecar writes the current windows to ~/.local/share/redline/usage-snapshot.json for other local tools to read. externalUsagePath reads another tool's sidecar as a fallback; it must be an absolute path to a .json file. findingsScans looks through transcripts for setup findings in the background.",
             "pollIntervalSeconds": 300,
             "menuBarDisplay": "limits",
             "limitYellowPct": 60,
@@ -166,6 +192,11 @@ public struct Config {
             "menuBarProvider": cfg.menuBarProvider,
             "useCLIToken": cfg.useCLIToken,
             "updateChannel": cfg.updateChannel,
+            "alerts": cfg.alerts,
+            "recordHistory": cfg.recordHistory,
+            "publishSidecar": cfg.publishSidecar,
+            "findingsScans": cfg.findingsScans,
+            "externalUsagePath": cfg.externalUsagePath,
             "pricingPerMTok": defaultPricing.mapValues {
                 ["input": $0.input, "output": $0.output, "cacheRead": $0.cacheRead]
             },

@@ -94,6 +94,12 @@ the totals, the small keeps the window nearest its limit.
 ## What it shows
 
 - **Usage and remaining capacity** per provider for the session and week windows, coloured by the brand thresholds (Clear, Amber, Signal).
+- **How long that leaves you.** A percentage says how much is gone; RedLine also says whether
+  the window runs out before it resets, and roughly when. Rails carry a marker for where the
+  clock has reached, so spending faster than the window refills is visible rather than
+  arithmetic.
+- **Notifications, if you want them.** Off until you turn them on, and never fired from a
+  stale reading.
 - **The nearest limit in the menu bar**, or a provider you pick. By default the title shows
   whichever provider is closest to its limit, since that is the one that will interrupt you
   first. Choose a single provider from **Settings ▸ Menu Bar** if you would rather
@@ -373,6 +379,11 @@ poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it
 | `autoCheckUpdates` | `true` | Ask once a day whether a newer release exists; speaks up only when one does |
 | `statusChecks` | `false` | Poll the providers' public status pages every 15 minutes |
 | `dashboardTheme` | `auto` | Dashboard appearance: `auto` follows the OS, or force `light` or `dark` |
+| `alerts` | `false` | Notify when a window crosses a threshold, is about to run out, or resets |
+| `recordHistory` | `true` | Keep a daily rollup so history outlives Claude Code's transcript cleanup |
+| `publishSidecar` | `true` | Write the current windows where other local tools can read them |
+| `externalUsagePath` | empty | Absolute path to another tool's usage sidecar, read as a fallback |
+| `findingsScans` | `true` | Look through transcripts for setup findings in the background |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
 | `oauth.clientId` | empty | Required for the app's own Sign In, which Anthropic does not issue to third-party apps |
 
@@ -384,7 +395,7 @@ Guessing a price tier would silently misreport spend, so it does not.
 
 ```sh
 make help       # list targets
-make test       # 162 tests
+make test       # 213 tests
 make build      # release binary
 make bundle     # dist/Redline.app, signed
 make widget     # app + desktop widget via Xcode
@@ -427,9 +438,109 @@ with their size and how much sits on the GPU, every downloaded model, and Start 
 each. Stop unloads from memory with `keep_alive: 0`; it never deletes a download, and nothing
 in RedLine removes model weights.
 
-History needs no extra recording: transcript entries already carry timestamps, so the range is
-derived from files already on disk. A 30 day scan touches a lot of them, so it runs off the
-main thread with a progress state.
+The charts need no extra recording: transcript entries already carry timestamps, so the range
+is derived from files already on disk. A 30 day scan touches a lot of them, so it runs off the
+main thread with a progress state. What is on disk is not forever, though, which is what
+**Recorded history** below the charts is for.
+
+## Pace, and when it runs out
+
+A percentage tells you how much of a window is gone. It does not tell you the thing you
+actually want to know, which is whether it will stop you before it rolls over. Every window
+that has run long enough now carries a rate, and the menu, the rails and the CLI say what
+that rate implies:
+
+    Session (5h): 62%  resets in 2h 10m
+        ~48m to limit, 1h 22m before reset
+
+Two rates are possible and they are not equally good. When readings have been recorded inside
+the same window instance, the rate is measured by differencing them, which catches a burst
+that started twenty minutes ago. Otherwise it is the window's own average since it opened,
+which is always available and blind to exactly that. The tooltip says which one you are
+looking at, and neither is ever computed from a stale reading.
+
+The rails carry a thin marker showing how far through the window the clock has got. Fill
+level with the marker is a window being spent exactly as fast as it refills; fill ahead of it
+runs out early.
+
+### Notifications
+
+**Settings ▸ Notify at Thresholds** is off until you switch it on, and switching it on is
+when macOS is asked for permission. Then RedLine speaks up when a window crosses your amber
+or signal percentage, when the projection says it will run out before it resets, when it
+reaches the cap, and when it rolls over and capacity comes back.
+
+Each of those fires once per window instance, so a window that sits at 86% for an hour is one
+notification rather than twelve, and a fresh window re-arms them. A stale reading never fires
+anything: RedLine would rather say nothing than interrupt you over a percentage it cannot
+vouch for.
+
+## Setup findings
+
+The dashboard's **Findings** panel reports what your transcripts say about how Claude Code is
+configured, as opposed to how much it cost:
+
+- MCP servers configured but never called, which pay for their tool schemas in every session
+  that loads them
+- skills, agents and slash commands defined under `~/.claude` and never invoked
+- files read three or more times inside a single session
+- memory files (`CLAUDE.md` and everything it imports) large enough to be worth knowing about
+
+Each finding says whether its numbers were **counted** from the transcripts or **estimated**
+through an assumption, and the assumption is written out where it is used. **A finding with
+nothing honest to put on it carries no dollar figure at all**: the schema overhead of an
+unused MCP server is real and is not visible from here, so no number is invented for it. Token
+estimates divide measured characters by four; costs price measured session counts at the
+model's own rate. They are a signal, not a bill.
+
+The scan runs in the background at most every six hours, because setup changes at the speed of
+someone editing a config file. `redline findings` runs it on demand, and **Scan again** in the
+panel does the same. Nothing is read except `~/.claude` and the `CLAUDE.md` of projects your
+own transcripts name, no file content is copied anywhere, and the report lives in memory.
+
+## Local history
+
+Claude Code prunes its own transcripts, so a window built from what is still on disk gets
+quietly shallower every week, and there is no way to go back for it later. RedLine now rolls
+each day up as it polls, into `~/.local/share/redline/history`, keyed by UTC day, provider and
+model.
+
+The merge rule is the important part: **a smaller scan never overwrites a fuller one**. A day
+that has been pruned back to a fragment cannot erase what was already recorded, and a day
+still filling up is replaced as it grows. Limit readings are recorded alongside, kept for 60
+days, and are what the measured burn rate is differenced from.
+
+It is a couple of hundred kilobytes, it is `0600`, and **Keep Local History** turns it off.
+`redline history --csv` exports it.
+
+## The usage sidecar, and the command line
+
+Three other projects in this space (ClaudeHUD, claude-monitor, CodexBar) each landed on the
+same idea: one small JSON file holding the current windows, written by whoever has them and
+read by whoever needs them. RedLine already read that shape. Now it writes it too, to
+`~/.local/share/redline/usage-snapshot.json`, so a status line, a tmux strip or another
+monitor can take this reading rather than every tool racing for the same source. Standard keys
+first, with anything RedLine-specific under a `redline` object a foreign reader can ignore.
+
+It reads someone else's too. Point `externalUsagePath` at an absolute path to another tool's
+sidecar and it becomes a fallback for when RedLine's own feed is quiet. It is used only while
+it is fresh, because a file another tool stopped updating misleads exactly as much as one of
+ours would.
+
+The app bundle carries a CLI at `Redline.app/Contents/MacOS/redline`, worth a symlink:
+
+```sh
+ln -s /Applications/Redline.app/Contents/MacOS/redline ~/.local/bin/redline
+
+redline status              # windows, pace, today and this week
+redline status --json       # the same, with every figure labelled by provenance
+redline findings --days 14  # the setup checks
+redline history --csv       # the local warehouse
+```
+
+Exit codes are part of the contract, so a script never has to parse prose: `0` fine, `10` near
+a limit, `11` at a limit, `20` nothing to report, `30` no data. The tool fetches nothing; it
+reads what the app already published, and says how old that is.
 
 ## Desktop widget
 

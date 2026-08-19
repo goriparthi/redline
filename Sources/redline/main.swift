@@ -3,6 +3,9 @@
 import AppKit
 import RedlineCore
 
+let redlineVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+    ?? "dev"
+
 switch CommandLine.arguments.dropFirst().first {
 case "--install-launch-agent":
     LaunchAgent.install()
@@ -11,8 +14,14 @@ case "--uninstall-launch-agent":
     LaunchAgent.remove()
     print("Removed LaunchAgent \(LaunchAgent.label)")
 case "--version":
-    let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
-    print("redline \(v)")
+    print("redline \(redlineVersion)")
+// The bundled CLI. Anything a status bar, a script or an agent might ask is answered from
+// the same files the app publishes, so nothing here starts a second copy of the app.
+case .some(let arg) where RedlineCLI.commands.contains(arg):
+    let result = RedlineCLI.run(Array(CommandLine.arguments.dropFirst()),
+                                version: redlineVersion)
+    print(result.text)
+    exit(result.code)
 case .some(let arg) where arg != "--dashboard":
     FileHandle.standardError.write(Data("unknown argument: \(arg)\n".utf8))
     exit(2)

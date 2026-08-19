@@ -111,7 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     /// Which source produced the current Claude windows. Shown as a quiet provenance line
     /// under the section, because three different sources can feed the same number and a
     /// reading whose origin cannot be named is a reading that cannot be trusted or fixed.
-    enum ClaudeLimitsSource { case feed, signIn, cliToken }
+    enum ClaudeLimitsSource { case feed, external, signIn, cliToken }
     private var claudeLimitsSource: ClaudeLimitsSource?
     /// Watches the feed sidecar so the title tracks Claude Code in near real time. The poll
     /// remains for everything that genuinely needs a scan; the feed no longer waits on it.
@@ -124,6 +124,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private var menuIsOpen = false
     private var menuNeedsRebuild = false
     private var ollamaSection: Snapshot.Ollama?
+    /// Daily rollups and limit samples that outlive the transcripts they came from
+    private let warehouse = Warehouse()
+    private lazy var alertCenter = AlertCenter()
+    private lazy var findingsService = FindingsService()
+    private var findingsReport: FindingsReport?
+    /// Recent limit readings, kept in memory so pace can be recomputed on every publish
+    /// without touching the history file from the main thread.
+    private var limitSamples: [LimitSample] = []
+    private var samplesLoadedAt: Date?
+    private var paces: [Pace] = []
+    /// The windows last handed to the recorder, so an unchanged reading does not queue
+    /// another pass over the history file
+    private var recordedWindows: [LimitWindow] = []
     // Recomputed on each refresh so a provider installed later shows up without a restart
     private var availability = ProviderAvailability.detect()
     private var dashboardWindow: NSWindow?
@@ -151,10 +164,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             self.serviceStatusAt = nil
             self.refreshServiceStatus()
         }
+        findingsService.onUpdate = { [weak self] report in
+            guard let self else { return }
+            self.findingsReport = report
+            self.dashboardModel.data.findings = report
+            if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+        }
+        dashboardModel.onRescanFindings = { [weak self] in
+            guard let self else { return }
+            self.findingsService.refresh(config: self.config)
+        }
         scheduleTimer()
         scheduleUpdateTimer()
         watchFeedDirectory()
         refresh()
+        // Deliberately after the first refresh and off the critical path: a findings pass
+        // reads more of each transcript than the usage scan does, and nothing waits on it.
+        loadStoredSamples()
         if CommandLine.arguments.contains("--dashboard") { openDashboard(nil) }
         // Ask once what to read, rather than switching every provider on by default
         if firstRun { showSetup() }
@@ -319,6 +345,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         // Sits the glyph on the text's optical centre rather than its baseline
         attachment.bounds = CGRect(x: 0, y: -2, width: image.size.width, height: image.size.height)
         return NSAttributedString(attachment: attachment)
+    }
+
+    /// Alerts are opt-in, and turning them on is when macOS is asked for permission. Asking
+    /// at launch, before the app has anything to say, is how an app gets refused once and
+    /// forever.
+    @objc func toggleAlerts(_ sender: Any?) {
+        let next = !config.alerts
+        guard Config.write(["alerts": next]) else { return }
+        config.alerts = next
+        if next { alertCenter.requestAuthorization() }
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
+    @objc func toggleHistory(_ sender: Any?) {
+        let next = !config.recordHistory
+        guard Config.write(["recordHistory": next]) else { return }
+        config.recordHistory = next
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
+    @objc func toggleSidecar(_ sender: Any?) {
+        let next = !config.publishSidecar
+        guard Config.write(["publishSidecar": next]) else { return }
+        config.publishSidecar = next
+        // Off means gone, not merely no longer updated: a file left behind would be read
+        // by whatever was pointed at it, forever, as if it were current.
+        publishSidecar()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
     }
 
     @objc func toggleStatusChecks(_ sender: Any?) {
@@ -619,6 +673,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     }
 
     @objc func openDashboard(_ sender: Any?) {
+        // The findings panel is the one thing here that is not derived from the poll, so
+        // opening the window is a good moment to make sure it has run at least once.
+        findingsService.refreshIfDue(config: config)
+        dashboardModel.data.paces = paces
         if let w = dashboardWindow {
             becomeRegularApp()
             w.makeKeyAndOrderFront(nil)
@@ -1091,6 +1149,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         refreshOllamaSection()
         refreshAvailability()
         refreshServiceStatus()
+        findingsService.refreshIfDue(config: config)
+    }
+
+    /// Pace needs yesterday's readings, and they live in a file. Read once at launch, off
+    /// the main thread, so the first projection does not wait for the second poll.
+    private func loadStoredSamples() {
+        guard config.recordHistory else { return }
+        let now = Date()
+        queue.async { [weak self] in
+            guard let self else { return }
+            let samples = self.warehouse.limitSamples(since: now.addingTimeInterval(-86400))
+            DispatchQueue.main.async {
+                self.limitSamples = samples
+                self.samplesLoadedAt = now
+                self.updatePaces()
+            }
+        }
     }
 
     // Polled here rather than in the widget: keeping the extension offline means it needs no
@@ -1149,6 +1224,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                 entries += self.ollamaStore.scan(lookbackDays: 7)
             }
             let now = Date()
+            // Rolled up here, on the scan thread, while the entries are already in hand.
+            // Claude Code prunes its own transcripts, so a day not recorded now is a day
+            // that cannot be recovered later.
+            if cfg.recordHistory { self.warehouse.merge(entries: entries, config: cfg) }
             let t = aggregate(entries, since: Calendar.current.startOfDay(for: now), config: cfg)
             let b = aggregate(entries, since: now.addingTimeInterval(-5 * 3600), config: cfg)
             let w = aggregate(entries, since: now.addingTimeInterval(-7 * 86400), config: cfg)
@@ -1168,6 +1247,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     // The widget cannot poll or parse transcripts in its time budget, so hand it a snapshot
     private func publishSnapshot() {
+        // Everything that reacts to a new reading hangs off this one call, so a limit that
+        // arrives by any of the four routes is paced, recorded, alerted and published the
+        // same way rather than each path remembering to do it.
+        updatePaces()
+        recordLimitsIfChanged()
+        evaluateAlerts()
+        publishSidecar()
         let services = snapshotServices()
         // Same filter the menu applies, so the widget never inherits empty unnamed windows
         let snap = Snapshot(updatedAt: lastRefresh ?? Date(),
@@ -1180,6 +1266,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         // Nudge the widget rather than waiting for the system's own reload schedule
         WidgetCenter.shared.reloadTimelines(ofKind: "RedlineWidget")
         #endif
+    }
+
+    /// Burn rate and time to limit for every window that can support the claim.
+    private func updatePaces() {
+        paces = PaceEstimator.paces(for: allLimits.filter { !$0.isUninformative },
+                                    samples: limitSamples)
+        dashboardModel.data.paces = paces
+    }
+
+    /// Appends readings to the history file and refreshes the in-memory samples, both off
+    /// the main thread. Skipped entirely when the windows have not moved.
+    private func recordLimitsIfChanged() {
+        guard config.recordHistory else { return }
+        let windows = allLimits.filter { !$0.isUninformative }
+        guard !windows.isEmpty else { return }
+        let now = Date()
+        let unchanged = windows == recordedWindows
+        let sampleAge = samplesLoadedAt.map { now.timeIntervalSince($0) } ?? .greatestFiniteMagnitude
+        guard !unchanged || sampleAge > 300 else { return }
+        recordedWindows = windows
+        samplesLoadedAt = now
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.warehouse.recordLimits(windows, at: now)
+            let samples = self.warehouse.limitSamples(since: now.addingTimeInterval(-86400))
+            DispatchQueue.main.async { self.limitSamples = samples }
+        }
+    }
+
+    /// A reading nobody can vouch for is not news, so staleness is decided per window and
+    /// handed to the alerting rules rather than assumed.
+    private func evaluateAlerts() {
+        let stale = claudeLimitsAreStale
+        alertCenter.evaluate(windows: allLimits.filter { !$0.isUninformative },
+                             paces: paces, config: config,
+                             isStale: { window in
+                                 window.provider == UsageStore.provider && stale
+                             })
+    }
+
+    /// Publishes the windows in the shape other local tools already read. Local file, no
+    /// network; removed when the setting is off so a stale file cannot outlive the choice.
+    private func publishSidecar() {
+        guard config.publishSidecar else {
+            Sidecar.remove()
+            return
+        }
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            ?? "dev"
+        Sidecar.publish(windows: allLimits.filter { !$0.isUninformative },
+                        updatedAt: lastRefresh ?? Date(),
+                        producer: "redline/\(version)",
+                        today: Sidecar.Totals(io: today.io, cost: today.cost,
+                                              priced: !today.hasUnpriced),
+                        week: Sidecar.Totals(io: week.io, cost: week.cost,
+                                             priced: !week.hasUnpriced),
+                        limitsAsOf: claudeLimitsAt)
     }
 
     private func refreshLimits() {
@@ -1207,6 +1350,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             claudeLimits = feed.windows
             claudeLimitsAt = feed.updatedAt
             claudeLimitsSource = .feed
+            limitsStatus = nil
+            dashboardModel.data.limitsNote = nil
+            dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
+            updateTitle()
+            publishSnapshot()
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
+        // Someone else's sidecar, when the user has pointed at one. Read only after our own
+        // feed has been given first refusal, and only while it is fresh: a file another tool
+        // stopped updating is exactly as misleading as our own would be.
+        if let external = Sidecar.readExternal(path: config.externalUsagePath) {
+            claudeLimits = external.windows
+            claudeLimitsAt = external.updatedAt
+            claudeLimitsSource = .external
             limitsStatus = nil
             dashboardModel.data.limitsNote = nil
             dashboardModel.data.claudeLimitsAsOf = claudeLimitsAt
@@ -1549,6 +1707,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             if !claudeLimits.isEmpty, let source = claudeLimitsSource {
                 let line = switch source {
                 case .feed:     "    via the usage feed"
+                case .external: "    via another tool's usage sidecar"
                 case .signIn:   "    via your Claude sign-in"
                 case .cliToken: "    via the Claude CLI's token"
                 }
@@ -1567,6 +1726,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                     ("\(w.displayName): \(pct(w))%\(reset)",
                      stale ? Brandkit.menuSecondary : Brandkit.menuPrimary),
                 ]))
+                // A percentage says how much is gone; this says whether it runs out before
+                // it resets, which is the question the percentage was standing in for.
+                // Never drawn from a stale reading: a rate needs the number to be current.
+                if !stale, let pace = paces.first(where: {
+                    $0.provider == w.provider && $0.key == w.key
+                }), let summary = pace.summary() {
+                    addInfo(menu, "        \(summary)", secondary: true)
+                }
             }
             if provider == UsageStore.provider { emitClaudeNotes() }
         }
@@ -1613,6 +1780,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             ? "\(Int(config.pollIntervalSeconds / 60))m"
             : "\(Int(config.pollIntervalSeconds))s"
         addInfo(menu, "Updated \(updated) · rescans every \(every)")
+
+        // Findings live in the dashboard; this is the line that says there are any. Nothing
+        // is shown until a scan has actually run, so an empty row never implies a clean bill.
+        if config.findingsScans, let report = findingsReport, !report.isEmpty {
+            let f = NSMenuItem(title: "Setup findings: \(report.summary)",
+                               action: #selector(openDashboard(_:)), keyEquivalent: "")
+            f.target = self
+            f.toolTip = "What your transcripts say about how Claude Code is configured. "
+                      + "Opens the dashboard."
+            menu.addItem(f)
+        }
 
         let d = NSMenuItem(title: "Open Usage Dashboard…",
                            action: #selector(openDashboard(_:)), keyEquivalent: "d")
@@ -1787,6 +1965,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         barItem.submenu = bar
         menu.addItem(barItem)
+
+        let alerts = NSMenuItem(title: "Notify at Thresholds",
+                                action: #selector(toggleAlerts(_:)), keyEquivalent: "")
+        alerts.target = self
+        alerts.state = config.alerts ? .on : .off
+        alerts.toolTip = "Posts a notification when a window crosses \(Int(config.limitYellowPct))%, "
+                       + "\(Int(config.limitRedPct))% or 95%, when one is about to run out "
+                       + "before it resets, and when one rolls over. Never from a stale reading."
+        menu.addItem(alerts)
+
+        let history = NSMenuItem(title: "Keep Local History",
+                                 action: #selector(toggleHistory(_:)), keyEquivalent: "")
+        history.target = self
+        history.state = config.recordHistory ? .on : .off
+        history.toolTip = "Rolls each day up into ~/.local/share/redline/history so your "
+                        + "own numbers outlive Claude Code's 30 day transcript cleanup. "
+                        + "Local file, no network."
+        menu.addItem(history)
+
+        let sidecar = NSMenuItem(title: "Publish Usage Sidecar",
+                                 action: #selector(toggleSidecar(_:)), keyEquivalent: "")
+        sidecar.target = self
+        sidecar.state = config.publishSidecar ? .on : .off
+        sidecar.toolTip = "Writes the current windows to "
+                        + "~/.local/share/redline/usage-snapshot.json in the shape other "
+                        + "local tools already read. Nothing leaves this machine."
+        menu.addItem(sidecar)
 
         let svc = NSMenuItem(title: "Check Service Status Pages",
                              action: #selector(toggleStatusChecks(_:)), keyEquivalent: "")
