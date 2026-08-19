@@ -89,15 +89,19 @@ no real limit data, do not put a number in that slot.
 
 ## Releasing
 
+Full procedure in [DEPLOY.md](DEPLOY.md), and it is not optional: a DMG in `dist/` is a build
+nobody can install, so `make dmg` obliges you to finish the deploy in the same session.
+
 ```sh
-make test
-# bump CFBundleShortVersionString and CFBundleVersion in Resources/Info.plist
-make dmg
-make release          # needs gh; creates the tag and uploads the DMG
+# bump Resources/Info.plist and project.yml to the same version
+# write notes/releases/<version>.md
+make xcodeproj                          # only if you added a source file
+git commit && git push origin main      # the tag lands on the remote HEAD, not yours
+NOTARY_PROFILE=redline make release
 ```
 
-Then update `version` and `sha256` in `Casks/redline.rb` with the values
-`scripts/release.sh` prints.
+Then paste the `version` and `sha256` it prints into `Casks/redline-beta.rb` for a prerelease
+or `Casks/redline.rb` for a stable, and commit that.
 
 To notarize, you need a **Developer ID Application** certificate. `Apple Development` and
 `Apple Distribution` certs do not work for distribution outside the App Store. Once you have

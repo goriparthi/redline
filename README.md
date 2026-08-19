@@ -437,8 +437,9 @@ Tests need XCTest, which ships with Xcode rather than the Command Line Tools.
 `scripts/test.sh` finds a usable Xcode automatically, so no `sudo xcode-select` is needed.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layout,
-[docs/EXTENDING.md](docs/EXTENDING.md) for how to add a provider, and
-[docs/SIGNING.md](docs/SIGNING.md) for signing and notarizing a release.
+[docs/EXTENDING.md](docs/EXTENDING.md) for how to add a provider,
+[docs/DEPLOY.md](docs/DEPLOY.md) for cutting and publishing a release, and
+[docs/SIGNING.md](docs/SIGNING.md) for signing and notarizing.
 
 ## Usage dashboard
 

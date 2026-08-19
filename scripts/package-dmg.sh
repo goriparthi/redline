@@ -6,6 +6,15 @@
 #   NOTARY_APPLE_ID + NOTARY_TEAM_ID + NOTARY_PASSWORD  (app-specific password)
 source "$(dirname "$0")/lib/common.sh"
 
+# A DMG in dist/ is a build, not a release. Said loudly on every exit path, because the step
+# most often skipped is the one after this script. release.sh sets RELEASING and is exempt.
+unpublished_warning() {
+    [[ "${RELEASING:-0}" == "1" ]] && return 0
+    printf '\033[1;33m\n  This DMG is NOT published. It exists only in dist/.\033[0m\n'
+    printf '  Finish the deploy:  NOTARY_PROFILE=<profile> make release\n'
+    printf '  Then update the cask with the sha it prints. See docs/DEPLOY.md.\n\n'
+}
+
 # Ship the widget in the DMG. bundle.sh uses SwiftPM, which cannot build app extensions, so
 # a DMG built that way silently omits the widget entirely.
 if [[ -d /Applications/Xcode.app ]]; then
@@ -42,6 +51,7 @@ if [[ -z "$IDENTITY" ]]; then
     warn "https://developer.apple.com/account/resources/certificates then re-run."
     warn "Users will need: xattr -dr com.apple.quarantine /Applications/$APP_NAME.app"
     info "Built (unsigned): $DMG"
+    unpublished_warning
     exit 0
 fi
 
@@ -61,6 +71,7 @@ elif [[ -n "${NOTARY_APPLE_ID:-}" && -n "${NOTARY_TEAM_ID:-}" && -n "${NOTARY_PA
 else
     warn "Signed but not notarized: set NOTARY_PROFILE or NOTARY_APPLE_ID/TEAM_ID/PASSWORD."
     info "Built (signed, not notarized): $DMG"
+    unpublished_warning
     exit 0
 fi
 
@@ -69,3 +80,4 @@ xcrun notarytool submit "$DMG" "${NOTARY_ARGS[@]}" --wait
 xcrun stapler staple "$DMG"
 info "Notarized and stapled: $DMG"
 shasum -a 256 "$DMG"
+unpublished_warning

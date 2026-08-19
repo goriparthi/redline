@@ -88,7 +88,7 @@ Cut $CORE-beta.1 first, or set GATE_ANYWAY=1 for a hotfix that cannot wait."
 fi
 
 "$REPO_ROOT/scripts/test.sh"
-"$REPO_ROOT/scripts/package-dmg.sh"
+RELEASING=1 "$REPO_ROOT/scripts/package-dmg.sh"
 
 DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 [[ -f "$DMG" ]] || die "DMG not found at $DMG"
@@ -117,6 +117,10 @@ gh release create "$TAG" "$DMG" --title "$APP_NAME $TAG" \
     --notes-file "$REPO_ROOT/notes/releases/$VERSION.md" $PRERELEASE_FLAG
 
 SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
-info "Release published. Update $CASK_FILE:"
+info "Release published: $(gh release view "$TAG" --json url --jq .url 2>/dev/null || echo "$TAG")"
+# Not done yet: until the cask carries this version, brew upgrade keeps handing out the old
+# build. This is the step most often forgotten, so it gets the last word.
+printf '\033[1;33m\n  Deploy is not finished. Update %s:\033[0m\n' "$CASK_FILE"
 echo "  version \"$VERSION\""
 echo "  sha256 \"$SHA\""
+printf '\n  Then commit it: git commit -m "Cask %s". See docs/DEPLOY.md.\n\n' "$VERSION"
