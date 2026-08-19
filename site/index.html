@@ -57,7 +57,6 @@
   h3 { font-size: 1rem; font-weight: 650; letter-spacing: -.008em; }
   p { margin: 0; }
 
-  .metric { font-family: var(--metrics); font-variant-numeric: tabular-nums; }
   .label {
     font-family: var(--metrics);
     font-size: .6875rem;
@@ -649,37 +648,6 @@ PROMPT</pre>
         <p><code>redline status --json</code> answers with the windows, their pace and the
            totals, every figure labelled with where it came from. Exit codes are part of the
            contract, so a shell prompt or a CI step never has to parse prose.</p>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <p class="label">How it reports</p>
-      <h2>It would rather show nothing than show something wrong</h2>
-      <p>RedLine exists because an earlier version displayed <span class="metric">0 $0.00</span>
-         for a day. The figure was accurate and still misleading: the sign-in had lapsed.
-         Three rules came out of that.</p>
-    </div>
-
-    <div class="grid3">
-      <div class="rule-item">
-        <h3>Nothing stands in for a limit</h3>
-        <p>When usage is unavailable the menu bar says <code>Connect</code>. It never
-           substitutes a token count, because a plausible figure where a percentage belongs
-           reads as a real limit.</p>
-      </div>
-      <div class="rule-item">
-        <h3>Costs are estimates, and say so</h3>
-        <p>Pricing is yours to configure. A model with no entry is counted in tokens and left
-           out of the estimate, with the total marked <code>+</code>, rather than priced at a
-           guessed tier.</p>
-      </div>
-      <div class="rule-item">
-        <h3>Old readings are discarded</h3>
-        <p>Limits read from disk can be days old. A window whose reset time has passed is
-           dropped, and the widget reports when it last updated rather than implying the
-           number is live.</p>
       </div>
     </div>
   </section>
