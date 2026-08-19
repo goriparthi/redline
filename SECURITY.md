@@ -105,8 +105,16 @@ There is no analytics, telemetry, or crash reporting. Codex and Ollama are read 
 from disk and make no network calls. Config overrides for these URLs are rejected unless
 they are `https`.
 
-Nothing added in 0.6.0 connects: local history, the published sidecar, the findings checks,
-the command line tool and the notifications are all files on this machine.
+Nothing added in 0.6.0 or 0.7.0 connects: local history, the published sidecar, the findings
+checks, the command line tool, the cadence cues and the notifications are all files on this
+machine. The history store is SQLite, opened from the system library with no extensions
+loaded, and it is written and read only by this app and its own CLI.
+
+`REDLINE_HOME` moves every path RedLine reads and writes under a different directory. It is
+honoured only when it names an absolute path that already exists, so a typo is ignored rather
+than quietly starting a second empty profile somewhere. When it is set, the shared App Group
+container is left alone in both directions: a profile stays self-contained rather than
+reading or overwriting the account's own snapshot.
 
 ## Credentials
 

@@ -11,9 +11,14 @@ public struct Entry {
     public let cacheRead: Int
     public let cache5m: Int
     public let cache1h: Int
+    /// Where this record was read from, as "path#byteoffset". Codex and Ollama records carry
+    /// no id of their own, so their position in an append only file is the only stable thing
+    /// about them, and the store dedupes on it.
+    public let origin: String?
 
     public init(provider: String, key: String?, ts: Date, model: String, input: Int,
-                output: Int, cacheRead: Int, cache5m: Int, cache1h: Int) {
+                output: Int, cacheRead: Int, cache5m: Int, cache1h: Int,
+                origin: String? = nil) {
         self.provider = provider
         self.key = key
         self.ts = ts
@@ -23,6 +28,7 @@ public struct Entry {
         self.cacheRead = cacheRead
         self.cache5m = cache5m
         self.cache1h = cache1h
+        self.origin = origin
     }
 }
 

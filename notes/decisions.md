@@ -599,3 +599,75 @@ so it cannot draw over the panel above it.
 inside a second on a warm cache, and the only thing that changed was a timestamp rendered to
 the minute. Feedback has to be visible on the timescale of the action, not the timescale of
 the data: the button now becomes a spinner and the timestamp carries seconds.
+
+## 2026-08-18: the store is SQLite, and the reason is not speed
+
+The two JSONL files were 4.8 KB and 10 KB, so "JSON is slow" was never the argument and
+would not have survived contact with the numbers. Two things the file shape could not do
+were the argument.
+
+The corpus was rebuilt from the transcripts on a timer. A poll stat'ed 1,046 files totalling
+880 MB and held 75,672 parsed records resident, and the dashboard held a second copy on its
+own cold cache, so opening it at 30 days reparsed everything from scratch. And the questions
+worth asking next (hour of day, week over week, percentiles, longest run) are all group-bys
+that were being hand-rolled as dictionary folds, one shape at a time.
+
+So: one database at `~/.local/share/redline/history/redline.db`, on the `libsqlite3` macOS
+ships. No package dependency, nothing added to the DMG, and `import SQLite3` resolves against
+the SDK with no linker settings. DuckDB was the obvious alternative and lost on size: its
+library is tens of megabytes against a 3.6 MB app, and its columnar advantages start
+somewhere north of a million rows, which this is not.
+
+Four tables rather than three, because `daily` is not merely a cache of `entries`. Entries
+age out at a year; a day once recorded is kept forever and is never allowed to shrink. Both
+of those are true at once only if the rollup is stored rather than derived on demand.
+
+## 2026-08-18: each transcript is read once
+
+Ingest records the byte offset it stopped at and reads only what has been appended since.
+Three details make it safe rather than merely fast:
+
+- A partial trailing line is left unconsumed. A transcript being written right now ends
+  mid record, and half a JSON object parsed once is a bug that hides until the day it counts.
+- A file shorter than the offset already recorded is read again from the start. Truncation
+  and rewriting both mean the offsets no longer point where they did.
+- Records with no id of their own, which is Codex and Ollama, dedupe on the transcript
+  position they were read from. Claude's own message id still wins where it exists, because
+  a resumed session copies identical ids between files and the position would not catch that.
+
+Codex was the awkward one: its percentages live inside the same events as its token counts,
+so a poll that reads no new lines reads no percentages. The samples table already holds every
+reading, so the last one stands, with its timestamp, and the existing unexpired filter drops
+it once its window has rolled over. That is strictly better than before, where a pruned
+session file took the numbers with it.
+
+## 2026-08-18: cues about the day, and the line they do not cross
+
+RedLine can see the keyboard and cannot see the person at it. So the cadence cues report a
+run of activity, an hour on the clock, and a count of consecutive days, and they do not
+mention tiredness, health or wellbeing, and they give no advice. Same register as the limit
+alerts: state what was counted, stop.
+
+Mechanically it borrows the alerting rules that already worked. Once per stretch, once per
+night, once per streak threshold, and again only at multiples, because a daily "you have
+worked another day" is noise. A cue needs recent activity to fire at all, which means a
+machine nobody is using is silent by construction rather than by a quiet hours setting. Off
+by default: it is the one feature here that would read as surveillance if it were ever wrong
+or repeated itself.
+
+## 2026-08-18: end to end tests, and the environment variable they needed
+
+The unit tests prove the pieces and could not have caught what the end to end suite caught on
+its first run: `status` reported the real machine's percentages while pointed at an empty
+test home, because the snapshot is also read from the App Group container and from Application
+Support, neither of which is addressed by path.
+
+macOS resolves the home directory from the account, so exporting `HOME` does not move
+anything. `REDLINE_HOME` does, honoured only when it names an absolute path that already
+exists. When it is set the shared container is skipped in both directions, so a profile is
+self-contained. That is what makes it possible to run the real binary against fixture
+transcripts and assert on real exit codes.
+
+CI moved into `scripts/ci.sh` at the same time. The workflow now decides only when the checks
+run; what they are lives in the repo, so a red build is reproduced with `make ci` rather than
+by pushing another commit.

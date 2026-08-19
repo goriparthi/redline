@@ -167,7 +167,7 @@ public final class TranscriptScanner {
     private let iso = ISO8601DateFormatter()
 
     public init(root: URL? = nil) {
-        self.root = root ?? FileManager.default.homeDirectoryForCurrentUser
+        self.root = root ?? RedlineHome.url
             .appendingPathComponent(".claude/projects")
     }
 
@@ -559,7 +559,7 @@ public enum Findings {
     }
 
     static func shortPath(_ path: String) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let home = RedlineHome.url.path
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 }

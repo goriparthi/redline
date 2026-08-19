@@ -27,7 +27,7 @@ enum DelegatedRefresh {
     /// `nil` when no `claude` is installed. Checks the documented install locations before
     /// falling back to the login shell's PATH, which a LaunchAgent does not inherit.
     static func binary(home: URL? = nil) -> URL? {
-        let root = home ?? FileManager.default.homeDirectoryForCurrentUser
+        let root = home ?? RedlineHome.url
         let candidates = [
             root.appendingPathComponent(".claude/local/claude"),
             URL(fileURLWithPath: "/opt/homebrew/bin/claude"),

@@ -1,11 +1,13 @@
 # Every target delegates to a script in scripts/, so the Makefile stays a thin index and
 # CI, humans and agents all run the identical code path.
-.PHONY: help build test bundle install uninstall purge dmg notes release clean widget xcodeproj
+.PHONY: help build test e2e ci bundle install uninstall purge dmg notes release clean widget xcodeproj
 
 help:
 	@echo "redline targets:"
 	@echo "  make build      Release build of the binary"
-	@echo "  make test       Run the test suite (auto-selects an Xcode with XCTest)"
+	@echo "  make test       Run the unit tests (auto-selects an Xcode with XCTest)"
+	@echo "  make e2e        Run the end to end suite against the built binary"
+	@echo "  make ci         Everything CI runs: notes, build, tests, e2e, bundle, widget"
 	@echo "  make bundle     Assemble dist/Redline.app and sign it"
 	@echo "  make widget     Build app + desktop widget via Xcode (needs Xcode)"
 	@echo "  make xcodeproj  Regenerate Redline.xcodeproj from project.yml"
@@ -22,6 +24,12 @@ build:
 
 test:
 	@scripts/test.sh
+
+e2e:
+	@scripts/e2e.sh
+
+ci:
+	@scripts/ci.sh
 
 bundle:
 	@scripts/bundle.sh

@@ -203,9 +203,16 @@ public enum SnapshotStore {
 
     /// Inside a sandboxed extension this resolves to its own container, which it can always
     /// read whatever the signing situation. In the app it resolves to the normal location.
+    ///
+    /// An overridden home wins, because the system lookup answers from the account rather
+    /// than from any environment: without this, a run pointed at a test home would still
+    /// find, and report, the real machine's last reading.
     public static var localAppSupportURL: URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first?
+        if RedlineHome.isOverridden {
+            return RedlineHome.path("Library/Application Support/redline/\(fileName)")
+        }
+        return FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("redline/\(fileName)")
     }
 
@@ -213,14 +220,14 @@ public enum SnapshotStore {
     /// only route that works for an ad-hoc signed sandboxed widget: App Group containers need
     /// a real Team ID, and a path exception outside the container is not granted.
     public static var widgetContainerURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        RedlineHome.url
             .appendingPathComponent(
                 "Library/Containers/\(widgetBundleID)/Data/Library/Application Support/redline/\(fileName)")
     }
 
     // Always available, and readable by any non-sandboxed process of this user
     public static var userURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        RedlineHome.url
             .appendingPathComponent(".local/share/redline/\(fileName)")
     }
 
@@ -239,6 +246,11 @@ public enum SnapshotStore {
 
     // Every location the snapshot is written to. The widget container is included only when
     // it already exists, so nothing is created for a widget that was never installed.
+    //
+    // The App Group container is addressed by identifier rather than by path, so it always
+    // resolves to the account's own. An overridden home is meant to be a self-contained
+    // profile, so it is left out of both directions rather than writing into, or reading,
+    // something outside the profile.
     public static var writeTargets: [URL] {
         var out = [userURL]
         let container = widgetContainerURL
@@ -247,7 +259,7 @@ public enum SnapshotStore {
                 .deletingLastPathComponent().path) {
             out.append(container)
         }
-        if let g = groupURL() { out.append(g) }
+        if !RedlineHome.isOverridden, let g = groupURL() { out.append(g) }
         return out
     }
 
@@ -255,7 +267,7 @@ public enum SnapshotStore {
     public static var readCandidates: [URL] {
         var out: [URL] = []
         if let local = localAppSupportURL { out.append(local) }
-        if let g = groupURL() { out.append(g) }
+        if !RedlineHome.isOverridden, let g = groupURL() { out.append(g) }
         out.append(userURL)
         return out
     }

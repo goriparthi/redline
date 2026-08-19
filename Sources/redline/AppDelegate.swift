@@ -13,7 +13,7 @@ enum LaunchAgent {
     // Names the log files and the config and data directories, all of which stay lowercase
     static let binName = "redline"
     static var plistURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        RedlineHome.url
             .appendingPathComponent("Library/LaunchAgents/\(label).plist")
     }
     static var isInstalled: Bool {
@@ -22,7 +22,7 @@ enum LaunchAgent {
 
     static func install() {
         let bin = Bundle.main.executablePath ?? CommandLine.arguments[0]
-        let logs = FileManager.default.homeDirectoryForCurrentUser
+        let logs = RedlineHome.url
             .appendingPathComponent("Library/Logs")
         // Restart after a crash, but never after a clean exit: KeepAlive=true would
         // resurrect the app every time the user chose Quit.
@@ -126,6 +126,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private var ollamaSection: Snapshot.Ollama?
     /// Daily rollups and limit samples that outlive the transcripts they came from
     private let warehouse = Warehouse()
+    /// When entries were last aged out, so the pass runs about daily rather than per poll
+    private var lastPrune: Date?
     private lazy var alertCenter = AlertCenter()
     private lazy var findingsService = FindingsService()
     private var findingsReport: FindingsReport?
@@ -373,6 +375,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         if let menu = statusItem.menu { rebuildMenu(menu) }
     }
 
+    /// Same permission path as the alerts: turning it on is the moment macOS is asked, and
+    /// a cue is never posted before then.
+    @objc func toggleCues(_ sender: Any?) {
+        let next = !config.mindfulCues
+        guard Config.write(["mindfulCues": next]) else { return }
+        config.mindfulCues = next
+        if next { alertCenter.requestAuthorization() }
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+    }
+
     @objc func toggleSidecar(_ sender: Any?) {
         let next = !config.publishSidecar
         guard Config.write(["publishSidecar": next]) else { return }
@@ -404,7 +416,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     // Settings and covers every transcript folder durably. Detection is a probe of a
     // TCC-gated path: readable means FDA is on.
     private var hasFullDiskAccess: Bool {
-        let home = FileManager.default.homeDirectoryForCurrentUser
+        let home = RedlineHome.url
         let probe = home.appendingPathComponent("Library/Safari")
         return (try? FileManager.default.contentsOfDirectory(atPath: probe.path)) != nil
     }
@@ -1160,6 +1172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         refreshAvailability()
         refreshServiceStatus()
         findingsService.refreshIfDue(config: config)
+        pruneHistoryIfDue(now: Date())
     }
 
     /// Pace needs yesterday's readings, and they live in a file. Read once at launch, off
@@ -1220,24 +1233,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         let cfg = config
         queue.async { [weak self] in
             guard let self else { return }
-            var entries: [Entry] = []
-            if cfg.wants(UsageStore.provider) {
-                entries += self.claudeStore.scan(lookbackDays: 7)
-            }
-            var codex: [LimitWindow] = []
-            if cfg.wants(CodexStore.provider) {
-                let snap = self.codexStore.scan(lookbackDays: 7)
-                entries += snap.entries
-                codex = snap.limits
-            }
-            if cfg.wants(OllamaStore.provider) {
-                entries += self.ollamaStore.scan(lookbackDays: 7)
-            }
             let now = Date()
-            // Rolled up here, on the scan thread, while the entries are already in hand.
-            // Claude Code prunes its own transcripts, so a day not recorded now is a day
-            // that cannot be recovered later.
-            if cfg.recordHistory { self.warehouse.merge(entries: entries, config: cfg) }
+            var entries: [Entry] = []
+            var codex: [LimitWindow] = []
+            if cfg.recordHistory {
+                // The durable path. Each transcript is read from where the last pass
+                // stopped, so a quiet poll costs a directory walk rather than a parse of
+                // every byte anyone has ever written, and the questions are then asked of
+                // the store instead of of the files.
+                if cfg.wants(UsageStore.provider) {
+                    self.claudeStore.ingest(into: self.warehouse, now: now)
+                }
+                if cfg.wants(CodexStore.provider) {
+                    codex = self.codexStore.ingest(into: self.warehouse, now: now).limits
+                }
+                if cfg.wants(OllamaStore.provider) {
+                    self.ollamaStore.ingest(into: self.warehouse, now: now)
+                }
+                self.warehouse.rollupPending(config: cfg)
+                entries = self.warehouse.entries(since: now.addingTimeInterval(-7 * 86400))
+            } else {
+                // Keeping no history means there is no store to ask, so the whole window is
+                // parsed on every poll. That is the cost of the setting, not a fallback.
+                if cfg.wants(UsageStore.provider) {
+                    entries += self.claudeStore.scan(lookbackDays: 7)
+                }
+                if cfg.wants(CodexStore.provider) {
+                    let snap = self.codexStore.scan(lookbackDays: 7)
+                    entries += snap.entries
+                    codex = snap.limits
+                }
+                if cfg.wants(OllamaStore.provider) {
+                    entries += self.ollamaStore.scan(lookbackDays: 7)
+                }
+            }
+            self.evaluateCadence(entries: entries, config: cfg, now: now)
             let t = aggregate(entries, since: Calendar.current.startOfDay(for: now), config: cfg)
             let b = aggregate(entries, since: now.addingTimeInterval(-5 * 3600), config: cfg)
             let w = aggregate(entries, since: now.addingTimeInterval(-7 * 86400), config: cfg)
@@ -1303,6 +1333,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             let samples = self.warehouse.limitSamples(since: now.addingTimeInterval(-86400))
             DispatchQueue.main.async { self.limitSamples = samples }
         }
+    }
+
+    /// Cues about how the work is spread out. Off unless asked for, and evaluated on the
+    /// scan thread because a streak needs more days than the menu does.
+    ///
+    /// Called with whatever the poll already had in hand; when history is kept, a wider
+    /// window is read instead, because a seven day streak cannot be seen in seven days of
+    /// entries once the oldest one falls off the edge.
+    private func evaluateCadence(entries: [Entry], config cfg: Config, now: Date) {
+        guard cfg.mindfulCues else { return }
+        var window = entries
+        if cfg.recordHistory {
+            let days = Double(max(cfg.streakDays + 2, 9))
+            window = warehouse.entries(since: now.addingTimeInterval(-days * 86400))
+        }
+        let cues = alertCenter.evaluateCadence(entries: window, config: cfg, now: now)
+        guard !cues.isEmpty else { return }
+        DispatchQueue.main.async { self.dashboardModel.data.cues = cues }
+    }
+
+    /// Ages entries out once a day. The rollups they were folded into are kept forever, so
+    /// this trims the grain and never the history.
+    private func pruneHistoryIfDue(now: Date) {
+        guard config.recordHistory else { return }
+        if let last = lastPrune, now.timeIntervalSince(last) < 86400 { return }
+        lastPrune = now
+        queue.async { [weak self] in self?.warehouse.pruneEntries(now: now) }
     }
 
     /// A reading nobody can vouch for is not news, so staleness is decided per window and
@@ -1998,6 +2055,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                         + "own numbers outlive Claude Code's 30 day transcript cleanup. "
                         + "Local file, no network."
         menu.addItem(history)
+
+        let cues = NSMenuItem(title: "Say How the Day Is Going",
+                              action: #selector(toggleCues(_:)), keyEquivalent: "")
+        cues.target = self
+        cues.state = config.mindfulCues ? .on : .off
+        cues.toolTip = "Says when a run has gone \(Int(config.stretchMinutes)) minutes "
+                     + "without a break, when you are still going after "
+                     + "\(config.lateHour):00, and when \(config.streakDays) days have run "
+                     + "together. Counted from timestamps, stated once, no advice."
+        menu.addItem(cues)
 
         let sidecar = NSMenuItem(title: "Publish Usage Sidecar",
                                  action: #selector(toggleSidecar(_:)), keyEquivalent: "")

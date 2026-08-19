@@ -14,12 +14,12 @@ enum StatuslineInstaller {
     }
 
     static func settingsURL(home: URL? = nil) -> URL {
-        (home ?? FileManager.default.homeDirectoryForCurrentUser)
+        (home ?? RedlineHome.url)
             .appendingPathComponent(".claude/settings.json")
     }
 
     static func scriptURL(home: URL? = nil) -> URL {
-        (home ?? FileManager.default.homeDirectoryForCurrentUser)
+        (home ?? RedlineHome.url)
             .appendingPathComponent(".local/share/redline/claude-statusline.sh")
     }
 

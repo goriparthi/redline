@@ -75,6 +75,17 @@ public struct Config {
     /// Scans transcripts for setup findings in the background. On by default, at most once
     /// every few hours, and never on the main thread.
     public var findingsScans = true
+    /// Says how the work is spread out: a long unbroken run, activity after an hour you
+    /// nominated, a run of consecutive days. Off by default, because it is the one thing
+    /// here that is about the shape of your day rather than about an account.
+    public var mindfulCues = false
+    /// How long an unbroken run has to reach before it is worth saying, in minutes. Said
+    /// again at each multiple of it.
+    public var stretchMinutes: Double = 90
+    /// The local hour after which activity counts as late. Clamped to 18 through 23.
+    public var lateHour = 23
+    /// How many consecutive days with activity before that is worth saying.
+    public var streakDays = 7
 
     public init() {}
 
@@ -90,7 +101,7 @@ public struct Config {
     public static let menuBarModes = ["limits", "cost", "tokens", "both", "session"]
 
     public static var configURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        RedlineHome.url
             .appendingPathComponent(".config/redline/config.json")
     }
 
@@ -133,6 +144,12 @@ public struct Config {
         if let b = json["recordHistory"] as? Bool { cfg.recordHistory = b }
         if let b = json["publishSidecar"] as? Bool { cfg.publishSidecar = b }
         if let b = json["findingsScans"] as? Bool { cfg.findingsScans = b }
+        if let b = json["mindfulCues"] as? Bool { cfg.mindfulCues = b }
+        // Clamped rather than rejected: a nonsense threshold in a hand-edited file should
+        // land on the nearest sane value, not silently disable the cue.
+        if let n = num(json["stretchMinutes"]) { cfg.stretchMinutes = min(600, max(15, n)) }
+        if let n = num(json["lateHour"]) { cfg.lateHour = min(23, max(18, Int(n))) }
+        if let n = num(json["streakDays"]) { cfg.streakDays = min(90, max(2, Int(n))) }
         // Validated on the way in rather than at every use: a relative path or a file that
         // is not .json is a mistake to report once, not to re-discover on every poll.
         if let p = json["externalUsagePath"] as? String,
@@ -183,7 +200,7 @@ public struct Config {
     static func writeDefault(to url: URL) {
         let cfg = Config()
         let dict: [String: Any] = [
-            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https. updateChannel: stable | beta; beta also offers prerelease builds. alerts posts a notification when a window crosses a threshold or resets, off by default. recordHistory keeps a daily rollup under ~/.local/share/redline/history so history outlives Claude Code's 30 day cleanup. publishSidecar writes the current windows to ~/.local/share/redline/usage-snapshot.json for other local tools to read. externalUsagePath reads another tool's sidecar as a fallback; it must be an absolute path to a .json file. findingsScans looks through transcripts for setup findings in the background.",
+            "_notes": "pollIntervalSeconds min 10. menuBarDisplay: limits | cost | tokens | both | session. providers selects which sources are read: Claude, Codex, Ollama. menuBarProvider picks which one the menu bar reports: auto (whichever is nearest its limit) or a single provider name. useCLIToken is off by default; setting it true lets RedLine read (never refresh) the Claude CLI's own Keychain token instead of signing in separately. The usage feed needs neither and is the recommended route. Pricing keys match by substring of model name; cache writes billed at 1.25x (5m) and 2x (1h) of the input rate. Models with no pricing key are counted but left out of cost. oauth.clientId is empty by default and Sign In stays disabled until you set one; oauth URLs must be https. updateChannel: stable | beta; beta also offers prerelease builds. alerts posts a notification when a window crosses a threshold or resets, off by default. recordHistory keeps a daily rollup under ~/.local/share/redline/history so history outlives Claude Code's 30 day cleanup. publishSidecar writes the current windows to ~/.local/share/redline/usage-snapshot.json for other local tools to read. externalUsagePath reads another tool's sidecar as a fallback; it must be an absolute path to a .json file. findingsScans looks through transcripts for setup findings in the background. mindfulCues says how the work is spread out (an unbroken stretch past stretchMinutes, activity after lateHour, streakDays consecutive days) and is off by default.",
             "pollIntervalSeconds": 300,
             "menuBarDisplay": "limits",
             "limitYellowPct": 60,
@@ -196,6 +213,10 @@ public struct Config {
             "recordHistory": cfg.recordHistory,
             "publishSidecar": cfg.publishSidecar,
             "findingsScans": cfg.findingsScans,
+            "mindfulCues": cfg.mindfulCues,
+            "stretchMinutes": cfg.stretchMinutes,
+            "lateHour": cfg.lateHour,
+            "streakDays": cfg.streakDays,
             "externalUsagePath": cfg.externalUsagePath,
             "pricingPerMTok": defaultPricing.mapValues {
                 ["input": $0.input, "output": $0.output, "cacheRead": $0.cacheRead]

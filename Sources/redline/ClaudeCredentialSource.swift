@@ -41,7 +41,7 @@ enum ClaudeCredentialSource {
     // MARK: - File
 
     static func fromFile(home: URL? = nil) -> CredentialOutcome {
-        let root = home ?? FileManager.default.homeDirectoryForCurrentUser
+        let root = home ?? RedlineHome.url
         let path = root.appendingPathComponent(".claude/.credentials.json")
         guard let data = try? Data(contentsOf: path) else { return .notFound }
         return parse(data)

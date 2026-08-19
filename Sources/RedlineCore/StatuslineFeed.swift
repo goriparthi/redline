@@ -35,7 +35,7 @@ public enum StatuslineFeed {
     /// Default sidecar location. Kept under the app's own directory rather than ~/.claude so
     /// RedLine never writes into a tree another tool owns.
     public static func defaultPath(home: URL? = nil) -> URL {
-        let root = home ?? FileManager.default.homeDirectoryForCurrentUser
+        let root = home ?? RedlineHome.url
         return root.appendingPathComponent(".local/share/redline/claude-usage.json")
     }
 

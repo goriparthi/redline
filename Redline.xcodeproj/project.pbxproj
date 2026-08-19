@@ -26,6 +26,7 @@
 		59BCA283605365D30DEB0099 /* FirstRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB28E0B0D7A29BB559A18C5 /* FirstRun.swift */; };
 		6273399A6642182B1E1D7AFD /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9633CFA9869A094B682E3409 /* BrandUI.swift */; };
 		63C9EEC4C3CD9715FD4AAECA /* OAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB67C592C32CEC96CB61C6 /* OAuth.swift */; };
+		6647DCA6E529792DA6B8AD98 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7FBA512B8F449385AC9ED5 /* Database.swift */; };
 		67D5E4A431583F010093B7F5 /* CommandLineTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B2994711ADFCA836371D67 /* CommandLineTool.swift */; };
 		6A67B4BBE283F922FA6F430F /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624A5B9C5D72E93609652D17 /* Config.swift */; };
 		6C7AAC7DE7E9AEFD5E977096 /* Limits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF292E55776C9FDD7D18743 /* Limits.swift */; };
@@ -37,10 +38,13 @@
 		9BD597547539A0FF0DD27053 /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
 		9CD52EA04F1CDE8CD286AF39 /* ServiceStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */; };
 		A75D73001BF1B24C3C293DF1 /* ollama-shim.sh in Resources */ = {isa = PBXBuildFile; fileRef = F7E0FD556CE74C96E8B89230 /* ollama-shim.sh */; };
+		A7F044D575CF943E9F3A6DF3 /* TranscriptTail.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0F1328D40B59A59DB9A303 /* TranscriptTail.swift */; };
 		A95B6AB89A9592A42D58134F /* Alerting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D95C1D61B6246B59EB1A9D /* Alerting.swift */; };
 		B05F25F924C6CEDA04D1CAFB /* RedlineTemplate@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 9D59182E56BE7254764382E5 /* RedlineTemplate@2x.png */; };
+		B0AB6678240AEEC302A79C5D /* Cadence.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22011EC7B7826162254D682 /* Cadence.swift */; };
 		B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B28FA77D5BF771D09A8333 /* Ollama.swift */; };
 		B0C07761E587F08B6AE9CE9A /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
+		B1CD68EEBE3BAB5D79E7B792 /* RedlineHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3364DACF0254F15DD72B8C /* RedlineHome.swift */; };
 		B60126738CA4B07C53ED7548 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AF4BF9E1F8FE7E67230776 /* Brand.swift */; };
 		B8F5BC0B534826FD82FD8DDB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256BCA039C4F6C0212417A7A /* main.swift */; };
 		BC8BA0C15ACE6386FD208FE3 /* ClaudeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C90916BD1CD3AFDCA86D89C /* ClaudeSetup.swift */; };
@@ -112,7 +116,9 @@
 		0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidecar.swift; sourceTree = "<group>"; };
 		123B39085985A12AC4A883B1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1D8A7BED0FAF0DE852F5BA05 /* RedlineTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = RedlineTemplate.png; sourceTree = "<group>"; };
+		1F7FBA512B8F449385AC9ED5 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
 		256BCA039C4F6C0212417A7A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		2B3364DACF0254F15DD72B8C /* RedlineHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedlineHome.swift; sourceTree = "<group>"; };
 		316615D98C6029DA63C5F95F /* StatuslineFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatuslineFeed.swift; sourceTree = "<group>"; };
 		32B17D76D7A2F62CA3643183 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		32F42B9C62E394CFF7098FF6 /* Findings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Findings.swift; sourceTree = "<group>"; };
@@ -149,8 +155,10 @@
 		BC24B392242E04B8F16C34B5 /* Alerts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alerts.swift; sourceTree = "<group>"; };
 		BCFB67C592C32CEC96CB61C6 /* OAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuth.swift; sourceTree = "<group>"; };
 		BEC12E0335BA36753D581E3A /* StatuslineInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatuslineInstaller.swift; sourceTree = "<group>"; };
+		C22011EC7B7826162254D682 /* Cadence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cadence.swift; sourceTree = "<group>"; };
 		C70F9EB19961D2896832675D /* Trends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trends.swift; sourceTree = "<group>"; };
 		C95D59B24DE8A443953B9222 /* DelegatedRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DelegatedRefresh.swift; sourceTree = "<group>"; };
+		CE0F1328D40B59A59DB9A303 /* TranscriptTail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTail.swift; sourceTree = "<group>"; };
 		CED513D0EA87D7E4737349F9 /* SingleInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleInstance.swift; sourceTree = "<group>"; };
 		D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatus.swift; sourceTree = "<group>"; };
 		DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedlineWidget.swift; sourceTree = "<group>"; };
@@ -258,24 +266,28 @@
 				F243DEA3F6D6C090FFF94EF1 /* Availability.swift */,
 				B7AF4BF9E1F8FE7E67230776 /* Brand.swift */,
 				9633CFA9869A094B682E3409 /* BrandUI.swift */,
+				C22011EC7B7826162254D682 /* Cadence.swift */,
 				9F803F78EF03A83B38E36C88 /* ClaudeAuth.swift */,
 				4C90916BD1CD3AFDCA86D89C /* ClaudeSetup.swift */,
 				EF2D39E506526264BDC08DB4 /* CodexSessions.swift */,
 				40B2994711ADFCA836371D67 /* CommandLineTool.swift */,
 				624A5B9C5D72E93609652D17 /* Config.swift */,
 				7F86294B8C331F3CA4A5DD4F /* CredentialScan.swift */,
+				1F7FBA512B8F449385AC9ED5 /* Database.swift */,
 				32F42B9C62E394CFF7098FF6 /* Findings.swift */,
 				9AF292E55776C9FDD7D18743 /* Limits.swift */,
 				91B28FA77D5BF771D09A8333 /* Ollama.swift */,
 				F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */,
 				447ED9DA10B4CBB9133689B5 /* Pace.swift */,
 				87D84AD92C821EDBC4ED14A7 /* Provenance.swift */,
+				2B3364DACF0254F15DD72B8C /* RedlineHome.swift */,
 				D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */,
 				0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */,
 				CED513D0EA87D7E4737349F9 /* SingleInstance.swift */,
 				3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */,
 				AB7A91F7558A008A61D6AE0B /* Sparkline.swift */,
 				316615D98C6029DA63C5F95F /* StatuslineFeed.swift */,
+				CE0F1328D40B59A59DB9A303 /* TranscriptTail.swift */,
 				C70F9EB19961D2896832675D /* Trends.swift */,
 				FC4D3B9D0F9D8C9F124020D6 /* Usage.swift */,
 				32B17D76D7A2F62CA3643183 /* UsageStore.swift */,
@@ -453,24 +465,28 @@
 				0AA2EE3944F14CF933B1A7F5 /* Availability.swift in Sources */,
 				B60126738CA4B07C53ED7548 /* Brand.swift in Sources */,
 				6273399A6642182B1E1D7AFD /* BrandUI.swift in Sources */,
+				B0AB6678240AEEC302A79C5D /* Cadence.swift in Sources */,
 				946B9D6449A2548826A4E638 /* ClaudeAuth.swift in Sources */,
 				BC8BA0C15ACE6386FD208FE3 /* ClaudeSetup.swift in Sources */,
 				FF43854EF3B1451EFD855320 /* CodexSessions.swift in Sources */,
 				67D5E4A431583F010093B7F5 /* CommandLineTool.swift in Sources */,
 				6A67B4BBE283F922FA6F430F /* Config.swift in Sources */,
 				F8E4378AA294C4F6A5FBD381 /* CredentialScan.swift in Sources */,
+				6647DCA6E529792DA6B8AD98 /* Database.swift in Sources */,
 				4FB45D1DB225292BDB1B1E64 /* Findings.swift in Sources */,
 				6C7AAC7DE7E9AEFD5E977096 /* Limits.swift in Sources */,
 				B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */,
 				24926363A3D24D71291FCE23 /* OllamaUsage.swift in Sources */,
 				4D224036965D4EF12BC62D9F /* Pace.swift in Sources */,
 				C9EF966DE5FAF7C88CD4D95D /* Provenance.swift in Sources */,
+				B1CD68EEBE3BAB5D79E7B792 /* RedlineHome.swift in Sources */,
 				9CD52EA04F1CDE8CD286AF39 /* ServiceStatus.swift in Sources */,
 				177BBC02BE0031772154DB68 /* Sidecar.swift in Sources */,
 				8767E8452B43CF2B2D1E14D5 /* SingleInstance.swift in Sources */,
 				2F1CF67F76429502CD8D63D1 /* Snapshot.swift in Sources */,
 				D1346E76D50919C07BCA074F /* Sparkline.swift in Sources */,
 				C5C2F68D2DB0C05BBE58D058 /* StatuslineFeed.swift in Sources */,
+				A7F044D575CF943E9F3A6DF3 /* TranscriptTail.swift in Sources */,
 				90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */,
 				1649CE694ADE1CCFF1E9E6DF /* Usage.swift in Sources */,
 				C5FCD0C6BE931628CA7A443F /* UsageStore.swift in Sources */,

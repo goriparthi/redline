@@ -1,5 +1,5 @@
-// The history file. Its whole reason to exist is that transcripts get pruned, so the merge
-// rule that survives a shrinking scan is the thing worth testing hardest.
+// The history store. Its whole reason to exist is that transcripts get pruned, so what
+// survives a shrinking scan is the thing worth testing hardest.
 import XCTest
 @testable import RedlineCore
 
@@ -35,21 +35,87 @@ final class WarehouseTests: XCTestCase {
         XCTAssertEqual(records[0].input, 1000)
     }
 
-    func testMergeKeepsTheFullestReadingOfADay() {
+    func testAPrunedTranscriptCannotEraseTheDay() {
         let day = Date(timeIntervalSince1970: 1_760_000_000)
         warehouse.merge(entries: [entry(day, input: 5000)], config: config)
-        // A later scan sees less of the same day, because Claude Code pruned a transcript
-        warehouse.merge(entries: [entry(day, input: 10)], config: config)
-        let stored = warehouse.load()
+        // The transcript that record came from is gone, so a later pass brings nothing for
+        // that day at all. The day still has to read the same afterwards.
+        warehouse.merge(entries: [entry(day.addingTimeInterval(86400), input: 10)],
+                        config: config)
+        let stored = warehouse.records(since: day, until: day)
         XCTAssertEqual(stored.count, 1)
-        XCTAssertEqual(stored[0].input, 5000, "a shrinking scan must not erase history")
+        XCTAssertEqual(stored[0].input, 5000, "a day already recorded must not shrink")
     }
 
-    func testMergeAcceptsAGrowingDay() {
+    func testTwoRecordsOnOneDayAddUpRatherThanCompete() {
+        // Distinct records of the same day are both facts about it. The old file store had
+        // to guess which scan was fuller; entries are deduped, so they simply sum.
         let day = Date(timeIntervalSince1970: 1_760_000_000)
         warehouse.merge(entries: [entry(day, input: 100)], config: config)
         warehouse.merge(entries: [entry(day, input: 900)], config: config)
-        XCTAssertEqual(warehouse.load().first?.input, 900)
+        XCTAssertEqual(warehouse.load().first?.input, 1000)
+    }
+
+    func testTheSameRecordTwiceIsCountedOnce() {
+        let day = Date(timeIntervalSince1970: 1_760_000_000)
+        let e = entry(day, input: 500)
+        warehouse.merge(entries: [e], config: config)
+        warehouse.merge(entries: [e], config: config)
+        XCTAssertEqual(warehouse.load().first?.input, 500)
+        XCTAssertEqual(warehouse.entryCount, 1)
+    }
+
+    func testRecordsWithNoIdDedupeOnTheirOrigin() {
+        // Codex and Ollama records carry no id. Re-reading the same byte of the same file
+        // must not double the day.
+        let day = Date(timeIntervalSince1970: 1_760_000_000)
+        let e = Entry(provider: "Codex", key: nil, ts: day, model: "gpt-5", input: 100,
+                      output: 10, cacheRead: 0, cache5m: 0, cache1h: 0,
+                      origin: "/tmp/session.jsonl#4096")
+        XCTAssertEqual(warehouse.ingest([e]), 1)
+        XCTAssertEqual(warehouse.ingest([e]), 0, "same file position, same record")
+        XCTAssertEqual(warehouse.entryCount, 1)
+    }
+
+    func testDailyRowOutlivesTheEntriesItWasBuiltFrom() {
+        // The seam the two tables exist for: entries age out on retention, the day does not.
+        let day = Date(timeIntervalSince1970: 1_760_000_000)
+        warehouse.merge(entries: [entry(day, input: 4000)], config: config)
+        let removed = warehouse.pruneEntries(
+            now: day.addingTimeInterval(Double(Warehouse.entryRetentionDays + 2) * 86400))
+        XCTAssertEqual(removed, 1)
+        XCTAssertEqual(warehouse.entryCount, 0)
+        XCTAssertEqual(warehouse.records(since: day, until: day).first?.input, 4000,
+                       "the rollup is the long memory and must survive its own entries")
+    }
+
+    func testEntriesComeBackInsideTheirWindow() {
+        let base = Date(timeIntervalSince1970: 1_760_000_000)
+        warehouse.ingest([entry(base, input: 1), entry(base.addingTimeInterval(7200), input: 2)])
+        XCTAssertEqual(warehouse.entries().count, 2)
+        XCTAssertEqual(warehouse.entries(since: base.addingTimeInterval(3600)).count, 1)
+        XCTAssertEqual(warehouse.entries(provider: "Codex").count, 0)
+    }
+
+    func testIngestMarksTrackWhereReadingStopped() {
+        let mark = IngestMark(path: "/tmp/a.jsonl", provider: "Claude", size: 900,
+                              byteOffset: 880, mtime: Date(timeIntervalSince1970: 1_760_000_000))
+        warehouse.setIngestMark(mark)
+        XCTAssertEqual(warehouse.ingestMark(path: "/tmp/a.jsonl")?.byteOffset, 880)
+        warehouse.forgetIngestMarks(notIn: [], provider: "Claude")
+        XCTAssertNil(warehouse.ingestMark(path: "/tmp/a.jsonl"),
+                     "a transcript that is gone should not leave a mark behind")
+    }
+
+    func testLastKnownLimitsSurviveAQuietPoll() {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let w = LimitWindow(provider: "Codex", key: "five_hour", utilization: 33,
+                            resetsAt: now.addingTimeInterval(3600), source: .official)
+        warehouse.recordLimits([w], at: now)
+        let stored = warehouse.latestLimits(provider: "Codex")
+        XCTAssertEqual(stored?.windows.count, 1)
+        XCTAssertEqual(stored?.windows.first?.utilization, 33)
+        XCTAssertEqual(stored?.at, now)
     }
 
     func testUnpricedModelIsCountedButNotCosted() {

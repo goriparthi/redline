@@ -166,6 +166,21 @@ struct DashboardData {
     /// What the local warehouse holds. Separate from the charts on purpose: the charts are
     /// what the transcripts still say, this is what was recorded before they were pruned.
     var history: HistorySummary?
+    /// How the work is spread out: hour of day, the current run, consecutive days. Present
+    /// only when the setting is on, because it is the one panel about your day rather than
+    /// about an account.
+    var cadence: CadenceSummary?
+    /// Cues raised by the last poll, kept so the panel can show what was said.
+    var cues: [CadenceCue] = []
+
+    struct CadenceSummary {
+        /// Tokens by local hour, 24 buckets starting at midnight
+        var hours: [Int] = []
+        var currentStretch: TimeInterval?
+        var longestStretch: TimeInterval?
+        var streak = 0
+        var days = 0
+    }
 
     struct HistorySummary {
         var days = 0
@@ -258,6 +273,7 @@ final class DashboardModel: ObservableObject {
     private let claude = UsageStore()
     private let codex = CodexStore()
     private let ollama = OllamaStore()
+    private let warehouse = Warehouse()
     private let queue = DispatchQueue(label: "dashboard-scan", qos: .userInitiated)
     /// Bumped on every load. A scan the user has already moved past must not publish
     /// over the newer one, or picking 30 days shows 14 days until the next reload.
@@ -277,6 +293,20 @@ final class DashboardModel: ObservableObject {
             cost: byDay.reduce(0) { $0 + $1.cost },
             complete: records.allSatisfy(\.priced),
             sizeBytes: warehouse.sizeBytes)
+    }
+
+    /// The shape of the range: when the work happened, the longest unbroken run in it, and
+    /// how many consecutive days reach up to today.
+    static func cadenceSummary(_ entries: [Entry],
+                               now: Date) -> DashboardData.CadenceSummary? {
+        guard !entries.isEmpty else { return nil }
+        let stretches = Cadence.stretches(entries)
+        return DashboardData.CadenceSummary(
+            hours: Cadence.byHourOfDay(entries),
+            currentStretch: Cadence.current(entries, now: now)?.length,
+            longestStretch: stretches.map(\.length).max(),
+            streak: Cadence.streak(entries, endingOn: now),
+            days: Cadence.activeDays(entries).count)
     }
 
     func setFocus(_ provider: String) {
@@ -308,17 +338,26 @@ final class DashboardModel: ObservableObject {
         }
         queue.async { [weak self] in
             guard let self else { return }
-            var entries: [Entry] = []
-            if cfg.wants(UsageStore.provider) {
-                entries += self.claude.scan(lookbackDays: days)
-            }
-            if cfg.wants(CodexStore.provider) {
-                entries += self.codex.scan(lookbackDays: days).entries
-            }
-            if cfg.wants(OllamaStore.provider) {
-                entries += self.ollama.scan(lookbackDays: days)
-            }
             let now = Date()
+            var entries: [Entry] = []
+            if cfg.recordHistory {
+                // Ask the store, not the transcripts. Opening this window used to reparse
+                // every byte on disk for the chosen range, and the range it could answer
+                // was capped at whatever Claude Code had not pruned yet.
+                entries = self.warehouse
+                    .entries(since: now.addingTimeInterval(-Double(days) * 86400))
+                    .filter { cfg.wants($0.provider) }
+            } else {
+                if cfg.wants(UsageStore.provider) {
+                    entries += self.claude.scan(lookbackDays: days)
+                }
+                if cfg.wants(CodexStore.provider) {
+                    entries += self.codex.scan(lookbackDays: days).entries
+                }
+                if cfg.wants(OllamaStore.provider) {
+                    entries += self.ollama.scan(lookbackDays: days)
+                }
+            }
             // One cutoff drives every ranged figure. Separate hardcoded windows are how the
             // tiles and the model mix stayed on 7 days while the charts moved to 14 or 30.
             let since = now.addingTimeInterval(-Double(days) * 86400)
@@ -329,6 +368,7 @@ final class DashboardModel: ObservableObject {
                                  config: cfg)
             let ranged = aggregate(entries, since: since, config: cfg)
             let history = cfg.recordHistory ? Self.historySummary() : nil
+            let cadence = cfg.mindfulCues ? Self.cadenceSummary(entries, now: now) : nil
             DispatchQueue.main.async {
                 guard gen == self.generation else { return }
                 self.data.trends = trends
@@ -338,6 +378,7 @@ final class DashboardModel: ObservableObject {
                 self.data.ranged = ranged
                 self.data.scannedAt = now
                 self.data.history = history
+                self.data.cadence = cadence
                 self.data.loading = false
             }
         }
@@ -1121,6 +1162,72 @@ private struct OllamaPanel: View {
 
 // MARK: - Window content
 
+/// The shape of the day: when the work happens, how long the runs are, how many days in a
+/// row. Every figure here is counted from timestamps; none of it is a claim about the person
+/// at the keyboard, and none of it is advice.
+private struct CadencePanel: View {
+    let cadence: DashboardData.CadenceSummary
+    let cues: [CadenceCue]
+
+    private var peak: Int { max(1, cadence.hours.max() ?? 1) }
+
+    /// The busiest hour, named the way a person says it rather than as an index
+    private var busiest: String? {
+        guard let top = cadence.hours.enumerated().max(by: { $0.element < $1.element }),
+              top.element > 0 else { return nil }
+        return String(format: "%02d:00", top.offset)
+    }
+
+    var body: some View {
+        Panel(title: "Cadence", note: busiest.map { "busiest at \($0)" }) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 22) {
+                    StatTile(label: "Current run",
+                             value: cadence.currentStretch.map { Pace.short($0) } ?? "none",
+                             sub: cadence.currentStretch == nil ? "no activity just now" : nil)
+                    StatTile(label: "Longest run",
+                             value: cadence.longestStretch.map { Pace.short($0) } ?? "none",
+                             sub: "in this range")
+                    StatTile(label: "Days running", value: "\(cadence.streak)",
+                             sub: "\(cadence.days) active in range")
+                    Spacer()
+                }
+                hours
+                if let latest = cues.last {
+                    Text("\(latest.title). \(latest.body)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brandkit.steel)
+                }
+            }
+        }
+    }
+
+    /// One bar per local hour. Deliberately unlabelled except at the quarters: this answers
+    /// "when do I work", which is a shape question, and the readout above answers the rest.
+    private var hours: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(Array(cadence.hours.enumerated()), id: \.offset) { hour, value in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(value > 0 ? Brandkit.signal.opacity(0.35 + 0.65 * Double(value) / Double(peak))
+                                        : Brandkit.steel.opacity(0.18))
+                        .frame(height: max(3, 44 * Double(value) / Double(peak)))
+                        .help("\(String(format: "%02d:00", hour)) · \(fmtTokens(value)) tokens")
+                }
+            }
+            .frame(height: 44, alignment: .bottom)
+            HStack {
+                ForEach([0, 6, 12, 18], id: \.self) { hour in
+                    Text(String(format: "%02d", hour))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Brandkit.steel)
+                    if hour != 18 { Spacer() }
+                }
+            }
+        }
+    }
+}
+
 struct DashboardView: View {
     @ObservedObject var model: DashboardModel
     @ObservedObject var ollama: OllamaService
@@ -1330,6 +1437,9 @@ struct DashboardView: View {
     @ViewBuilder
     private var historyPanel: some View {
         if let history = data.history, history.days > 0 {
+            if let cadence = data.cadence {
+                CadencePanel(cadence: cadence, cues: data.cues)
+            }
             Panel(title: "Recorded history", note: "kept locally, UTC days") {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 22) {

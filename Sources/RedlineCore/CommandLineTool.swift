@@ -28,7 +28,8 @@ public enum RedlineCLI {
 
     /// The words that mean "run the tool and exit" rather than "launch the app". Kept here
     /// so the entry point and the help text cannot disagree about what exists.
-    public static let commands = ["status", "findings", "history", "help"]
+    public static let commands = ["status", "findings", "history", "cadence", "ingest",
+                                  "help"]
 
     public static let usage = """
     redline <command> [options]
@@ -36,6 +37,8 @@ public enum RedlineCLI {
       status              current limits, tokens and cost
       findings            setup findings from your transcripts
       history             recorded daily history from the local warehouse
+      cadence             how the work is spread out: runs, hours, days in a row
+      ingest              read new transcript records into the local store now
       help                this text
 
     options
@@ -60,6 +63,8 @@ public enum RedlineCLI {
         case "status":   return status(json: json, now: now)
         case "findings": return findings(json: json, days: days ?? 7, now: now)
         case "history":  return history(json: json, csv: csv, days: days ?? 30, now: now)
+        case "cadence":  return cadence(json: json, days: days ?? 14, now: now)
+        case "ingest":   return ingest(json: json, now: now)
         case "help", "--help", "-h": return Result(text: usage, code: Code.ok)
         default:
             return Result(text: "unknown command: \(command)\n\n" + usage,
@@ -316,6 +321,99 @@ public enum RedlineCLI {
         lines.append("")
         lines.append("\(records.count) records · \(fmtTokens(tokens)) tokens · "
             + "\(fmtCost(cost)) estimated · days are UTC")
+        return Result(text: lines.joined(separator: "\n"), code: Code.ok)
+    }
+
+    // MARK: - ingest
+
+    /// Reads whatever the transcripts have gained since the last pass and stores it.
+    ///
+    /// The app does this on its own timer; this is the same code path on demand, for a
+    /// backfill after an install, for a machine where the app is not running, and for the
+    /// end to end tests, which need to drive the real thing rather than a stand-in.
+    static func ingest(json: Bool, now: Date) -> Result {
+        let config = Config.load()
+        guard config.recordHistory else {
+            return Result(text: json ? "{\"error\":\"history is off\"}" :
+                "Keep Local History is off, so there is no store to read into.",
+                          code: Code.noData)
+        }
+        let warehouse = Warehouse()
+        var counts: [String: Int] = [:]
+        if config.wants(UsageStore.provider) {
+            counts[UsageStore.provider] = UsageStore().ingest(into: warehouse, now: now)
+        }
+        if config.wants(CodexStore.provider) {
+            let before = warehouse.entryCount
+            _ = CodexStore().ingest(into: warehouse, now: now)
+            counts[CodexStore.provider] = warehouse.entryCount - before
+        }
+        if config.wants(OllamaStore.provider) {
+            counts[OllamaStore.provider] = OllamaStore().ingest(into: warehouse, now: now)
+        }
+        warehouse.rollupPending(config: config)
+        let added = counts.values.reduce(0, +)
+
+        if json {
+            return Result(text: encode(["added": added, "by_provider": counts,
+                                        "records": warehouse.entryCount]),
+                          code: Code.ok)
+        }
+        let detail = counts.keys.sorted()
+            .map { "\($0) \(counts[$0] ?? 0)" }.joined(separator: " · ")
+        return Result(text: "\(added) new records · \(detail) · "
+            + "\(warehouse.entryCount) held", code: Code.ok)
+    }
+
+    // MARK: - cadence
+
+    /// What the timestamps say about the shape of the work. Reads the store and nothing
+    /// else: no transcripts are parsed here and nothing is fetched.
+    static func cadence(json: Bool, days: Int, now: Date) -> Result {
+        let since = now.addingTimeInterval(-Double(days) * 86400)
+        let entries = Warehouse().entries(since: since)
+        guard !entries.isEmpty else {
+            return Result(text: json ? "{\"records\":0}" :
+                "No activity recorded in the last \(days) days.",
+                          code: Code.indeterminate)
+        }
+        let stretches = Cadence.stretches(entries)
+        let current = Cadence.current(entries, now: now)
+        let streak = Cadence.streak(entries, endingOn: now)
+        let hours = Cadence.byHourOfDay(entries)
+        let longest = stretches.map(\.length).max() ?? 0
+        let busiest = hours.enumerated().max { $0.element < $1.element }?.offset ?? 0
+
+        if json {
+            var root: [String: Any] = [
+                "records": entries.count,
+                "days": days,
+                "active_days": Cadence.activeDays(entries).count,
+                "streak_days": streak,
+                "longest_stretch_seconds": Int(longest),
+                "runs": stretches.count,
+                "busiest_hour_local": busiest,
+                "tokens_by_hour_local": hours,
+                "basis": "counted from local usage records",
+            ]
+            if let current {
+                root["current_stretch_seconds"] = Int(current.length)
+                root["current_stretch_started"] = ISO8601DateFormatter()
+                    .string(from: current.start)
+            }
+            return Result(text: encode(root), code: Code.ok)
+        }
+
+        var lines: [String] = []
+        if let current {
+            lines.append("current run   \(Pace.short(current.length)) so far")
+        } else {
+            lines.append("current run   none")
+        }
+        lines.append("longest run   \(Pace.short(longest)) of \(stretches.count) in "
+            + "\(days) days")
+        lines.append("days running  \(streak)")
+        lines.append("busiest hour  \(String(format: "%02d:00", busiest)) local")
         return Result(text: lines.joined(separator: "\n"), code: Code.ok)
     }
 

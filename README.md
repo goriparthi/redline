@@ -384,6 +384,10 @@ poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it
 | `publishSidecar` | `true` | Write the current windows where other local tools can read them |
 | `externalUsagePath` | empty | Absolute path to another tool's usage sidecar, read as a fallback |
 | `findingsScans` | `true` | Look through transcripts for setup findings in the background |
+| `mindfulCues` | `false` | Say when a run has gone long, when you are still going late, and when days have run together |
+| `stretchMinutes` | `90` | How long an unbroken run reaches before it is worth saying |
+| `lateHour` | `23` | The local hour after which activity counts as late |
+| `streakDays` | `7` | How many consecutive days with activity before that is worth saying |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
 | `oauth.clientId` | empty | Required for the app's own Sign In, which Anthropic does not issue to third-party apps |
 
@@ -395,7 +399,9 @@ Guessing a price tier would silently misreport spend, so it does not.
 
 ```sh
 make help       # list targets
-make test       # 213 tests
+make test       # 249 unit tests
+make e2e        # 46 end to end checks against the built binary
+make ci         # everything CI runs, in the same order
 make build      # release binary
 make bundle     # dist/Redline.app, signed
 make widget     # app + desktop widget via Xcode
@@ -404,6 +410,21 @@ make notes      # this version's release notes are written and readable
 make uninstall  # remove app, LaunchAgent and Keychain token
 make purge      # the same, and delete config, logs and history
 ```
+
+The checks come in two layers. The unit tests pin the parsing, the merge rules and the
+alerting decisions. The end to end suite writes fixture transcripts into a throwaway home,
+runs the real binary against them, and asserts on its output and exit codes: that a second
+ingest reads nothing new, that a half-written line is not parsed until it is whole, that the
+recorded totals survive the transcripts being deleted, and that a provider left out of the
+config is not read at all.
+
+`REDLINE_HOME` points the whole app at a different directory, which is how the end to end
+suite runs without seeing or touching your own usage data. It is honoured only when it names
+an absolute path that already exists.
+
+CI is `scripts/ci.sh`, and the workflow in `.github/workflows/ci.yml` only decides when to
+call it. Everything it runs is in this repo and runs the same way on a laptop: a red build
+is reproduced with `make ci`, not by pushing another commit.
 
 Every release carries written notes at `notes/releases/<version>.md`: a summary line,
 titled sections, prose a person can act on. `make notes` checks the shape, CI checks it on
@@ -506,17 +527,40 @@ own transcripts name, no file content is copied anywhere, and the report lives i
 ## Local history
 
 Claude Code prunes its own transcripts, so a window built from what is still on disk gets
-quietly shallower every week, and there is no way to go back for it later. RedLine now rolls
-each day up as it polls, into `~/.local/share/redline/history`, keyed by UTC day, provider and
-model.
+quietly shallower every week, and there is no way to go back for it later. RedLine keeps its
+own copy in a SQLite database at `~/.local/share/redline/history/redline.db`, using the
+`libsqlite3` macOS already ships, so the app carries no database of its own.
 
-The merge rule is the important part: **a smaller scan never overwrites a fuller one**. A day
-that has been pruned back to a fragment cannot erase what was already recorded, and a day
-still filling up is replaced as it grows. Limit readings are recorded alongside, kept for 60
-days, and are what the measured burn rate is differenced from.
+Four tables. `entries` is one row per usage record, deduped on the provider's message id
+where there is one and on the transcript position where there is not, kept for a year.
+`daily` is the rollup, one row per UTC day, provider and model, kept forever. `limit_samples`
+is every limit reading, kept 60 days, and is what the measured burn rate is differenced from.
+`ingest_state` records how far into each transcript has already been read.
 
-It is a couple of hundred kilobytes, it is `0600`, and **Keep Local History** turns it off.
-`redline history --csv` exports it.
+Two rules matter. **A day already recorded never shrinks**: entries age out on retention long
+before the rollup does, and a rollup recomputed after that is not allowed to write the day
+back down. And **each transcript is read once**: RedLine records the byte offset it stopped
+at and reads only what has been appended since, so a quiet poll costs a directory walk rather
+than a parse of every byte on the disk. A file that is truncated or rewritten shorter is read
+again from the start, because the offsets no longer point where they did.
+
+It is `0600`, a few megabytes, and **Keep Local History** turns it off. `redline history
+--csv` exports it, `redline ingest` reads new records on demand, and any SQLite client can
+open the file if you want to ask it something this app does not.
+
+## Cadence
+
+**Settings ▸ Say How the Day Is Going** reports three things counted from timestamps: a run
+of activity that has gone past `stretchMinutes` with no break longer than 15 minutes, activity
+still happening after `lateHour`, and `streakDays` consecutive days with usage. Each is said
+once, at the threshold and again at multiples of it, never per poll.
+
+It is off by default and it stays descriptive on purpose. RedLine can see the keyboard and
+cannot see the person at it, so nothing here infers tiredness or wellbeing and nothing here
+gives advice; a cue states what was counted and stops. A cue can only fire when there is
+recent activity, so a machine nobody is using is silent without needing a quiet hours setting.
+`redline cadence` asks the same questions on demand, and the dashboard draws the hour of day
+shape next to the recorded history.
 
 ## The usage sidecar, and the command line
 
@@ -540,7 +584,9 @@ ln -s /Applications/Redline.app/Contents/MacOS/redline ~/.local/bin/redline
 redline status              # windows, pace, today and this week
 redline status --json       # the same, with every figure labelled by provenance
 redline findings --days 14  # the setup checks
-redline history --csv       # the local warehouse
+redline history --csv       # the local store, as CSV
+redline cadence             # runs, hours and days in a row
+redline ingest              # read new transcript records in now
 ```
 
 Exit codes are part of the contract, so a script never has to parse prose: `0` fine, `10` near

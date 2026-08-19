@@ -9,7 +9,7 @@ public enum ClaudeSetup {
     /// Servers named in ~/.claude.json, both globally and per project, plus settings.json
     /// if a server block is there. Names only; nothing about how they are launched.
     public static func mcpServers(home: URL? = nil) -> [String] {
-        let root = home ?? FileManager.default.homeDirectoryForCurrentUser
+        let root = home ?? RedlineHome.url
         var names = Set<String>()
         func collect(_ any: Any?) {
             guard let dict = any as? [String: Any] else { return }
@@ -32,7 +32,7 @@ public enum ClaudeSetup {
     /// Skill directories under ~/.claude/skills. A skill is a directory holding SKILL.md,
     /// so a stray file is not counted as one.
     public static func skills(home: URL? = nil) -> [String] {
-        let root = (home ?? FileManager.default.homeDirectoryForCurrentUser)
+        let root = (home ?? RedlineHome.url)
             .appendingPathComponent(".claude/skills")
         return (try? FileManager.default.contentsOfDirectory(at: root,
                                                              includingPropertiesForKeys: nil))?
@@ -45,14 +45,14 @@ public enum ClaudeSetup {
     }
 
     public static func agents(home: URL? = nil) -> [String] {
-        markdownNames(in: (home ?? FileManager.default.homeDirectoryForCurrentUser)
+        markdownNames(in: (home ?? RedlineHome.url)
             .appendingPathComponent(".claude/agents"))
     }
 
     /// Commands, including one level of namespace directories, which is how Claude Code
     /// groups them. The namespace is dropped: the transcript records the invoked name.
     public static func commands(home: URL? = nil) -> [String] {
-        let root = (home ?? FileManager.default.homeDirectoryForCurrentUser)
+        let root = (home ?? RedlineHome.url)
             .appendingPathComponent(".claude/commands")
         var out = markdownNames(in: root)
         let fm = FileManager.default
@@ -81,7 +81,7 @@ public enum ClaudeSetup {
     /// global file can be charged to every session and a project's file only to its own.
     public static func memoryFiles(sessionsByDir: [String: Int], home: URL? = nil)
         -> [MemoryFile] {
-        let root = home ?? FileManager.default.homeDirectoryForCurrentUser
+        let root = home ?? RedlineHome.url
         let total = sessionsByDir.values.reduce(0, +)
         var targets: [(url: URL, sessions: Int, global: Bool)] = [
             (root.appendingPathComponent(".claude/CLAUDE.md"), total, true),

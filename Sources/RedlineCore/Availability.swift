@@ -30,7 +30,7 @@ public struct ProviderAvailability: Equatable {
                               ollamaReachable: Bool = false,
                               claudeAccount: Bool = false) -> ProviderAvailability {
         let fm = FileManager.default
-        let root = home ?? fm.homeDirectoryForCurrentUser
+        let root = home ?? RedlineHome.url
         var found: [String] = []
 
         func exists(_ path: String) -> Bool {

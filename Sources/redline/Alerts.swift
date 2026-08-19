@@ -10,6 +10,7 @@ import UserNotifications
 
 final class AlertCenter {
     private var state = AlertStore.load()
+    private var cadenceState = CadenceStore.load()
     /// Notifications are unavailable outside an app bundle, which is how the binary runs
     /// from a plain `swift build`. Checked once rather than guarded at every call site.
     private let available = Bundle.main.bundleIdentifier != nil
@@ -28,6 +29,38 @@ final class AlertCenter {
         guard config.alerts, !events.isEmpty else { return events }
         deliver(events)
         return events
+    }
+
+    /// Posts whatever the shape of the day has newly earned. Same delivery path and same
+    /// permission as the limit alerts; a cue never makes a sound, because none of them is
+    /// the kind of thing that should pull someone out of what they are doing.
+    @discardableResult
+    func evaluateCadence(entries: [Entry], config: Config,
+                         now: Date = Date()) -> [CadenceCue] {
+        let cues = CadenceRules.evaluate(entries: entries, config: config, now: now,
+                                         state: &cadenceState)
+        CadenceStore.save(cadenceState)
+        guard config.mindfulCues, !cues.isEmpty, available else { return cues }
+        let center = UNUserNotificationCenter.current()
+        if !authorized, !askedThisLaunch {
+            requestAuthorization { [weak self] granted in
+                guard granted else { return }
+                self?.post(cues, to: center)
+            }
+            return cues
+        }
+        post(cues, to: center)
+        return cues
+    }
+
+    private func post(_ cues: [CadenceCue], to center: UNUserNotificationCenter) {
+        for cue in cues {
+            let content = UNMutableNotificationContent()
+            content.title = cue.title
+            content.body = cue.body
+            center.add(UNNotificationRequest(identifier: cue.id, content: content,
+                                             trigger: nil))
+        }
     }
 
     /// Called when the setting is switched on. macOS only shows the prompt once per app, so

@@ -1,5 +1,9 @@
 name: CI
 
+# This workflow decides WHEN the checks run. What they are lives in scripts/ci.sh, so a
+# laptop and a runner execute the identical code path and a CI failure can be reproduced
+# with `make ci` rather than by pushing another commit.
+
 on:
   push:
     branches: [main]
@@ -11,53 +15,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-test:
+  checks:
     # macOS runner: the app links AppKit and the tests need XCTest from Xcode
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show toolchain
-        run: |
-          swift --version
-          xcodebuild -version
+      - name: Install xcodegen
+        run: brew install xcodegen
 
-      # Release notes are part of the change, not a release-day scramble. A missing file is
-      # only a warning here and fatal in release.sh; one that reads like a commit dump fails.
-      - name: Check release notes
+      - name: Run the check suite
+        run: make ci
+
+      # Kept as its own step so a failure here is obviously about the release gate rather
+      # than about the build. Notes are required to release and only warned about here.
+      - name: Release notes
         run: scripts/check-notes.sh --allow-missing
-
-      # The committed project is written by whatever Xcode generated it, and a runner with an
-      # older Xcode cannot open a newer project format. Regenerating from project.yml here
-      # makes CI independent of that entirely.
-      - name: Regenerate the Xcode project for this runner
-        run: |
-          brew install xcodegen
-          make xcodeproj
-
-      - name: Build
-        run: make build
-
-      - name: Test
-        run: make test
-
-      # Proves the bundle assembles and signs (ad-hoc on CI, which has no Developer ID).
-      # Catches Info.plist and bundle-layout regressions before a release is cut.
-      - name: Bundle
-        run: make bundle
-
-      # Smoke build of the Xcode project so a widget or project.yml regression is caught.
-      # Unsigned: CI has no Apple ID, and the App Group entitlement needs a real profile.
-      - name: Build app with widget (unsigned)
-        run: SIGN=no make widget
-
-      - name: Verify widget is embedded
-        run: test -d dist/Redline.app/Contents/PlugIns/RedlineWidget.appex
-
-      - name: Verify bundle identity
-        run: |
-          set -euo pipefail
-          plutil -lint dist/Redline.app/Contents/Info.plist
-          codesign --verify --strict dist/Redline.app
-          test -x dist/Redline.app/Contents/MacOS/redline
-          dist/Redline.app/Contents/MacOS/redline --version

@@ -28,7 +28,7 @@ public final class OllamaStore {
     private let isoPlain = ISO8601DateFormatter()
 
     public init(log: URL? = nil) {
-        self.log = log ?? FileManager.default.homeDirectoryForCurrentUser
+        self.log = log ?? RedlineHome.url
             .appendingPathComponent(".local/share/redline/ollama.jsonl")
     }
 
@@ -39,22 +39,50 @@ public final class OllamaStore {
         let cutoff = now.addingTimeInterval(-Double(lookbackDays + 1) * 86400)
         var out: [Entry] = []
         text.enumerateLines { line, _ in
-            guard let data = line.data(using: .utf8),
-                  let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let tsStr = o["ts"] as? String,
-                  let ts = self.iso.date(from: tsStr) ?? self.isoPlain.date(from: tsStr),
-                  ts > cutoff else { return }
-            let input = self.int(o["prompt_eval_count"])
-            let output = self.int(o["eval_count"])
-            guard input + output > 0 else { return }
-            // Local inference has no dollar cost, so these stay unpriced on purpose and
-            // surface as token and call volume instead of spend.
-            out.append(Entry(provider: OllamaStore.provider, key: nil, ts: ts,
-                             model: (o["model"] as? String) ?? "ollama",
-                             input: input, output: output,
-                             cacheRead: 0, cache5m: 0, cache1h: 0))
+            guard let e = self.entry(from: line, offset: nil), e.ts > cutoff else { return }
+            out.append(e)
         }
         return out
+    }
+
+    /// Reads what the shim has appended since the last pass and stores it.
+    @discardableResult
+    public func ingest(into warehouse: Warehouse, now: Date = Date()) -> Int {
+        let path = log.path
+        guard let vals = try? log.resourceValues(
+            forKeys: [.contentModificationDateKey, .fileSizeKey]),
+            let mtime = vals.contentModificationDate,
+            let size = vals.fileSize else { return 0 }
+        let mark = warehouse.ingestMark(path: path)
+        let start = TranscriptTail.startOffset(mark: mark, size: size)
+        if let mark, start == mark.byteOffset, size == mark.size { return 0 }
+
+        var batch: [Entry] = []
+        let next = TranscriptTail.read(url: log, from: start) { line, offset in
+            guard let e = self.entry(from: line, offset: offset) else { return }
+            batch.append(e)
+        }
+        let added = warehouse.ingest(batch)
+        warehouse.setIngestMark(IngestMark(path: path, provider: OllamaStore.provider,
+                                           size: size, byteOffset: next, mtime: mtime),
+                                at: now)
+        return added
+    }
+
+    func entry(from line: String, offset: Int?) -> Entry? {
+        guard let data = line.data(using: .utf8),
+              let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tsStr = o["ts"] as? String,
+              let ts = iso.date(from: tsStr) ?? isoPlain.date(from: tsStr) else { return nil }
+        let input = int(o["prompt_eval_count"])
+        let output = int(o["eval_count"])
+        guard input + output > 0 else { return nil }
+        // Local inference has no dollar cost, so these stay unpriced on purpose and
+        // surface as token and call volume instead of spend.
+        return Entry(provider: OllamaStore.provider, key: nil, ts: ts,
+                     model: (o["model"] as? String) ?? "ollama",
+                     input: input, output: output, cacheRead: 0, cache5m: 0, cache1h: 0,
+                     origin: offset.map { "\(log.path)#\($0)" })
     }
 
     private func int(_ v: Any?) -> Int {

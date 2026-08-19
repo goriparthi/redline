@@ -9,7 +9,7 @@ public final class SingleInstance {
     private init(fd: Int32) { self.fd = fd }
 
     public static var lockURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        RedlineHome.url
             .appendingPathComponent(".local/share/redline/instance.lock")
     }
 

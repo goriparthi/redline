@@ -15,7 +15,7 @@ public enum Sidecar {
     /// reading our own output back would be a loop, and the feeder's file is Claude Code's
     /// word rather than ours.
     public static func publishURL(home: URL? = nil) -> URL {
-        let root = home ?? FileManager.default.homeDirectoryForCurrentUser
+        let root = home ?? RedlineHome.url
         return root.appendingPathComponent(".local/share/redline/usage-snapshot.json")
     }
 
