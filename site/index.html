@@ -369,7 +369,7 @@
         <div class="track-row">
           <span class="track-name">Claude <span>· session, 5h</span></span>
           <span class="rail-wrap"><span class="rail"><span class="fill" data-pct="13" style="background:var(--clear)"></span></span></span>
-          <span class="track-val">13% used <em>· 87% left · 2:29 PM</em></span>
+          <span class="track-val">13% used <em>· resets 2:29 PM · on pace</em></span>
         </div>
         <div class="track-row">
           <span class="track-name">Claude <span>· week</span></span>
@@ -379,7 +379,7 @@
         <div class="track-row">
           <span class="track-name">Codex <span>· week</span></span>
           <span class="rail-wrap"><span class="rail"><span class="fill" data-pct="17" style="background:var(--clear)"></span></span></span>
-          <span class="track-val">17% used <em>· 83% left · Sun</em></span>
+          <span class="track-val">17% used <em>· resets Sun · ~4h to limit</em></span>
         </div>
         <div class="track-row">
           <span class="track-name">Ollama <span>· local</span></span>
@@ -406,9 +406,15 @@
     </div>
 
     <figure class="shot shot-hero">
-      <img src="img/dashboard.gif" alt="The dashboard switching between light, dark and the OS theme, then between 7, 14 and 30 day ranges" loading="lazy">
-      <figcaption>The dashboard: limit rails, tokens and cost per day, model mix. Light, dark,
-        or whatever the OS is doing.</figcaption>
+      <img src="img/dashboard.png" alt="The dashboard showing totals, limit rails with time to limit, and reported service status" loading="lazy">
+      <figcaption>The dashboard: limit rails that say how long they leave you, totals, service
+        status, findings, and charts. Light, dark, or whatever the OS is doing.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <img src="img/chart-hover.png" alt="A tokens per day chart with a hover readout showing each provider's tokens for that day and the total" loading="lazy">
+      <figcaption>Hover any chart for the exact figures behind that point, snapped to the
+        nearest bucket.</figcaption>
     </figure>
 
     <div class="shots shots-three">
@@ -544,6 +550,65 @@ PROMPT</pre>
         <p>Sign-in uses OAuth with PKCE and a loopback listener bound to localhost. Borrowing
            the Claude CLI's own token is off by default, needs your explicit consent, and is
            read-only: RedLine never refreshes it, so it cannot sign the CLI out.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="label">Beyond the number</p>
+      <h2>A percentage is not the question</h2>
+      <p>What you want to know is whether this window stops you before it rolls over, where
+         the money is going, and what your setup is quietly costing. RedLine answers all
+         three from files already on your disk.</p>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>Time to limit</h3><span class="chip">pace</span></div>
+        <p>Every window that has run long enough carries a rate, so the menu and the rails
+           say how long is left at the pace you are actually going. Where readings have been
+           recorded inside the same window it is measured by differencing them; otherwise it
+           is that window's own average, and the tooltip says which. The rails also mark
+           where the clock has reached, so spending faster than the window refills is
+           something you see rather than something you calculate.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Notifications</h3><span class="chip">opt in</span></div>
+        <p>Off until you switch them on, which is also when macOS is asked for permission.
+           Then RedLine speaks up when a window crosses your threshold, when it is about to
+           run out before it resets, and when it rolls over and capacity comes back. Once per
+           window, and never from a reading it cannot vouch for.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Findings</h3><span class="chip">setup</span></div>
+        <p>MCP servers configured and never called, skills and commands defined and never
+           invoked, files read three or more times inside one session, memory files large
+           enough to notice. Each says whether its numbers were counted or estimated, and a
+           finding with nothing honest to put on it carries no dollar figure at all.</p>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>History that lasts</h3><span class="chip">local</span></div>
+        <p>Claude Code prunes its own transcripts, so a chart built from what is still there
+           gets shallower every week. RedLine rolls each day up as it polls and keeps it. A
+           smaller scan never overwrites a fuller one, so a pruned transcript cannot erase
+           what was already recorded.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>A sidecar others can read</h3><span class="chip">interop</span></div>
+        <p>The current windows are published as JSON in the shape other local monitors
+           already parse, so a status line or a tmux strip can take this reading instead of
+           every tool racing for the same source. It reads someone else's too, and only
+           while it is fresh.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>A command line</h3><span class="chip">scriptable</span></div>
+        <p><code>redline status --json</code> answers with the windows, their pace and the
+           totals, every figure labelled with where it came from. Exit codes are part of the
+           contract, so a shell prompt or a CI step never has to parse prose.</p>
       </div>
     </div>
   </section>

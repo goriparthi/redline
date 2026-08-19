@@ -36,7 +36,7 @@ final class FindingsTests: XCTestCase {
         let report = Findings.report(input([used], mcp: ["atlassian", "playwright"]),
                                      config: config)
         let finding = try XCTUnwrap(report.findings.first { $0.id == "mcp-unused" })
-        XCTAssertEqual(finding.evidence, ["playwright"])
+        XCTAssertEqual(finding.evidence.map(\.label), ["playwright"])
         XCTAssertNil(finding.estimatedUSD,
                      "the schema overhead is real but not visible from here")
         XCTAssertEqual(finding.basis, .measured)
@@ -112,7 +112,7 @@ final class FindingsTests: XCTestCase {
         let usd = try XCTUnwrap(finding.estimatedUSD)
         // 10k tokens at Sonnet input x1.25, nine session loads between the two files
         XCTAssertEqual(usd, 10_000.0 / 1_000_000 * 3 * 1.25 * 9, accuracy: 0.0001)
-        XCTAssertTrue(finding.evidence.contains { $0.contains("every project") })
+        XCTAssertTrue(finding.evidence.contains { $0.value?.contains("every project") == true })
     }
 
     func testSmallMemoryFileIsNotWorthMentioning() {
@@ -133,8 +133,8 @@ final class FindingsTests: XCTestCase {
             input([s], skills: ["pg-voice", "who-am-i"], agents: ["Explore", "Plan"],
                   commands: ["scrum", "deploy"]), config: config)
         let finding = try XCTUnwrap(report.findings.first { $0.id == "ghost-definitions" })
-        XCTAssertEqual(finding.evidence,
-                       ["skill · who-am-i", "agent · Plan", "command · deploy"])
+        XCTAssertEqual(finding.evidence.map(\.label), ["who-am-i", "Plan", "deploy"])
+        XCTAssertEqual(finding.evidence.map(\.value), ["skill", "agent", "command"])
         XCTAssertNil(finding.estimatedUSD)
     }
 

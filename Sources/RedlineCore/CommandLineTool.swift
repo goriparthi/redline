@@ -240,7 +240,11 @@ public enum RedlineCLI {
                     "basis": f.basis.rawValue,
                     "title": f.title,
                     "detail": f.detail,
-                    "evidence": f.evidence,
+                    "evidence": f.evidence.map { e -> [String: Any] in
+                        var row: [String: Any] = ["label": e.label]
+                        if let v = e.value { row["value"] = v }
+                        return row
+                    },
                 ]
                 if let t = f.estimatedTokens { out["estimated_tokens"] = t }
                 if let u = f.estimatedUSD { out["estimated_usd"] = u }
@@ -257,7 +261,9 @@ public enum RedlineCLI {
             if let usd = f.estimatedUSD { head += "  ~\(fmtCost(usd))" }
             lines.append(head)
             lines.append("  \(f.detail)")
-            for row in f.evidence.prefix(6) { lines.append("    · \(row)") }
+            for row in f.evidence.prefix(8) {
+                lines.append("    · \(row.label)" + (row.value.map { " · \($0)" } ?? ""))
+            }
             if let fix = f.fix { lines.append("  fix: \(fix)") }
             lines.append("  basis: \(f.basis.rawValue)")
         }

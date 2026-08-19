@@ -72,6 +72,17 @@ public struct Pace: Equatable {
                          : "\(Int((-delta * 100).rounded())) points to spare"
     }
 
+    /// The same reading with the second clause dropped, for a place where the row already
+    /// says when the window resets. "42m before reset" is arithmetic the reader can do from
+    /// a reset time they are already looking at.
+    public func compact(now: Date = Date()) -> String? {
+        if utilization >= 100 { return "limit reached" }
+        if hitsLimitBeforeReset, let toLimit = timeToLimit(now: now) {
+            return "~\(Pace.short(toLimit)) to limit"
+        }
+        return summary(now: now)
+    }
+
     public var basisNote: String {
         switch basis {
         case .measured(let samples, let over):
@@ -95,9 +106,13 @@ public struct Pace: Equatable {
 }
 
 public enum PaceEstimator {
-    /// Minimum span between the readings a measured rate is differenced from. Two samples a
-    /// minute apart turn ordinary jitter into a confident-looking projection.
-    public static let minMeasuredSpan: TimeInterval = 600
+    /// Minimum span between the readings a measured rate is differenced from, scaled to the
+    /// window. Ten minutes of readings describes a five hour window usefully and says
+    /// nothing about a weekly one: a busy quarter of an hour extrapolated across seven days
+    /// produced "23h to limit" on a window that was 5% used and a week from its reset.
+    public static func minMeasuredSpan(forLength length: TimeInterval) -> TimeInterval {
+        max(600, length / 24)
+    }
     /// Minimum time a window must have run before its average says anything.
     public static let minElapsed: TimeInterval = 900
 
@@ -133,7 +148,7 @@ public enum PaceEstimator {
         if let first = recent.first {
             let span = now.timeIntervalSince(first.at)
             let climb = window.utilization - first.utilization
-            if span >= minMeasuredSpan, climb > 0 {
+            if span >= minMeasuredSpan(forLength: length), climb > 0 {
                 rate = climb / (span / 3600)
                 basis = .measured(samples: recent.count + 1, over: span)
             }

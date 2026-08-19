@@ -72,11 +72,11 @@ If Anthropic publishes a real usage API, this all becomes moot and RedLine will 
 
 ## Screenshots
 
-<img src="site/img/dashboard.gif" alt="The dashboard switching between light, dark and the OS theme, then between 7, 14 and 30 day ranges" width="720">
+<img src="site/img/dashboard.png" alt="Dashboard showing totals, limit rails with time to limit, and reported service status" width="720">
 
-| Menu bar | Dashboard |
+| Menu bar | Charts, on hover |
 | --- | --- |
-| <img src="site/img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits and a per provider usage table" width="420"> | <img src="site/img/dashboard.png" alt="Dashboard window with limit rails and tokens per day chart" width="420"> |
+| <img src="site/img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits with time to limit, and a per provider usage table" width="420"> | <img src="site/img/chart-hover.png" alt="A tokens per day chart with a hover readout showing each provider's tokens for that day and the total" width="420"> |
 
 Widgets, one per track, configurable from the widget's own settings:
 
@@ -428,7 +428,12 @@ window with charts built from the same data the menu bar summarises:
 - estimated cost per day, over the same range
 - the last 24 hours, hour by hour
 - the model mix, with unpriced models shown as `—` rather than `$0.00`
-- current limit rails, each ending at its threshold
+- current limit rails, each ending at its threshold, with time to limit and a pace marker
+- setup findings, and what the local history holds
+
+Every chart answers the value question on hover: point at a day or an hour and a readout
+names each provider's figure for that bucket and the total, snapped to the nearest bucket so
+the gap between two bars is still answerable.
 
 The 7, 14 and 30 day buttons drive every panel and both totals tiles, not just the charts, so
 a figure on this window always describes the range named next to it.

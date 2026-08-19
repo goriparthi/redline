@@ -168,11 +168,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             guard let self else { return }
             self.findingsReport = report
             self.dashboardModel.data.findings = report
+            self.dashboardModel.data.findingsScanning = false
             if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
         }
         dashboardModel.onRescanFindings = { [weak self] in
             guard let self else { return }
-            self.findingsService.refresh(config: self.config)
+            // Flipped before the scan starts, and left on if one was already running, so the
+            // click always changes something on screen. A rescan that finished inside the
+            // same minute used to be indistinguishable from a dead button.
+            self.dashboardModel.data.findingsScanning = true
+            if !self.findingsService.refresh(config: self.config),
+               !self.findingsService.isRunning {
+                self.dashboardModel.data.findingsScanning = false
+            }
         }
         scheduleTimer()
         scheduleUpdateTimer()
@@ -675,7 +683,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     @objc func openDashboard(_ sender: Any?) {
         // The findings panel is the one thing here that is not derived from the poll, so
         // opening the window is a good moment to make sure it has run at least once.
-        findingsService.refreshIfDue(config: config)
+        if findingsService.refreshIfDue(config: config) {
+            dashboardModel.data.findingsScanning = true
+        }
         dashboardModel.data.paces = paces
         if let w = dashboardWindow {
             becomeRegularApp()
@@ -1721,19 +1731,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                 // A stale window is drained wholesale: steel dot, steel text. The header's
                 // "last updated" suffix says when it was true; the palette says "not now".
                 let stale = isStale(w)
-                addStatic(menu, coloredTitle([
+                // A percentage says how much is gone; the pace says whether it runs out
+                // before it resets, which is the question the percentage was standing in
+                // for. It rides on the same row: on its own line it read as a second fact
+                // about the section rather than more about this window, and sat next to the
+                // provenance note as if the two were a pair. Never drawn from a stale
+                // reading, because a rate needs the number to be current.
+                var runs: [(String, NSColor)] = [
                     ("    ● ", windowColor(w)),
                     ("\(w.displayName): \(pct(w))%\(reset)",
                      stale ? Brandkit.menuSecondary : Brandkit.menuPrimary),
-                ]))
-                // A percentage says how much is gone; this says whether it runs out before
-                // it resets, which is the question the percentage was standing in for.
-                // Never drawn from a stale reading: a rate needs the number to be current.
+                ]
                 if !stale, let pace = paces.first(where: {
                     $0.provider == w.provider && $0.key == w.key
-                }), let summary = pace.summary() {
-                    addInfo(menu, "        \(summary)", secondary: true)
+                }), let summary = pace.compact() {
+                    runs.append((" · \(summary)", pace.hitsLimitBeforeReset
+                                    ? NSColor(Brand.amber) : Brandkit.menuSecondary))
                 }
+                addStatic(menu, coloredTitle(runs))
             }
             if provider == UsageStore.provider { emitClaudeNotes() }
         }

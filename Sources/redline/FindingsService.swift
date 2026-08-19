@@ -16,26 +16,33 @@ final class FindingsService {
 
     private let scanner = TranscriptScanner()
     private let queue = DispatchQueue(label: "findings-scan", qos: .utility)
-    private var running = false
 
     private(set) var report: FindingsReport?
     private(set) var lastRun: Date?
     /// Called on the main thread whenever a new report lands.
     var onUpdate: ((FindingsReport) -> Void)?
 
-    func refreshIfDue(config: Config, now: Date = Date()) {
-        guard config.findingsScans else { return }
-        if let lastRun, now.timeIntervalSince(lastRun) < Self.interval { return }
-        refresh(config: config, now: now)
+    /// True from the moment a scan is accepted until its report lands, so the UI can show
+    /// that a click did something. Returned by both entry points for the same reason.
+    private(set) var isRunning = false
+
+    @discardableResult
+    func refreshIfDue(config: Config, now: Date = Date()) -> Bool {
+        guard config.findingsScans else { return false }
+        if let lastRun, now.timeIntervalSince(lastRun) < Self.interval { return false }
+        return refresh(config: config, now: now)
     }
 
-    func refresh(config: Config, now: Date = Date()) {
-        guard !running else { return }
-        running = true
+    @discardableResult
+    func refresh(config: Config, now: Date = Date()) -> Bool {
+        guard !isRunning else { return false }
+        isRunning = true
         lastRun = now
         queue.async { [weak self] in
             guard let self else { return }
             let sessions = self.scanner.scan(lookbackDays: Self.windowDays, now: now)
+            // Nothing here touches the UI: the scan can take ten seconds on a busy machine
+            // the first time through, and only the cache makes the next one quick.
             let report = sessions.isEmpty
                 ? FindingsReport(generatedAt: now, windowDays: Self.windowDays,
                                  sessionsScanned: 0, findings: [])
@@ -44,10 +51,11 @@ final class FindingsService {
                                               windowDays: Self.windowDays, now: now),
                     config: config)
             DispatchQueue.main.async {
-                self.running = false
+                self.isRunning = false
                 self.report = report
                 self.onUpdate?(report)
             }
         }
+        return true
     }
 }

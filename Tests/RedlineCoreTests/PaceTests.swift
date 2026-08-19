@@ -88,6 +88,29 @@ final class PaceTests: XCTestCase {
         XCTAssertEqual(pace.basis, .windowAverage)
     }
 
+    func testAWeeklyWindowNeedsHoursOfReadingsNotMinutes() throws {
+        // A busy quarter of an hour is not a week's rate. This shipped once as "23h to
+        // limit" on a window 5% used with six days left, which is the sort of number that
+        // teaches people to ignore the app.
+        let w = window("seven_day", utilization: 5, resetsIn: 6.5 * 86400)
+        let reset = try XCTUnwrap(w.resetsAt)
+        let recent = [
+            LimitSample(at: now.addingTimeInterval(-900), provider: "Claude", key: "seven_day",
+                        utilization: 4, resetsAt: reset, source: .official),
+        ]
+        let pace = try XCTUnwrap(PaceEstimator.pace(for: w, samples: recent, now: now))
+        XCTAssertEqual(pace.basis, .windowAverage)
+        XCTAssertFalse(pace.hitsLimitBeforeReset)
+
+        // Seven hours of readings is long enough to mean something about a week
+        let longer = [
+            LimitSample(at: now.addingTimeInterval(-8 * 3600), provider: "Claude",
+                        key: "seven_day", utilization: 1, resetsAt: reset, source: .official),
+        ]
+        let measured = try XCTUnwrap(PaceEstimator.pace(for: w, samples: longer, now: now))
+        if case .measured = measured.basis {} else { XCTFail("expected a measured basis") }
+    }
+
     func testUnknownWindowLengthSaysNothing() {
         let w = LimitWindow(provider: "Claude", key: "nimbus_quill", utilization: 50,
                             resetsAt: now.addingTimeInterval(3600))

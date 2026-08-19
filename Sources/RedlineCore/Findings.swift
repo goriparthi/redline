@@ -37,8 +37,22 @@ public struct Finding: Equatable, Identifiable {
     public let title: String
     /// One or two sentences. Says what was observed and why it matters, nothing else.
     public let detail: String
-    /// Concrete rows behind the claim: file names, counts, server names.
-    public let evidence: [String]
+    /// Concrete rows behind the claim, in two columns so a reader can scan the names down
+    /// one edge and the numbers down the other.
+    public let evidence: [Evidence]
+
+    public struct Evidence: Equatable, Identifiable {
+        public var id: String { label + "|" + (value ?? "") }
+        /// What it is: a file name, a server, a skill.
+        public let label: String
+        /// What was counted about it. Nil when the name is the whole finding.
+        public let value: String?
+
+        public init(_ label: String, _ value: String? = nil) {
+            self.label = label
+            self.value = value
+        }
+    }
     /// Nil whenever no honest figure exists. A nil here is a deliberate answer.
     public let estimatedTokens: Int?
     public let estimatedUSD: Double?
@@ -46,7 +60,7 @@ public struct Finding: Equatable, Identifiable {
     public let fix: String?
 
     public init(id: String, kind: Kind, basis: Basis, title: String, detail: String,
-                evidence: [String] = [], estimatedTokens: Int? = nil,
+                evidence: [Evidence] = [], estimatedTokens: Int? = nil,
                 estimatedUSD: Double? = nil, fix: String? = nil) {
         self.id = id
         self.kind = kind
@@ -389,7 +403,7 @@ public enum Findings {
                   + "prompt, whether or not a tool is called. These were not called once in "
                   + "\(input.windowDays) days. The schema cost is real but is not visible "
                   + "from here, so no figure is claimed for it.",
-            evidence: unused,
+            evidence: unused.map { Finding.Evidence($0, "never called") },
             fix: "Remove or disable the unused servers in ~/.claude.json, "
                + "or scope them to the projects that need them.")]
     }
@@ -427,9 +441,11 @@ public enum Findings {
         }
         guard wastedChars > 0 else { return [] }
         let tokens = Int(Double(wastedChars) / charsPerToken)
-        let top = perFile.sorted { $0.value.chars > $1.value.chars }.prefix(5).map {
-            "\(($0.key as NSString).lastPathComponent) · \($0.value.reads) extra reads · "
-                + "~\(fmtTokens(Int(Double($0.value.chars) / charsPerToken))) tokens"
+        let top = perFile.sorted { $0.value.chars > $1.value.chars }.prefix(8).map {
+            Finding.Evidence(($0.key as NSString).lastPathComponent,
+                             "\($0.value.reads) extra reads · "
+                                + "~\(fmtTokens(Int(Double($0.value.chars) / charsPerToken)))"
+                                + " tokens")
         }
         return [Finding(
             id: "reread-files",
@@ -477,9 +493,11 @@ public enum Findings {
                   + "\(Int(charsPerToken)) characters per token and the cost prices "
                   + "\(loads) session loads at Sonnet's cache-write rate.",
             evidence: heavy.map {
-                "\(shortPath($0.file.path)) · ~\(fmtTokens($0.tokens)) tokens · "
-                    + "\($0.file.sessions) session\($0.file.sessions == 1 ? "" : "s")"
-                    + ($0.file.global ? " · every project" : "")
+                Finding.Evidence(shortPath($0.file.path),
+                                 "~\(fmtTokens($0.tokens)) tokens · "
+                                    + "\($0.file.sessions) session"
+                                    + "\($0.file.sessions == 1 ? "" : "s")"
+                                    + ($0.file.global ? " · every project" : ""))
             },
             estimatedTokens: tokens,
             estimatedUSD: usd,
@@ -508,14 +526,14 @@ public enum Findings {
         // A slash command and a skill share a namespace in practice, so a name used either
         // way counts as used and no ghost is reported for it twice.
         let allUsed = usedSkills.union(usedCommands)
-        var rows: [String] = []
+        var rows: [Finding.Evidence] = []
         let skills = input.skills.filter { !allUsed.contains(normalize($0)) }.sorted()
         let agents = input.agents.filter { !usedAgents.contains(normalize($0)) }.sorted()
         let commands = input.commands
             .filter { !allUsed.contains(normalize($0)) }.sorted()
-        rows += skills.map { "skill · \($0)" }
-        rows += agents.map { "agent · \($0)" }
-        rows += commands.map { "command · \($0)" }
+        rows += skills.map { Finding.Evidence($0, "skill") }
+        rows += agents.map { Finding.Evidence($0, "agent") }
+        rows += commands.map { Finding.Evidence($0, "command") }
         guard !rows.isEmpty else { return [] }
         return [Finding(
             id: "ghost-definitions",

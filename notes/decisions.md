@@ -560,3 +560,42 @@ would be, and that is a lesson this project already paid for once with the feed.
 
 The bundled CLI exists for the same reason. Its exit codes are the part to keep stable:
 `0/10/11/20/30`, so a shell prompt or a CI step never has to parse prose.
+
+## 2026-08-18: the cost chart drew a line that was never data
+
+The estimated cost panel had a diagonal band running across it since the panel was built.
+`AreaMark` was styled with a flat colour rather than `foregroundStyle(by:)`, so it carried no
+series identity, and Charts closed one shape across every provider's points: the last Claude
+day joined back to the first Codex day. The lines above it were correct the whole time because
+they did group by series, which is why it read as a rendering quirk rather than a bug.
+
+Lesson worth keeping: in Swift Charts, a mark's colour and a mark's series are the same
+argument, and choosing a colour by hand quietly opts out of grouping. Anything drawn per
+series has to say so.
+
+## 2026-08-18: a rate needs a span proportional to its window
+
+Time to limit shipped with one minimum span, ten minutes, for every window. Ten minutes of
+readings describes a five hour window usefully and says nothing about a weekly one: the first
+build reported "23h to limit" on a week that was 5% used with six days to run, because a busy
+quarter of an hour had been extrapolated across seven days. The minimum now scales with the
+window length, so a weekly rate needs hours of evidence before it will claim anything and the
+session window still catches a burst.
+
+The general rule this is an instance of: a projection's confidence has to come from the ratio
+between the evidence and the horizon, never from the evidence alone.
+
+## 2026-08-18: charts answer shape questions, readouts answer value questions
+
+Added hover readouts to all three charts. A chart is good at "when was it busy" and bad at
+"how much exactly", and every question anybody actually asked of these panels was the second
+kind. The pointer snaps to the nearest bucket rather than reading the raw x position, which is
+what makes the gap between two bars answerable, and the annotation is clamped inside the chart
+so it cannot draw over the panel above it.
+
+## 2026-08-18: a button whose only feedback is a clock looks broken
+
+"Scan again" worked from the first build and was reported as not working. The scan finished
+inside a second on a warm cache, and the only thing that changed was a timestamp rendered to
+the minute. Feedback has to be visible on the timescale of the action, not the timescale of
+the data: the button now becomes a spinner and the timestamp carries seconds.

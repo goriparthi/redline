@@ -160,6 +160,9 @@ struct DashboardData {
     var paces: [Pace] = []
     /// Setup findings, refreshed in the background rather than on every open
     var findings: FindingsReport?
+    /// True while a findings scan is running. The button's own state is the feedback: a
+    /// rescan that finishes in a second used to look like a button that did nothing.
+    var findingsScanning = false
     /// What the local warehouse holds. Separate from the charts on purpose: the charts are
     /// what the transcripts still say, this is what was recorded before they were pruned.
     var history: HistorySummary?
@@ -456,65 +459,116 @@ private struct LimitRailRow: View {
     }
 }
 
-/// One finding, with its numbers labelled. A finding without a figure shows no figure:
-/// inventing one to fill the space is the failure this panel exists to avoid.
+/// One finding: a labelled header line, a sentence of prose held to a readable measure, and
+/// the evidence as two columns so names read down one edge and numbers down the other.
+/// A finding without a figure shows no figure; inventing one to fill the space is the
+/// failure this panel exists to avoid.
 private struct FindingRow: View {
     let finding: Finding
+    /// Prose and evidence stop here rather than running the width of the window. Past about
+    /// this, a line is measured in inches and read in guesses.
+    private let measure: CGFloat = 760
 
     private var kindColor: Color {
         switch finding.kind {
         case .fixNow: return BrandUI.amber
-        case .habit:  return Brandkit.chalk
+        case .habit:  return BrandUI.clear
         case .fyi:    return Brandkit.steel
         }
     }
 
+    private var visible: [Finding.Evidence] { Array(finding.evidence.prefix(6)) }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(finding.kind.label.uppercased())
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .tracking(1.1)
-                    .foregroundStyle(kindColor)
-                Text(finding.title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Brandkit.chalk)
-                Spacer()
-                if let usd = finding.estimatedUSD {
-                    Text("~\(fmtCost(usd))")
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(Brandkit.money)
-                        .help("estimated, not measured")
+        HStack(alignment: .top, spacing: 12) {
+            // The kind, as a rule down the side rather than another word to read
+            Capsule()
+                .fill(kindColor.opacity(0.55))
+                .frame(width: 3)
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                Text(finding.detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brandkit.steel)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: measure, alignment: .leading)
+                if !visible.isEmpty { evidence }
+                if let fix = finding.fix {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "arrow.turn.down.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(kindColor.opacity(0.8))
+                            .padding(.top, 2)
+                        Text(fix)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brandkit.chalk.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: measure, alignment: .leading)
                 }
             }
-            Text(finding.detail)
-                .font(.system(size: 12))
-                .foregroundStyle(Brandkit.steel)
-                .fixedSize(horizontal: false, vertical: true)
-            ForEach(finding.evidence.prefix(5), id: \.self) { row in
-                Text("· " + row)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Brandkit.steel)
-                    .lineLimit(1)
-            }
-            if finding.evidence.count > 5 {
-                Text("· +\(finding.evidence.count - 5) more")
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Brandkit.steel)
-            }
-            if let fix = finding.fix {
-                Text(fix)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Brandkit.chalk.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Text(finding.basis == .measured
-                 ? "counted from your transcripts"
-                 : "estimated; the assumptions are in the text above")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Brandkit.steel.opacity(0.85))
         }
-        .padding(.vertical, 4)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(finding.kind.label.uppercased())
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .tracking(1.0)
+                .foregroundStyle(kindColor)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(kindColor.opacity(0.14), in: Capsule())
+            Text(finding.title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Brandkit.chalk)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 12)
+            // The label rides with the number, so a figure is never read without its basis
+            Text(finding.basis == .measured ? "counted" : "estimated")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(Brandkit.steel)
+                .help(finding.basis == .measured
+                      ? "counted from your transcripts"
+                      : "estimated; the assumptions are in the sentence below")
+            if let usd = finding.estimatedUSD {
+                Text("~" + fmtCost(usd))
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Brandkit.money)
+                    .help("estimated over measured counts, never a bill")
+            }
+        }
+    }
+
+    private var evidence: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(visible) { row in
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(row.label)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(Brandkit.chalk.opacity(0.8))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 8)
+                    if let value = row.value {
+                        Text(value)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(Brandkit.steel)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            if finding.evidence.count > visible.count {
+                Text("+\(finding.evidence.count - visible.count) more")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Brandkit.steel.opacity(0.8))
+            }
+        }
+        .frame(maxWidth: measure, alignment: .leading)
+        .padding(.vertical, 5)
+        .padding(.horizontal, 10)
+        .background(Brandkit.carbon.opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
     }
 }
 
@@ -556,9 +610,109 @@ private enum DailyStride {
     }
 }
 
+/// What a hovered bucket actually held, drawn where the pointer is. Charts answer shape
+/// questions well and value questions badly; this is the value question.
+private struct ChartReadout: View {
+    let title: String
+    let rows: [(provider: String, value: String)]
+    let total: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(Brandkit.chalk)
+            ForEach(rows, id: \.provider) { row in
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Brandkit.chartColor(for: row.provider))
+                        .frame(width: 6, height: 6)
+                    Text(row.provider)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brandkit.steel)
+                    Spacer(minLength: 10)
+                    Text(row.value)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Brandkit.chalk)
+                }
+            }
+            if let total, rows.count > 1 {
+                Divider().overlay(Brandkit.steel.opacity(0.25))
+                HStack(spacing: 8) {
+                    Text("total")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brandkit.steel)
+                    Spacer(minLength: 10)
+                    Text(total)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Brandkit.chalk)
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(minWidth: 150, alignment: .leading)
+        .background(Brandkit.graphite, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8)
+            .stroke(Brandkit.steel.opacity(0.25), lineWidth: 1))
+        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+    }
+}
+
+/// Snaps the pointer to the nearest bucket and reports it back. Snapping rather than reading
+/// the raw x position is what makes a one pixel wide gap between two bars answerable.
+private struct ChartHover: ViewModifier {
+    let starts: [Date]
+    @Binding var hover: Date?
+
+    func body(content: Content) -> some View {
+        content.chartOverlay { proxy in
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let point):
+                            guard let plot = proxy.plotFrame else { return }
+                            let x = point.x - geo[plot].origin.x
+                            guard let date: Date = proxy.value(atX: x) else { return }
+                            hover = starts.min {
+                                abs($0.timeIntervalSince(date))
+                                    < abs($1.timeIntervalSince(date))
+                            }
+                        case .ended:
+                            hover = nil
+                        }
+                    }
+            }
+        }
+    }
+}
+
+private extension View {
+    func chartHover(over starts: [Date], hover: Binding<Date?>) -> some View {
+        modifier(ChartHover(starts: starts, hover: hover))
+    }
+}
+
+/// One bucket's rows, in the order the legend lists them, skipping providers that did
+/// nothing in it: a row of zeros is noise in a readout that exists to answer "how much".
+private func readoutRows(_ trends: [ProviderTrend], at start: Date,
+                         value: (UsagePoint) -> Double,
+                         format: (Double) -> String) -> [(provider: String, value: String)] {
+    trends.compactMap { trend in
+        guard let point = trend.points.first(where: { $0.start == start }) else { return nil }
+        let amount = value(point)
+        guard amount > 0 else { return nil }
+        return (provider: trend.provider, value: format(amount))
+    }
+}
+
 private struct DailyTokensChart: View {
     let trends: [ProviderTrend]
     let range: Int
+    @State private var hover: Date?
 
     private struct Row: Identifiable {
         let id = UUID()
@@ -571,12 +725,30 @@ private struct DailyTokensChart: View {
         trends.flatMap { t in t.points.map { Row(provider: t.provider, start: $0.start, io: $0.io) } }
     }
 
+    private var starts: [Date] { trends.first?.points.map(\.start) ?? [] }
+
     var body: some View {
-        Chart(rows) { r in
-            BarMark(x: .value("Day", r.start, unit: .day),
-                    y: .value("Tokens", r.io))
-                .foregroundStyle(by: .value("Provider", r.provider))
-                .cornerRadius(4)
+        Chart {
+            ForEach(rows) { r in
+                BarMark(x: .value("Day", r.start, unit: .day),
+                        y: .value("Tokens", r.io))
+                    .foregroundStyle(by: .value("Provider", r.provider))
+                    .cornerRadius(4)
+            }
+            if let hover {
+                RuleMark(x: .value("Day", hover, unit: .day))
+                    .foregroundStyle(Brandkit.chalk.opacity(0.25))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .annotation(position: .top, spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                        ChartReadout(
+                            title: hover.formatted(.dateTime.weekday(.abbreviated)
+                                .month(.abbreviated).day()),
+                            rows: readoutRows(trends, at: hover, value: { Double($0.io) },
+                                              format: { fmtTokens(Int($0)) }),
+                            total: fmtTokens(total(at: hover)))
+                    }
+            }
         }
         .chartForegroundStyleScale(domain: trends.map(\.provider),
                                    range: trends.map { Brandkit.chartFill(for: $0.provider) })
@@ -602,13 +774,19 @@ private struct DailyTokensChart: View {
                     .foregroundStyle(Brandkit.steel)
             }
         }
+        .chartHover(over: starts, hover: $hover)
         .frame(height: 215)
+    }
+
+    private func total(at start: Date) -> Int {
+        trends.reduce(0) { $0 + ($1.points.first { $0.start == start }?.io ?? 0) }
     }
 }
 
 private struct DailyCostChart: View {
     let trends: [ProviderTrend]
     let range: Int
+    @State private var hover: Date?
 
     private struct Row: Identifiable {
         let id = UUID()
@@ -623,17 +801,42 @@ private struct DailyCostChart: View {
         }
     }
 
+    private var starts: [Date] { trends.first?.points.map(\.start) ?? [] }
+
     var body: some View {
-        Chart(rows) { r in
-            AreaMark(x: .value("Day", r.start, unit: .day),
-                     y: .value("Estimated cost", r.cost))
-                .foregroundStyle(Brandkit.chartColor(for: r.provider).opacity(0.22))
-                .interpolationMethod(.monotone)
-            LineMark(x: .value("Day", r.start, unit: .day),
-                     y: .value("Estimated cost", r.cost))
-                .foregroundStyle(by: .value("Provider", r.provider))
-                .lineStyle(StrokeStyle(lineWidth: 2))
-                .interpolationMethod(.monotone)
+        Chart {
+            ForEach(rows) { r in
+                // The fill has to carry the series too. Styled with a flat colour it had no
+                // series identity at all, so Charts treated every provider's points as one
+                // series and closed the shape from the last Claude day back to the first
+                // Codex day: a diagonal band across the panel that looked like data and was
+                // not. Unstacked to match the lines drawn over it.
+                AreaMark(x: .value("Day", r.start, unit: .day),
+                         y: .value("Estimated cost", r.cost),
+                         stacking: .unstacked)
+                    .foregroundStyle(by: .value("Provider", r.provider))
+                    .opacity(0.22)
+                    .interpolationMethod(.monotone)
+                LineMark(x: .value("Day", r.start, unit: .day),
+                         y: .value("Estimated cost", r.cost))
+                    .foregroundStyle(by: .value("Provider", r.provider))
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .interpolationMethod(.monotone)
+            }
+            if let hover {
+                RuleMark(x: .value("Day", hover, unit: .day))
+                    .foregroundStyle(Brandkit.chalk.opacity(0.25))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .annotation(position: .top, spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                        ChartReadout(
+                            title: hover.formatted(.dateTime.weekday(.abbreviated)
+                                .month(.abbreviated).day()),
+                            rows: readoutRows(trends, at: hover, value: { $0.cost },
+                                              format: { fmtCost($0) }),
+                            total: fmtCost(total(at: hover)))
+                    }
+            }
         }
         .chartForegroundStyleScale(domain: trends.map(\.provider),
                                    range: trends.map { Brandkit.chartColor(for: $0.provider) })
@@ -658,12 +861,18 @@ private struct DailyCostChart: View {
                     .foregroundStyle(Brandkit.steel)
             }
         }
+        .chartHover(over: starts, hover: $hover)
         .frame(height: 175)
+    }
+
+    private func total(at start: Date) -> Double {
+        trends.reduce(0) { $0 + ($1.points.first { $0.start == start }?.cost ?? 0) }
     }
 }
 
 private struct HourlyChart: View {
     let trends: [ProviderTrend]
+    @State private var hover: Date?
 
     private struct Row: Identifiable {
         let id = UUID()
@@ -678,12 +887,29 @@ private struct HourlyChart: View {
         }
     }
 
+    private var starts: [Date] { trends.first?.points.map(\.start) ?? [] }
+
     var body: some View {
-        Chart(rows) { r in
-            BarMark(x: .value("Hour", r.start, unit: .hour),
-                    y: .value("Tokens", r.io))
-                .foregroundStyle(by: .value("Provider", r.provider))
-                .cornerRadius(3)
+        Chart {
+            ForEach(rows) { r in
+                BarMark(x: .value("Hour", r.start, unit: .hour),
+                        y: .value("Tokens", r.io))
+                    .foregroundStyle(by: .value("Provider", r.provider))
+                    .cornerRadius(3)
+            }
+            if let hover {
+                RuleMark(x: .value("Hour", hover, unit: .hour))
+                    .foregroundStyle(Brandkit.chalk.opacity(0.25))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .annotation(position: .top, spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                        ChartReadout(
+                            title: hover.formatted(.dateTime.hour().minute()),
+                            rows: readoutRows(trends, at: hover, value: { Double($0.io) },
+                                              format: { fmtTokens(Int($0)) }),
+                            total: fmtTokens(total(at: hover)))
+                    }
+            }
         }
         .chartForegroundStyleScale(domain: trends.map(\.provider),
                                    range: trends.map { Brandkit.chartFill(for: $0.provider) })
@@ -708,7 +934,12 @@ private struct HourlyChart: View {
                     .foregroundStyle(Brandkit.steel)
             }
         }
+        .chartHover(over: starts, hover: $hover)
         .frame(height: 155)
+    }
+
+    private func total(at start: Date) -> Int {
+        trends.reduce(0) { $0 + ($1.points.first { $0.start == start }?.io ?? 0) }
     }
 }
 
@@ -1032,37 +1263,65 @@ struct DashboardView: View {
         if data.matches("Claude"), let report = data.findings {
             Panel(title: "Findings",
                   note: "\(report.sessionsScanned) sessions · \(report.windowDays) days") {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     if report.isEmpty {
                         Text("Nothing worth changing in this window.")
                             .font(.system(size: 13))
                             .foregroundStyle(Brandkit.steel)
+                            .padding(.bottom, 14)
                     } else {
-                        ForEach(report.findings) { FindingRow(finding: $0) }
-                        Text("Dollar figures are estimates over measured counts, never a "
-                             + "bill. Findings with nothing honest to put on them carry no "
-                             + "figure at all.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Brandkit.steel)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    HStack(spacing: 8) {
-                        Button {
-                            model.onRescanFindings?()
-                        } label: {
-                            Label("Scan again", systemImage: "arrow.clockwise")
-                                .font(.system(size: 11))
+                        ForEach(Array(report.findings.enumerated()), id: \.element.id) {
+                            index, finding in
+                            if index > 0 {
+                                Divider()
+                                    .overlay(Brandkit.steel.opacity(0.18))
+                                    .padding(.vertical, 14)
+                            }
+                            FindingRow(finding: finding)
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(Brandkit.steel)
-                        Text("last run " + report.generatedAt.formatted(
-                            date: .omitted, time: .shortened))
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(Brandkit.steel)
-                        Spacer()
+                        Divider()
+                            .overlay(Brandkit.steel.opacity(0.18))
+                            .padding(.vertical, 14)
                     }
+                    footer(report)
                 }
             }
+        }
+    }
+
+    /// The one caveat that applies to every row, said once, next to the control that
+    /// regenerates them.
+    private func footer(_ report: FindingsReport) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("Estimates over measured counts, never a bill. "
+                 + "A finding with nothing honest to put on it carries no figure.")
+                .font(.system(size: 11))
+                .foregroundStyle(Brandkit.steel.opacity(0.85))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 16)
+            if data.findingsScanning {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small).scaleEffect(0.7)
+                    Text("Scanning")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Brandkit.steel)
+                }
+            } else {
+                Button {
+                    model.onRescanFindings?()
+                } label: {
+                    Label("Scan again", systemImage: "arrow.clockwise")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Brandkit.chalk.opacity(0.85))
+                .help("Reads the transcripts again now, rather than waiting for the "
+                      + "background pass")
+            }
+            Text(report.generatedAt.formatted(date: .omitted, time: .standard))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Brandkit.steel)
+                .help("when this report was generated")
         }
     }
 
