@@ -192,6 +192,34 @@ public struct TrackBadge: View {
     }
 }
 
+/// The track glyph without the badge tile, for a place where a tinted tile would outweigh the
+/// text beside it. The tint is passed in rather than derived, because a caller that rasterises
+/// this has to resolve the colour for an appearance itself; a bitmap cannot follow a theme.
+public struct TrackMark: View {
+    private let glyph: TrackGlyph
+    private let tint: Color
+    private let size: CGFloat
+
+    public init(provider: String?, tint: Color, size: CGFloat = 12) {
+        self.glyph = TrackGlyph.of(provider: provider)
+        self.tint = tint
+        self.size = size
+    }
+
+    public var body: some View {
+        Group {
+            switch glyph {
+            case .redline: RedlineMark(size: size)
+            case .hosted:  HostedGlyph(tint: tint)
+            case .code:    CodeGlyph(tint: tint)
+            case .layers:  LayersGlyph(tint: tint)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 /// A ring with a satellite dot: a model reached over the network.
 private struct HostedGlyph: View {
     let tint: Color

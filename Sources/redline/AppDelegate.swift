@@ -374,6 +374,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     /// An SF Symbol as inline text, so a menu row can carry the same glyph the dashboard
     /// draws. Menu rows are attributed strings, and an attachment is how an image gets in.
+    /// The track glyphs as menu-sized images, rendered from the same SwiftUI source the
+    /// dashboard and widget draw so the three surfaces cannot drift.
+    ///
+    /// Cached per appearance, not just per provider: a bitmap freezes the colour it was drawn
+    /// with, and Claude's tint flips with the theme. Deliberately RedLine's own iconography
+    /// rather than a vendor logo; see TrackGlyph for why.
+    private static var trackMarkCache: [String: NSImage] = [:]
+
+    private func trackMark(for provider: String, size: CGFloat = 13) -> NSImage? {
+        let appearance = statusItem?.button?.effectiveAppearance ?? NSApp.effectiveAppearance
+        let dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let key = "\(provider)|\(dark)|\(Int(size))"
+        if let hit = Self.trackMarkCache[key] { return hit }
+        // Resolve the dynamic tint under the appearance being drawn, before it is frozen
+        var tint = Brandkit.nsColor(for: provider)
+        appearance.performAsCurrentDrawingAppearance {
+            tint = tint.usingColorSpace(.sRGB) ?? tint
+        }
+        // ImageRenderer is main-actor isolated and menus are only ever built on main, so the
+        // assumption is stated here rather than pushed up through every menu builder
+        let image = MainActor.assumeIsolated { () -> NSImage? in
+            let renderer = ImageRenderer(
+                content: TrackMark(provider: provider, tint: Color(nsColor: tint), size: size))
+            renderer.scale = 2
+            return renderer.nsImage
+        }
+        guard let image else { return nil }
+        Self.trackMarkCache[key] = image
+        return image
+    }
+
+    private func imageRun(_ image: NSImage, size: CGFloat) -> NSAttributedString {
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        // Sits the glyph on the text's optical centre rather than its baseline
+        attachment.bounds = CGRect(x: 0, y: -2, width: size, height: size)
+        return NSAttributedString(attachment: attachment)
+    }
+
     private func symbolRun(_ name: String, color: NSColor, size: CGFloat) -> NSAttributedString {
         let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
             .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
@@ -1306,7 +1345,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private func addFleet(_ menu: NSMenu) {
         guard config.agentFleet, !fleet.isEmpty else { return }
         let now = Date()
-        addInfo(menu, "Agents:")
+        // Named for its source, because "Agents" alone reads as every provider and this is
+        // Claude Code's session registry. Codex publishes no live registry and Ollama is a
+        // model server with no session to be waiting on you.
+        addStatic(menu, monoTitle([("Agents:", Brandkit.menuPrimary),
+                                   ("  Claude Code", Brandkit.menuSecondary)], mono: false))
         for s in fleet.sessions {
             let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             item.attributedTitle = fleetRowTitle(s, now: now)
@@ -2579,7 +2622,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     /// "Claude limits:" plus, when there is something to report, the same health glyph the
     /// dashboard draws and the words beside it.
     private func addProviderHeader(_ menu: NSMenu, provider: String) {
-        let title = NSMutableAttributedString(attributedString: monoTitle(
+        let title = NSMutableAttributedString()
+        // The dashboard and widget already badge a provider with its track glyph; the menu
+        // drew only a coloured dot, so the same provider was named three different ways.
+        if let mark = trackMark(for: provider) {
+            title.append(imageRun(mark, size: NSFont.systemFontSize))
+            title.append(monoTitle([("  ", nil)], mono: false))
+        }
+        title.append(monoTitle(
             [("\(provider) limits:\(staleSuffix(for: provider))", Brandkit.menuPrimary)],
             mono: false))
         if let mark = serviceMark(for: provider) {
