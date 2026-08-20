@@ -79,13 +79,18 @@ public struct FindingsReport: Equatable {
     public let windowDays: Int
     public let sessionsScanned: Int
     public let findings: [Finding]
+    /// How many were dismissed and are being held back. Zero on a fresh report; set by
+    /// `visible(_:snoozeDays:now:)` so the panel can say something is hidden rather than
+    /// letting a dismissal look like a finding that stopped being true.
+    public let hidden: Int
 
     public init(generatedAt: Date, windowDays: Int, sessionsScanned: Int,
-                findings: [Finding]) {
+                findings: [Finding], hidden: Int = 0) {
         self.generatedAt = generatedAt
         self.windowDays = windowDays
         self.sessionsScanned = sessionsScanned
         self.findings = findings
+        self.hidden = hidden
     }
 
     public var isEmpty: Bool { findings.isEmpty }

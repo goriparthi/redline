@@ -393,6 +393,7 @@ poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it
 | `lateHour` | `23` | The local hour after which activity counts as late |
 | `streakDays` | `7` | How many consecutive days with activity before that is worth saying |
 | `agentFleet` | `true` | List the Claude Code sessions running on this Mac, and mark the menu bar when one is waiting on you |
+| `findingsSnoozeDays` | `14` | How long a dismissed finding stays hidden before it is raised again, if it is still true |
 | `pricingPerMTok` | see below | USD per million tokens, matched by substring of model name |
 | `oauth.clientId` | empty | Required for the app's own Sign In, which Anthropic does not issue to third-party apps |
 
@@ -451,7 +452,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layout,
 window with charts built from the same data the menu bar summarises:
 
 - a provider dropdown: all of them at once, or focus one
-- tokens per day by provider, over 7, 14, or 30 days
+- tokens per day by provider, over 7, 14, 30, 60, or 90 days
 - estimated cost per day, over the same range
 - the last 24 hours, hour by hour
 - the model mix, with unpriced models shown as `—` rather than `$0.00`
@@ -462,17 +463,26 @@ Every chart answers the value question on hover: point at a day or an hour and a
 names each provider's figure for that bucket and the total, snapped to the nearest bucket so
 the gap between two bars is still answerable.
 
-The 7, 14 and 30 day buttons drive every panel and both totals tiles, not just the charts, so
-a figure on this window always describes the range named next to it.
+The range buttons drive every panel and both totals tiles, not just the charts, so a figure on
+this window always describes the range named next to it.
+
+The long ranges are answerable because of the local store: entries are kept for a year, while
+Claude Code prunes its own transcripts after about 30 days. So 60 and 90 days read from history
+RedLine recorded, and they get deeper the longer it has been running rather than being capped
+at whatever is still on disk.
+
+Which also means **they start shallow.** The store only holds what it has seen, so soon after
+installing, 60 and 90 days show the same data as 30 with more empty axis beside it. That is the
+honest picture rather than a bug, and it fills in on its own.
 
 Focusing **Ollama** adds a control panel: server status and version, models loaded in memory
 with their size and how much sits on the GPU, every downloaded model, and Start / Stop for
 each. Stop unloads from memory with `keep_alive: 0`; it never deletes a download, and nothing
 in RedLine removes model weights.
 
-The charts need no extra recording: transcript entries already carry timestamps, so the range
-is derived from files already on disk. A 30 day scan touches a lot of them, so it runs off the
-main thread with a progress state. What is on disk is not forever, though, which is what
+With **Keep Local History** off there is no store to read, so the range is scanned from the
+transcripts still on disk and cannot reach further back than those go. A long scan touches a
+lot of files, so it runs off the main thread with a progress state. What is on disk is not forever, though, which is what
 **Recorded history** below the charts is for.
 
 ## Pace, and when it runs out
@@ -506,7 +516,12 @@ that asks to interrupt you before it has anything to say is one you refuse once 
 Nothing is posted until you answer.
 
 Each of those fires once per window instance, so a window that sits at 86% for an hour is one
-notification rather than twelve, and a fresh window re-arms them. A stale reading never fires
+notification rather than twelve, and a fresh window re-arms them.
+
+**How long a notification stays on screen is macOS's to decide, not RedLine's.** There is no
+API for it. What you can change is the style: under **Settings ▸ Notification Style…**, which
+opens System Settings on this app's row, *Banners* disappear on their own and *Alerts* stay
+until you dismiss them. Pick Alerts if a banner goes by too fast to read. A stale reading never fires
 anything: RedLine would rather say nothing than interrupt you over a percentage it cannot
 vouch for.
 
@@ -564,6 +579,18 @@ The scan runs in the background at most every six hours, because setup changes a
 someone editing a config file. `redline findings` runs it on demand, and **Scan again** in the
 panel does the same. Nothing is read except `~/.claude` and the `CLAUDE.md` of projects your
 own transcripts name, no file content is copied anywhere, and the report lives in memory.
+
+### Marking a finding as read
+
+A finding restates something that is still in your transcripts, so left alone it sits there for
+weeks after you have read it. The check mark on each row hides that finding for
+`findingsSnoozeDays` (14 by default). The count of what is hidden is shown next to **Scan
+again**, and clicking it brings them all back.
+
+A snooze expires rather than being permanent: if the finding is still true when the window is
+up, it is raised again. Quietly dropping something real is worse than repeating it. Dismissing
+also quiets the menu bar line, because a panel that has emptied while the menu still claims
+four findings would be worse than no dismissal at all.
 
 ## Local history
 

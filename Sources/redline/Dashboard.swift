@@ -270,6 +270,10 @@ final class DashboardModel: ObservableObject {
     var onThemeChange: ((String) -> Void)?
     /// Set by the app: runs the findings checks again on demand
     var onRescanFindings: (() -> Void)?
+    /// Set by the app: hides one finding for findingsSnoozeDays
+    var onDismissFinding: ((String) -> Void)?
+    /// Set by the app: brings every snoozed finding back now
+    var onRestoreFindings: (() -> Void)?
     private let claude = UsageStore()
     private let codex = CodexStore()
     private let ollama = OllamaStore()
@@ -506,6 +510,8 @@ private struct LimitRailRow: View {
 /// failure this panel exists to avoid.
 private struct FindingRow: View {
     let finding: Finding
+    /// Nil where there is nothing to dismiss into, so the row simply has no control
+    let onDismiss: (() -> Void)?
     /// Prose and evidence stop here rather than running the width of the window. Past about
     /// this, a line is measured in inches and read in guesses.
     private let measure: CGFloat = 760
@@ -579,6 +585,17 @@ private struct FindingRow: View {
                     .foregroundStyle(Brandkit.money)
                     .help("estimated over measured counts, never a bill")
             }
+            if let onDismiss {
+                Button(action: onDismiss) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Brandkit.steel)
+                .help("Read it. Hides this finding for a while; it returns if it is still "
+                      + "true then.")
+                .accessibilityLabel("Mark as read")
+            }
         }
     }
 
@@ -641,15 +658,8 @@ private struct StatTile: View {
 
 // Both daily charts share one x-axis cadence, or the same 30 day range reads as two
 // different spans stacked on top of each other.
-private enum DailyStride {
-    static func days(for range: Int) -> Int {
-        switch range {
-        case ...7:   return 1
-        case ...14:  return 2
-        default:     return 5
-        }
-    }
-}
+// The axis cadence rule lives in RedlineCore as DailyAxis, so it is tested rather than being
+// eight lines of switch nobody can reach.
 
 /// What a hovered bucket actually held, drawn where the pointer is. Charts answer shape
 /// questions well and value questions badly; this is the value question.
@@ -807,7 +817,7 @@ private struct DailyTokensChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .day, count: DailyStride.days(for: range))) { _ in
+            AxisMarks(values: .stride(by: .day, count: DailyAxis.strideDays(for: range))) { _ in
                 AxisGridLine().foregroundStyle(Brandkit.steel.opacity(0.10))
                 AxisValueLabel(format: .dateTime.month(.abbreviated).day(),
                                centered: false)
@@ -895,7 +905,7 @@ private struct DailyCostChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .day, count: DailyStride.days(for: range))) { _ in
+            AxisMarks(values: .stride(by: .day, count: DailyAxis.strideDays(for: range))) { _ in
                 AxisGridLine().foregroundStyle(Brandkit.steel.opacity(0.10))
                 AxisValueLabel(format: .dateTime.month(.abbreviated).day())
                     .font(.system(size: 12, design: .monospaced))
@@ -1233,7 +1243,9 @@ struct DashboardView: View {
     @ObservedObject var ollama: OllamaService
     let onReload: (Int) -> Void
     let onFocus: (String) -> Void
-    private let ranges = [7, 14, 30]
+    // Entries are kept a year, so the long ranges answer from the store rather than from
+    // whatever Claude Code has not pruned yet. That is the whole reason the store exists.
+    private let ranges = [7, 14, 30, 60, 90]
 
     private var data: DashboardData { model.data }
 
@@ -1372,7 +1384,9 @@ struct DashboardView: View {
                   note: "\(report.sessionsScanned) sessions · \(report.windowDays) days") {
                 VStack(alignment: .leading, spacing: 0) {
                     if report.isEmpty {
-                        Text("Nothing worth changing in this window.")
+                        Text(report.hidden > 0
+                             ? "Nothing left in this window; \(report.hidden) marked as read."
+                             : "Nothing worth changing in this window.")
                             .font(.system(size: 13))
                             .foregroundStyle(Brandkit.steel)
                             .padding(.bottom, 14)
@@ -1384,7 +1398,9 @@ struct DashboardView: View {
                                     .overlay(Brandkit.steel.opacity(0.18))
                                     .padding(.vertical, 14)
                             }
-                            FindingRow(finding: finding)
+                            FindingRow(finding: finding) {
+                                model.onDismissFinding?(finding.id)
+                            }
                         }
                         Divider()
                             .overlay(Brandkit.steel.opacity(0.18))
@@ -1406,6 +1422,19 @@ struct DashboardView: View {
                 .foregroundStyle(Brandkit.steel.opacity(0.85))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 16)
+            // Said wherever findings are counted, so a hidden one is never mistaken for one
+            // that stopped being true
+            if report.hidden > 0 {
+                Button {
+                    model.onRestoreFindings?()
+                } label: {
+                    Text("\(report.hidden) read")
+                        .font(.system(size: 11, design: .monospaced))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Brandkit.steel)
+                .help("Marked as read and hidden. Click to show them again now.")
+            }
             if data.findingsScanning {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small).scaleEffect(0.7)

@@ -133,6 +133,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private lazy var alertCenter = AlertCenter()
     private lazy var findingsService = FindingsService()
     private var findingsReport: FindingsReport?
+    /// Which findings have been marked as read, and when. Held in memory and written through,
+    /// so the menu and the panel can never disagree about what is showing.
+    private var findingsDismissals = FindingsDismissalStore.load()
     /// Recent limit readings, kept in memory so pace can be recomputed on every publish
     /// without touching the history file from the main thread.
     private var limitSamples: [LimitSample] = []
@@ -182,8 +185,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         findingsService.onUpdate = { [weak self] report in
             guard let self else { return }
             self.findingsReport = report
-            self.dashboardModel.data.findings = report
+            self.publishFindings()
             self.dashboardModel.data.findingsScanning = false
+            if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+        }
+        dashboardModel.onDismissFinding = { [weak self] id in
+            guard let self else { return }
+            self.findingsDismissals.dismiss(id)
+            self.findingsDismissals.prune(snoozeDays: self.config.findingsSnoozeDays)
+            FindingsDismissalStore.save(self.findingsDismissals)
+            self.publishFindings()
+            if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
+        }
+        dashboardModel.onRestoreFindings = { [weak self] in
+            guard let self else { return }
+            self.findingsDismissals.restoreAll()
+            FindingsDismissalStore.save(self.findingsDismissals)
+            self.publishFindings()
             if let menu = self.statusItem.menu { self.rebuildMenu(menu) }
         }
         dashboardModel.onRescanFindings = { [weak self] in
@@ -1176,6 +1194,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         feedWatcher = source
     }
 
+    /// The report with anything marked as read filtered out. One computation feeds the menu
+    /// row and the dashboard, because a panel that has emptied while the menu still claims
+    /// four findings is worse than having no dismissal at all.
+    private var visibleFindings: FindingsReport? {
+        findingsReport?.visible(findingsDismissals,
+                                snoozeDays: config.findingsSnoozeDays)
+    }
+
+    private func publishFindings() {
+        dashboardModel.data.findings = visibleFindings
+    }
+
     // MARK: - Agent fleet
 
     /// Claude Code rewrites a session's record in place on every status change, so watching
@@ -1385,6 +1415,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     @objc func openFleetURL(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    /// Deep link to this app's row under Notifications. The pane id is stable across the
+    /// System Settings rewrite; the fallback opens the pane without selecting the app.
+    @objc func openNotificationSettings(_ sender: Any?) {
+        let id = Bundle.main.bundleIdentifier ?? LaunchAgent.label
+        let deep = "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)"
+        if let url = URL(string: deep), NSWorkspace.shared.open(url) { return }
+        if let pane = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+            NSWorkspace.shared.open(pane)
+        }
     }
 
     @objc func toggleAgentFleet(_ sender: Any?) {
@@ -2124,7 +2165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
         // Findings live in the dashboard; this is the line that says there are any. Nothing
         // is shown until a scan has actually run, so an empty row never implies a clean bill.
-        if config.findingsScans, let report = findingsReport, !report.isEmpty {
+        if config.findingsScans, let report = visibleFindings, !report.isEmpty {
             let f = NSMenuItem(title: "Setup findings: \(report.summary)",
                                action: #selector(openDashboard(_:)), keyEquivalent: "")
             f.target = self
@@ -2315,6 +2356,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                        + "\(Int(config.limitRedPct))% or 95%, when one is about to run out "
                        + "before it resets, and when one rolls over. Never from a stale reading."
         menu.addItem(alerts)
+
+        // macOS owns how long a banner stays on screen; there is no API for it. What the user
+        // can change is the style, and Alerts keeps a notification up until it is dismissed.
+        // This is the door to that setting, because nobody finds it by hunting.
+        let style = NSMenuItem(title: "Notification Style…",
+                               action: #selector(openNotificationSettings(_:)),
+                               keyEquivalent: "")
+        style.target = self
+        style.toolTip = "Opens System Settings. Banners disappear on their own; Alerts stay "
+                      + "until you dismiss them. How long a banner lasts is macOS's to decide, "
+                      + "not RedLine's."
+        menu.addItem(style)
 
         let history = NSMenuItem(title: "Keep Local History",
                                  action: #selector(toggleHistory(_:)), keyEquivalent: "")

@@ -42,6 +42,24 @@ public enum Bucketing: Equatable {
     var component: Calendar.Component { self == .day ? .day : .hour }
 }
 
+/// How far apart the dated labels on a daily axis should sit.
+///
+/// Lives here rather than in the chart so it can be tested: the whole point is that a quarter
+/// does not print a label every five days and turn the axis into a smear, and that both daily
+/// charts use one cadence so the same range cannot read as two different spans stacked up.
+public enum DailyAxis {
+    /// Roughly six to eight labels at any range RedLine offers.
+    public static func strideDays(for range: Int) -> Int {
+        switch range {
+        case ...7:   return 1
+        case ...14:  return 2
+        case ...30:  return 5
+        case ...60:  return 10
+        default:     return 14
+        }
+    }
+}
+
 public enum Trends {
     // Buckets are pre-filled with zeros across the whole range so a chart shows a quiet day
     // as a gap at the baseline rather than skipping the date entirely.

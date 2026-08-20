@@ -110,3 +110,27 @@ final class TrendsTests: XCTestCase {
                                    calendar: cal, config: cfg).isEmpty)
     }
 }
+
+/// The axis cadence is what keeps a long range readable rather than a smear of dates.
+final class DailyAxisTests: XCTestCase {
+    func testEveryOfferedRangeGetsAReadableNumberOfLabels() {
+        // The ranges the dashboard offers. Each should land in single digits of labels.
+        for range in [7, 14, 30, 60, 90] {
+            let stride = DailyAxis.strideDays(for: range)
+            let labels = range / stride
+            XCTAssertGreaterThanOrEqual(labels, 5, "\(range)d gives only \(labels) labels")
+            XCTAssertLessThanOrEqual(labels, 8, "\(range)d gives \(labels) labels, a smear")
+        }
+    }
+
+    /// Both daily charts read this, so a change here must move them together
+    func testStrideNeverShrinksAsTheRangeGrows() {
+        var last = 0
+        for range in 1...400 {
+            let stride = DailyAxis.strideDays(for: range)
+            XCTAssertGreaterThanOrEqual(stride, last, "stride shrank at \(range)")
+            XCTAssertGreaterThan(stride, 0)
+            last = stride
+        }
+    }
+}
