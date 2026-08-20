@@ -172,38 +172,58 @@ struct SettingsView: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        NavigationSplitView {
-            List(SettingsSection.allCases, selection: Binding(
-                get: { model.section },
-                set: { model.section = $0 ?? .providers }
-            )) { section in
-                Label(section.title, systemImage: section.symbol)
-                    .tag(section)
-                    .help(hint(for: section))
-            }
-            // Wide enough for "Refresh and Monitoring", which truncated at 186
-            .navigationSplitViewColumnWidth(min: 208, ideal: 216, max: 260)
-        } detail: {
-            ScrollView {
-                VStack(alignment: .leading, spacing: RL.Space.xl) {
-                    Text(model.section.title)
-                        .font(RL.Typography.heading)
-                        .foregroundStyle(RL.Ink.primary)
-                    switch model.section {
-                    case .providers:  ProvidersSettings(model: model)
-                    case .monitoring: MonitoringSettings(model: model)
-                    case .limits:     LimitsSettings(model: model)
-                    case .appearance: AppearanceSettings(model: model)
-                    case .data:       DataSettings(model: model)
-                    case .about:      AboutSettings(model: model)
-                    }
-                }
-                .padding(RL.Space.xxl)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .background(RL.Surface.ground)
+        // Two explicit columns rather than a NavigationSplitView.
+        //
+        // On macOS 26 the split view floats its sidebar over the detail pane and puts a
+        // sidebar-toggle in a titlebar this window has no toolbar for, so the detail content
+        // slid under both and the section heading was clipped. A settings window with six fixed
+        // sections gains nothing from a collapsible sidebar, and this way the layout is the
+        // same on every OS version the app supports.
+        HStack(spacing: 0) {
+            sidebar
+            Divider().overlay(RL.Stroke.hairline)
+            detail
         }
         .frame(minWidth: 720, minHeight: 470)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: RL.Space.xxs) {
+            ForEach(SettingsSection.allCases) { section in
+                SettingsSidebarRow(section: section,
+                                   selected: section == model.section,
+                                   help: hint(for: section)) {
+                    model.section = section
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(RL.Space.md)
+        // Wide enough for "Refresh and Monitoring", which truncated at 186
+        .frame(width: 216)
+        .frame(maxHeight: .infinity)
+        .background(RL.Surface.raised)
+    }
+
+    private var detail: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: RL.Space.xl) {
+                Text(model.section.title)
+                    .font(RL.Typography.heading)
+                    .foregroundStyle(RL.Ink.primary)
+                switch model.section {
+                case .providers:  ProvidersSettings(model: model)
+                case .monitoring: MonitoringSettings(model: model)
+                case .limits:     LimitsSettings(model: model)
+                case .appearance: AppearanceSettings(model: model)
+                case .data:       DataSettings(model: model)
+                case .about:      AboutSettings(model: model)
+                }
+            }
+            .padding(RL.Space.xxl)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(RL.Surface.ground)
     }
 
     private func hint(for section: SettingsSection) -> String {
@@ -217,6 +237,56 @@ struct SettingsView: View {
         case .data:       return "What is written to disk, and what leaves this Mac"
         case .about:      return "Version, updates, and third-party notices"
         }
+    }
+}
+
+/// One sidebar row. Its own selection styling, so the accent is the product's rather than the
+/// system's, and its own focus ring, because a plain button style draws none.
+private struct SettingsSidebarRow: View {
+    let section: SettingsSection
+    let selected: Bool
+    let help: String
+    let action: () -> Void
+
+    @State private var hovering = false
+    @FocusState private var focused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var fill: Color {
+        if selected { return RL.Brandmark.signal.opacity(0.18) }
+        return hovering ? RL.Surface.sunken : .clear
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: RL.Space.md) {
+                Image(systemName: section.symbol)
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 16)
+                Text(section.title)
+                    .font(RL.Typography.body)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(selected ? RL.Ink.primary : RL.Ink.secondary)
+            .padding(.horizontal, RL.Space.md)
+            .padding(.vertical, RL.Space.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(fill, in: RoundedRectangle(cornerRadius: RL.Radius.control,
+                                                   style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: RL.Radius.control, style: .continuous)
+                    .strokeBorder(focused ? Color.accentColor : .clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+        .focused($focused)
+        .help(help)
+        .animation(reduceMotion ? nil : .easeOut(duration: RL.Motion.hover), value: hovering)
+        .onHover { hovering = $0 }
+        .accessibilityLabel(section.title)
+        .accessibilityHint(help)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -609,6 +679,9 @@ private struct LimitsSettings: View {
                     .frame(width: 106, alignment: .leading)
                 Slider(value: value, in: 5...100, step: 5)
                     .frame(maxWidth: 260)
+                    // The system accent would put a blue track above an amber or red rail
+                    // showing the same threshold
+                    .tint(status.color)
                     .help(help)
                 Text("\(Int(value.wrappedValue))%")
                     .font(RL.Typography.mono)

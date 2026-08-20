@@ -73,25 +73,43 @@ If Anthropic publishes a real usage API, this all becomes moot and RedLine will 
 ## Screenshots
 
 <p align="center">
-<img src="site/img/dashboard.png" alt="Dashboard showing totals, limit rails with time to limit, and reported service status" width="720">
+<img src="site/img/dashboard.png" alt="The RedLine dashboard: a nearest-limit summary, a card for each of Claude, Codex and Ollama, totals, limit rails and reported service status" width="820">
 </p>
 
-| Menu bar | Charts, on hover |
+The window opens on the nearest limit across every provider, then a card each for Claude,
+Codex and Ollama. A card with nothing to show says why rather than going blank.
+
+<p align="center">
+<img src="site/img/provider-cards.png" alt="Three provider cards: Claude at 16 percent of its week, Codex reporting tokens with no limit window, and Ollama idle with no rate limit to report" width="820">
+</p>
+
+| Light appearance | One provider in detail |
 | :-: | :-: |
-| <img src="site/img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits with time to limit, and a per provider usage table" width="420"> | <img src="site/img/chart-hover.png" alt="A tokens per day chart with a hover readout showing each provider's tokens for that day and the total" width="420"> |
+| <img src="site/img/dashboard-light.png" alt="The same dashboard in the light appearance, on warm paper with darker provider accents" width="420"> | <img src="site/img/provider-detail.png" alt="One provider in detail: current period, remaining capacity, reset time, tokens, the rail, and where the figures came from" width="420"> |
 
-Widgets, one per track, configurable from the widget's own settings:
-
-| Claude | Codex | Ollama |
-| :-: | :-: | :-: |
-| <img src="site/img/claude-widget.png" alt="Claude widget showing session and week percentages, tokens, cost, and the reported service health" width="230"> | <img src="site/img/codex-widget.png" alt="Codex widget showing the week percentage, tokens, cost, and service health" width="230"> | <img src="site/img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" width="230"> |
-
-All three sizes carry the same reading, cut to fit rather than truncated: the medium drops
-the totals, the small keeps the window nearest its limit.
-
-| Medium | Small |
+| Settings, in six sections | Your thresholds, everywhere at once |
 | :-: | :-: |
-| <img src="site/img/usage-widget-medium.png" alt="Medium widget showing session and week percentages for the nearest provider" width="300"> | <img src="site/img/usage-widget-small.png" alt="Small widget showing the session percentage for the nearest provider" width="150"> |
+| <img src="site/img/settings.png" alt="The settings window, Providers section: which tools RedLine reads, and where Claude's percentages come from" width="420"> | <img src="site/img/settings-limits.png" alt="The settings window, Limits and Alerts section: threshold sliders with preview rails, notification options, and the day cues" width="420"> |
+
+The menu bar dropdown, and a widget per track. All three widget sizes carry the same reading,
+cut to fit rather than truncated: the medium drops the totals, the small keeps the window
+nearest its limit.
+
+<table>
+  <tr>
+    <td rowspan="3" align="center" valign="top">
+      <img src="site/img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits and a per provider usage table" width="300"><br>
+      <sub>Limits first, then usage grouped under each provider</sub>
+    </td>
+    <td align="center"><img src="site/img/claude-widget.png" alt="Claude widget showing session and week percentages, tokens, cost, and the reported service health" width="180"><br><sub>Claude</sub></td>
+    <td align="center"><img src="site/img/codex-widget.png" alt="Codex widget showing the week percentage, tokens, cost, and service health" width="180"><br><sub>Codex</sub></td>
+    <td align="center"><img src="site/img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" width="180"><br><sub>Ollama</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="site/img/usage-widget-medium.png" alt="Medium widget showing session and week percentages for the nearest provider" width="300"><br><sub>Medium: both windows, no totals</sub></td>
+    <td align="center"><img src="site/img/usage-widget-small.png" alt="Small widget showing the session percentage for the nearest provider" width="150"><br><sub>Small: the window nearest its limit</sub></td>
+  </tr>
+</table>
 
 ## What it shows
 
@@ -108,12 +126,12 @@ the totals, the small keeps the window nearest its limit.
   one, not at launch.
 - **The nearest limit in the menu bar**, or a provider you pick. By default the title shows
   whichever provider is closest to its limit, since that is the one that will interrupt you
-  first. Choose a single provider from **Settings ▸ Menu Bar** if you would rather
+  first. Choose a single provider from **Settings ▸ Refresh and Monitoring** if you would rather
   watch one. The dropdown always breaks down every provider.
 - **Token and cost totals** for today, the last 5 hours, and the last 7 days, grouped under
   each provider with inline share bars, so a model can never be listed under the wrong
   provider and relative weight is visible without reading the numbers.
-- **Service status**, opt-in via **Settings ▸ Check Service Status Pages**: the menu, dashboard,
+- **Service status**, opt-in via **Settings ▸ Data and Privacy**: the menu, dashboard,
   and widgets report each provider's health from its public status page (Claude and Codex), polled
   every 15 minutes. **Refresh Now** in the menu and **Check now** on the dashboard check
   immediately. All three surfaces draw the same glyph for the same state, so an outage
@@ -122,8 +140,18 @@ the totals, the small keeps the window nearest its limit.
   publishes no status feed or usage API yet, so there is nothing to read for it. Cloud
   models are marked with ☁ wherever models are listed, and the Ollama widget counts local
   and cloud separately.
+- **What is closest to stopping you, first.** The dashboard opens on the nearest limit across
+  every provider and a card for each of them, so the question "is anything about to interrupt
+  me" is answered before any chart is read. A window past your configured threshold, or one
+  that will run out before it resets, is stated in words at the top.
+- **Settings in a window, in six sections**: Providers, Refresh and Monitoring, Limits and
+  Alerts, Appearance, Data and Privacy, and About. Every preference carries the reason it
+  exists next to it, the thresholds are editable and drive the rails, cards, menu bar colour
+  and notifications together, and the two settings that make a network request are listed in
+  one place rather than scattered.
 - **The dashboard's theme** follows the OS, or is pinned to light or dark from the window
-  itself. Every other painted surface stays on the brand's dark ground.
+  itself. Light is a design of its own rather than dark with the colours inverted. Every other
+  painted surface stays on the brand's dark ground.
 - **One copy at a time.** A second launch, from a second install or a build you are testing,
   opens the running copy's dashboard and exits rather than adding a second menu bar item.
 
@@ -186,7 +214,7 @@ where you can read what you are about to run.
 ### Which providers to read
 
 On first launch RedLine asks which of Claude, Codex, and Ollama to read, listing only what it
-finds installed. Change it later from **Settings ▸ Set Up RedLine…**, which
+finds installed. Change it later from **Settings ▸ Providers**, which
 reopens the same window.
 
 RedLine works with any one of them. With a single tool installed the provider pickers
@@ -198,7 +226,7 @@ RedLine asks the GitHub releases API **once a day** whether a newer version exis
 nothing unless one does; a quiet check never interrupts. This is on by default and is the
 only request RedLine makes without being asked. An app that installs updates in place has to
 learn about them to be worth trusting, and a security fix nobody hears about is not a fix.
-Turn it off with **Settings ▸ Updates ▸ Check Daily** and RedLine goes back to making
+Turn it off with **Settings ▸ Data and Privacy** and RedLine goes back to making
 no network requests at all; **Check for Updates…** then checks on demand, whenever you ask.
 
 When a newer release exists, **Install Update…** replaces the app in place: it downloads the
@@ -216,7 +244,7 @@ make install`.
 Prerelease builds (versions like `0.5.0-beta.1`) ship as GitHub prereleases, which the
 stable channel never sees: `releases/latest` excludes them by definition, so the daily
 check and the `redline` cask stay on full releases. Opt in with
-**Settings ▸ Updates ▸ Beta Releases**, which rechecks immediately, or set
+**Settings ▸ About ▸ Channel**, which rechecks immediately, or set
 `"updateChannel": "beta"` in `~/.config/redline/config.json`. Homebrew has its own channel:
 
 ```bash
@@ -242,7 +270,7 @@ history as well. Your Claude, Codex and Ollama files are never touched. From a c
 
 ## Providers
 
-Pick which ones to read from **Settings ▸ Set Up RedLine…**, or set `providers`
+Pick which ones to read from **Settings ▸ Providers**, or set `providers`
 in the config. Each is independent; none is required.
 
 | Provider | Source | Auth | Rate limits | Tokens |
@@ -283,7 +311,7 @@ that predates the install is enough), RedLine notices on its next poll and re-wi
 keeping whatever statusline command is there chained in front.
 
 The remaining two routes are for when the feed is not installed or your build of Claude Code
-does not send the limits. Both live in **Settings ▸ Set Up RedLine…**, and both are
+does not send the limits. Both live in **Settings ▸ Providers**, and both are
 off by default:
 
 **2. Borrow the CLI's token** (`useCLIToken: true`). Needs Claude Code installed and signed
@@ -340,7 +368,7 @@ number in that position reads as real limit data.
 
 ### Ollama needs one setup step
 
-Ollama keeps no usage history, so there is nothing to read retroactively. **Settings ▸ Set Up Ollama
+Ollama keeps no usage history, so there is nothing to read retroactively. **Settings ▸ Providers ▸ Set Up Ollama
 Tracking…** installs a transparent shim at `~/.local/bin/ollama`, ahead of
 the real binary on your `PATH`. After that, plain `ollama run` is counted with no habit
 change, whether you type it or a coding agent does:
@@ -369,7 +397,7 @@ is the same script.
 ## Configuration
 
 `~/.config/redline/config.json`, written with defaults on first launch. Reloaded on every
-poll, so edits apply without a restart. **Settings ▸ Edit Config…** opens it.
+poll, so edits apply without a restart. **Settings ▸ Data and Privacy ▸ Edit the Config File…** opens it.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -451,15 +479,23 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layout,
 ## Usage dashboard
 
 **Open Usage Dashboard…** (⌘D) in the menu, or just double-click `Redline.app`, opens a native
-window with charts built from the same data the menu bar summarises:
+window built from the same data the menu bar summarises. It opens on what is closest to
+stopping you, not on a wall of charts:
 
-- a provider dropdown: all of them at once, or focus one
+- an overview: the nearest limit across every provider, the range totals, and any window
+  worth warning about, before a single chart
+- a card per provider, carrying its percentage, what is left, when it resets, a fortnight of
+  shape, and volume with cost. A card with nothing to show says why: not installed, switched
+  off, not reachable, or simply quiet
+- a provider picker carrying each provider's own mark: all of them at once, or one on its own
+- one provider in detail, when you pick one: current period, remaining capacity, reset timing,
+  where the figures came from and how fresh they are
 - tiles for today, the last 5 hours, and the selected range, so the Session (5h) rail below
   has a token and cost figure beside its percentage
 - tokens per day by provider, over 7, 14, 30, 60, or 90 days
 - estimated cost per day, over the same range
 - the last 24 hours, hour by hour, with that rolling day's own total in the panel header
-- the model mix, with unpriced models shown as `—` rather than `$0.00`
+- the model mix, with unpriced models shown as `n/a` rather than `$0.00`
 - current limit rails, each ending at its threshold, with time to limit and a pace marker
 - setup findings, and what the local history holds
 
@@ -511,7 +547,7 @@ runs out early.
 
 ### Notifications
 
-**Settings ▸ Notify at Thresholds** is on by default. RedLine speaks up when a window crosses
+**Settings ▸ Limits and Alerts** is on by default. RedLine speaks up when a window crosses
 your amber or signal percentage, when the projection says it will run out before it resets,
 when it reaches the cap, and when it rolls over and capacity comes back.
 
@@ -523,7 +559,7 @@ Each of those fires once per window instance, so a window that sits at 86% for a
 notification rather than twelve, and a fresh window re-arms them.
 
 **How long a notification stays on screen is macOS's to decide, not RedLine's.** There is no
-API for it. What you can change is the style: under **Settings ▸ Notification Style…**, which
+API for it. What you can change is the style: under **Settings ▸ Limits and Alerts ▸ Notification Style…**, which
 opens System Settings on this app's row, *Banners* disappear on their own and *Alerts* stay
 until you dismiss them. Pick Alerts if a banner goes by too fast to read. A stale reading never fires
 anything: RedLine would rather say nothing than interrupt you over a percentage it cannot
@@ -558,7 +594,7 @@ deliberately out of scope: there is no public API for them. Codex publishes no l
 at all.
 
 This is **read only**. RedLine never writes into `~/.claude`, never opens the key files that
-sit beside the records, and never connects to the sockets they name. **Settings ▸ Show
+sit beside the records, and never connects to the sockets they name. **Settings ▸ Refresh and Monitoring ▸ Show
 Running Agents** turns the whole pane off, or `agentFleet` in the config.
 
 ## Setup findings
@@ -622,7 +658,7 @@ open the file if you want to ask it something this app does not.
 
 ## Cadence
 
-**Settings ▸ Say How the Day Is Going** reports three things counted from timestamps: a run
+**Settings ▸ Limits and Alerts** reports three things counted from timestamps: a run
 of activity that has gone past `stretchMinutes` with no break longer than 15 minutes, activity
 still happening after `lateHour`, and `streakDays` consecutive days with usage. Each is said
 once, at the threshold and again at multiples of it, never per poll.
@@ -718,16 +754,40 @@ real signing automatically once one exists.
 
 The project homepage is at https://goriparthi.github.io/redline/.
 
-## Track badges
+## Provider marks, and the design system
 
-Each provider carries an original badge and colour, used identically in the menu, the dashboard
-and the widgets: a ring and satellite for Claude (a hosted endpoint), chevrons for Codex
-(source code), stacked bars for Ollama (weights held locally), and the RedLine mark for all
-providers at once.
+Every colour, space, corner radius and text style comes from one definition in
+`Sources/RedlineCore/DesignSystem.swift`, and the dashboard, the menu, the setup window and
+the widget all read from it. `Components.swift` holds the cards, badges, tiles, rails, status
+marks and placeholder states built on those tokens, so a panel cannot invent its own greys.
 
-These are deliberately **not** vendor logos. Anthropic, OpenAI and Ollama all restrict
-third-party use of their marks, and a traced approximation would breach the requirement that a
-mark be reproduced unaltered.
+Each provider is identified by **its own mark**: the Anthropic mark for Claude, the OpenAI
+blossom for Codex, and Ollama's own. They are used unaltered, kept monochrome, and always
+paired with the provider's name. RedLine's colour goes on the chip, dot, rail, card edge or
+chart series **around** the mark, never on the mark itself. The marks are not RedLine branding,
+they are not used as the app icon, and none of this implies sponsorship or endorsement.
+
+Sources and licences are in [brand/provider-glyphs/](brand/provider-glyphs/) and ship inside
+the app, readable from **Settings ▸ About**: the Codex blossom is from Bootstrap Icons (MIT),
+the Anthropic, Claude and Ollama marks from Simple Icons (CC0-1.0). Open-source licensing of
+the vector data **does not waive trademark restrictions**, which is why the marks appear only
+where they identify whose figure is being shown.
+
+The provider accents are validated rather than chosen by eye. A checker holds each one to a
+lightness band so no provider shouts over the others, requires hue separation rather than
+brightness separation between them, keeps every accent clear of the signal red so a provider
+colour can never read as a warning, and checks contrast on both appearances plus separability
+under protanopia, deuteranopia and tritanopia. Two palettes were rejected before one passed.
+
+Status is never carried by colour alone. Healthy, approaching, at the limit, stale, offline and
+unknown each have a distinct shape as well as a distinct colour, and the words travel with
+them, so a reading survives greyscale, a colour blind reader, and a screenshot pasted into a
+chat.
+
+The asset catalog at `Resources/ProviderIcons.xcassets` is what the Xcode build compiles. The
+same vectors are also embedded in `ProviderGlyph.swift`, because `make bundle` assembles the
+app by hand and never runs `actool`, so the catalog alone would leave the marks blank in a
+SwiftPM build. `ProviderGlyphTests` fails if the two ever drift apart.
 
 ## Security
 
@@ -768,5 +828,7 @@ The contents of `brand/` (the mark, wordmark, app icon, and colour tokens) are o
 artwork for this project and are **not** covered by the MIT grant. Fork the code freely; please
 use your own name and mark rather than shipping something that looks like RedLine.
 
-Track badges in the UI are original iconography, deliberately not vendor logos. Anthropic,
-OpenAI, and Ollama all restrict third-party use of their marks.
+Provider marks in the UI identify which provider a figure belongs to. They are third-party
+marks, used unaltered and monochrome beside the provider's name, and they are not RedLine
+branding. Anthropic, OpenAI and Ollama all restrict third-party use of their marks; see
+[brand/provider-glyphs/THIRD_PARTY_NOTICES.md](brand/provider-glyphs/THIRD_PARTY_NOTICES.md).

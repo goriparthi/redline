@@ -671,3 +671,50 @@ transcripts and assert on real exit codes.
 CI moved into `scripts/ci.sh` at the same time. The workflow now decides only when the checks
 run; what they are lives in the repo, so a red build is reproduced with `make ci` rather than
 by pushing another commit.
+
+## 2026-08-19: vendor marks after all, and what changed to allow it
+
+Reverses the 2026-08-13 entry above. That decision declined vendor logos for two reasons, and
+only one of them still holds.
+
+The reason that held: all three companies restrict third-party use of their marks, and their
+guidelines require a mark be reproduced unaltered. Still true, and it is why the marks are used
+monochrome, unaltered, never as the app icon, never combined, and always beside the provider's
+name. Nominative identification is what they are for and all they are used for.
+
+The reason that fell away: "drawing them from memory produces approximations". Nothing here is
+drawn from memory now. The marks arrive as the actual vector data with their licences attached,
+Bootstrap Icons (MIT) for the OpenAI blossom and Simple Icons (CC0-1.0) for the rest, retained
+in `brand/provider-glyphs/` and shipped inside the app so About can open them. Open-source
+licensing of vector data does not waive trademark restrictions, which is the whole reason the
+usage rules above are enforced in code rather than left to a comment.
+
+What the original entry got right, and what is kept: the tint belongs to RedLine, not to the
+mark. `ProviderTile` and `ProviderBadge` put the accent on the chip, the border and the rail
+around a monochrome glyph. So the earlier reasoning survives inverted: colour and glyph still
+reinforce each other, but now the glyph is theirs and only the colour is ours.
+
+The marks exist twice on purpose. `Resources/ProviderIcons.xcassets` is what Xcode compiles;
+the same vectors are embedded in `ProviderGlyph.swift` because `make bundle` assembles the app
+by hand and never runs `actool`, so the catalog alone renders nothing in a SwiftPM build.
+`ProviderGlyphTests` compares the two and fails if they drift, which is the only reason keeping
+two copies is acceptable.
+
+## 2026-08-19: NavigationSplitView was the wrong shell for a settings window
+
+The settings window shipped in 0.8.0 using `NavigationSplitView`, and on macOS 26 that was
+visibly broken: the sidebar floats over the detail pane rather than sitting beside it, and the
+split view installs a sidebar-toggle into a titlebar this window has no `NSToolbar` for. The
+result was a toggle hovering over the content and the section heading clipped off the top.
+
+Replaced with an explicit `HStack` of a fixed-width sidebar, a divider, and the detail scroll
+view. A settings window with six fixed sections gains nothing from a collapsible sidebar, and
+the layout is now identical on every OS version the app supports rather than depending on what
+the current one does with a split view. The rows carry the app's own selection styling and
+focus ring for the same reason `RLSegmented` exists: a system row takes the system accent, and
+this app's selection colour is its own.
+
+Worth noting for anything else hosted in a plain `NSWindow`: SwiftUI containers that expect to
+own a toolbar do not behave when there is not one. That includes `NavigationSplitView` and
+anything using `.toolbar`. It is also why `ImageRenderer` cannot draw either a `ScrollView` or
+a split view, which is why `DashboardContent` is a view separate from the scroll container.

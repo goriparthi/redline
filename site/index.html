@@ -283,6 +283,39 @@
   }
   @media (max-width: 700px) { .shot-menu { max-width: 100%; } }
 
+  /* Two wide shots side by side: the dashboard in both appearances, or a window and its
+     detail. Each is already legible at half width on a laptop. */
+  .shots-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 900px) { .shots-pair { grid-template-columns: 1fr; } }
+
+  /* The collage: the dropdown is tall and narrow and the widgets are small squares, so the
+     dropdown holds a column of its own and the widgets tile beside it. Laid out as one grid
+     rather than three stacked rows, which left the dropdown floating in whitespace. */
+  .collage {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.7fr);
+    gap: clamp(1rem, 2vw, 1.6rem);
+    align-items: start;
+  }
+  .collage > .shot-menu-tall { margin: 0; max-width: none; }
+  /* Capped by height, not width: the dropdown is far taller than the widget stack beside it,
+     and matching them on width left a column of dead space under the widgets. Height keeps
+     the two columns close and the image keeps its proportions. */
+  .shot-menu-tall img { width: auto; max-width: 100%; max-height: 560px; margin-inline: auto; }
+  .collage-right {
+    display: grid;
+    gap: clamp(1rem, 2vw, 1.6rem);
+  }
+  .collage-widgets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 2vw, 1.6rem); }
+  .collage-sizes { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: clamp(1rem, 2vw, 1.6rem); align-items: start; }
+  @media (max-width: 900px) {
+    .collage { grid-template-columns: 1fr; }
+    .collage > .shot-menu-tall { max-width: min(420px, 100%); margin-inline: auto; }
+  }
+  @media (max-width: 560px) {
+    .collage-widgets, .collage-sizes { grid-template-columns: 1fr; }
+  }
+
   .install-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -416,48 +449,116 @@
     </div>
 
     <figure class="shot shot-hero">
-      <img src="img/dashboard.png" alt="The dashboard showing totals, limit rails with time to limit, and reported service status" loading="lazy">
-      <figcaption>The dashboard: limit rails that say how long they leave you, totals, service
-        status, findings, and charts. Light, dark, or whatever the OS is doing.</figcaption>
+      <img src="img/dashboard.png" alt="The RedLine dashboard: a nearest-limit summary, a card for each of Claude, Codex and Ollama, totals, limit rails and reported service status" loading="lazy">
+      <figcaption>The dashboard opens on the nearest limit across every provider, then a card
+        each for Claude, Codex and Ollama. Rails end at the limit, and every figure names the
+        window it describes.</figcaption>
     </figure>
 
     <figure class="shot">
-      <img src="img/chart-hover.png" alt="A tokens per day chart with a hover readout showing each provider's tokens for that day and the total" loading="lazy">
-      <figcaption>Hover any chart for the exact figures behind that point, snapped to the
-        nearest bucket.</figcaption>
+      <img src="img/provider-cards.png" alt="Three provider cards side by side: Claude at 16 percent of its week, Codex reporting tokens with no limit window, and Ollama idle with no rate limit to report" loading="lazy">
+      <figcaption>One card per provider, and a card with nothing to show says why. Ollama runs
+        on your Mac, so it reports no rate limit; the card says that rather than showing a
+        zero.</figcaption>
     </figure>
 
-    <div class="shots shots-three">
+    <div class="shots shots-pair">
       <figure class="shot">
-        <img src="img/claude-widget.png" alt="Claude widget showing session and week percentages, tokens, cost, and the reported service health" loading="lazy">
-        <figcaption>Claude</figcaption>
+        <img src="img/dashboard-light.png" alt="The same dashboard in the light appearance, on warm paper with darker provider accents" loading="lazy">
+        <figcaption>Light is a design of its own, not dark with the colours flipped. Follow the
+          OS, or pin it.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="img/codex-widget.png" alt="Codex widget showing the week percentage, tokens, cost, and service health" loading="lazy">
-        <figcaption>Codex</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" loading="lazy">
-        <figcaption>Ollama</figcaption>
+        <img src="img/provider-detail.png" alt="One provider in detail: current period, remaining capacity, reset time, tokens, the rail, and where the figures came from" loading="lazy">
+        <figcaption>Open a provider for what is left, when it resets, where the figures came
+          from and how fresh they are.</figcaption>
       </figure>
     </div>
 
-    <div class="shots shots-sizes">
+    <div class="shots shots-pair">
       <figure class="shot">
-        <img src="img/usage-widget-medium.png" alt="Medium widget showing session and week percentages for the nearest provider" loading="lazy">
-        <figcaption>Medium: both windows, no totals.</figcaption>
+        <img src="img/settings.png" alt="The settings window, Providers section: which tools RedLine reads, and where Claude's percentages come from" loading="lazy">
+        <figcaption>Settings in six sections, with the reason a preference exists sitting next
+          to it.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="img/usage-widget-small.png" alt="Small widget showing the session percentage for the nearest provider" loading="lazy">
-        <figcaption>Small: the window nearest its limit.</figcaption>
+        <img src="img/settings-limits.png" alt="The settings window, Limits and Alerts section: threshold sliders with preview rails, notification options, and the day cues" loading="lazy">
+        <figcaption>Your thresholds drive the rails, the cards, the menu bar colour and the
+          notifications together, so those four cannot disagree.</figcaption>
       </figure>
     </div>
 
-    <figure class="shot shot-menu">
-      <img src="img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits and a per provider usage table" loading="lazy">
-      <figcaption>The dropdown: limits first, then usage grouped under each provider, with a
-        share bar so weight reads without doing arithmetic.</figcaption>
-    </figure>
+    <div class="collage">
+      <figure class="shot shot-menu-tall">
+        <img src="img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits and a per provider usage table" loading="lazy">
+        <figcaption>The dropdown: limits first, then usage grouped under each provider, with a
+          share bar so weight reads without doing arithmetic.</figcaption>
+      </figure>
+      <div class="collage-right">
+        <div class="collage-widgets">
+          <figure class="shot">
+            <img src="img/claude-widget.png" alt="Claude widget showing session and week percentages, tokens, cost, and the reported service health" loading="lazy">
+            <figcaption>Claude</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/codex-widget.png" alt="Codex widget showing the week percentage, tokens, cost, and service health" loading="lazy">
+            <figcaption>Codex</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" loading="lazy">
+            <figcaption>Ollama</figcaption>
+          </figure>
+        </div>
+        <div class="collage-sizes">
+          <figure class="shot">
+            <img src="img/usage-widget-medium.png" alt="Medium widget showing session and week percentages for the nearest provider" loading="lazy">
+            <figcaption>Medium: both windows, no totals.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/usage-widget-small.png" alt="Small widget showing the session percentage for the nearest provider" loading="lazy">
+            <figcaption>Small: the window nearest its limit.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="label">Design</p>
+      <h2>One system, three providers</h2>
+      <p>Every colour, space and text style comes from one place, so the dashboard, the menu,
+         the setup window and the widgets read as one product rather than four. Each provider
+         carries its own mark, and RedLine's colour goes around it.</p>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>Marks that identify, not endorse</h3><span class="chip">monochrome</span></div>
+        <p>Claude, Codex and Ollama are shown with their own marks, unaltered and monochrome,
+           always beside the provider's name. The tint lives on RedLine's chip, dot, rail or
+           chart series, never on the mark. The licences and notices ship inside the app, under
+           Settings, About.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Colours picked against numbers</h3><span class="chip">checked</span></div>
+        <p>The provider accents are held to one lightness band so none shouts over the others,
+           separated by hue rather than brightness, kept clear of the red that means a limit,
+           and checked for contrast on both appearances and for separability under all three
+           kinds of colour blindness. Two palettes were thrown out before one passed.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Never colour alone</h3><span class="chip">accessible</span></div>
+        <p>Healthy, approaching, at the limit, stale, stopped and unchecked each have their own
+           shape as well as their own colour, and the words are there too. The reading survives
+           greyscale, a colour blind reader, and a screenshot pasted into a chat.</p>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top: 1.25rem">Not affiliated with, endorsed by, or supported by
+       Anthropic, OpenAI or Ollama. Open-source licensing of the vector data does not waive
+       trademark restrictions, and the marks are used only to identify which provider a figure
+       belongs to.</p>
   </section>
 
   <section>
