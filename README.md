@@ -72,23 +72,25 @@ If Anthropic publishes a real usage API, this all becomes moot and RedLine will 
 
 ## Screenshots
 
+<p align="center">
 <img src="site/img/dashboard.png" alt="Dashboard showing totals, limit rails with time to limit, and reported service status" width="720">
+</p>
 
 | Menu bar | Charts, on hover |
-| --- | --- |
+| :-: | :-: |
 | <img src="site/img/menubar.png" alt="Menu bar dropdown showing Claude and Codex limits with time to limit, and a per provider usage table" width="420"> | <img src="site/img/chart-hover.png" alt="A tokens per day chart with a hover readout showing each provider's tokens for that day and the total" width="420"> |
 
 Widgets, one per track, configurable from the widget's own settings:
 
 | Claude | Codex | Ollama |
-| --- | --- | --- |
+| :-: | :-: | :-: |
 | <img src="site/img/claude-widget.png" alt="Claude widget showing session and week percentages, tokens, cost, and the reported service health" width="230"> | <img src="site/img/codex-widget.png" alt="Codex widget showing the week percentage, tokens, cost, and service health" width="230"> | <img src="site/img/ollama-widget.png" alt="Ollama widget showing loaded, local and cloud model counts and the local server state" width="230"> |
 
 All three sizes carry the same reading, cut to fit rather than truncated: the medium drops
 the totals, the small keeps the window nearest its limit.
 
 | Medium | Small |
-| --- | --- |
+| :-: | :-: |
 | <img src="site/img/usage-widget-medium.png" alt="Medium widget showing session and week percentages for the nearest provider" width="300"> | <img src="site/img/usage-widget-small.png" alt="Small widget showing the session percentage for the nearest provider" width="150"> |
 
 ## What it shows

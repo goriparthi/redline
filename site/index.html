@@ -250,14 +250,14 @@
   .shots-three { grid-template-columns: repeat(3, 1fr); }
   /* Medium is twice the width of small, so this row keeps their real proportions rather
      than stretching both into equal columns */
+  /* margin-inline centres these two: both cap their width, and without it a capped block
+     sits flush left in a full width section and reads as a mistake */
   .shots-sizes {
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     max-width: min(720px, 100%);
+    margin-inline: auto;
     align-items: start;
   }
-  /* The menu is tall and narrow, so cap it rather than letting it set the row height */
-  .shot-menu { max-width: min(520px, 40vw); margin-top: clamp(1.25rem, 3vw, 2rem); }
-  @media (max-width: 700px) { .shot-menu { max-width: 100%; } }
   .shot-hero { margin: 0; }
   @media (max-width: 820px) {
     .shots, .shots-three, .shots-sizes { grid-template-columns: 1fr; }
@@ -272,6 +272,16 @@
     background: var(--graphite);
   }
   .shot figcaption { font-size: .8125rem; color: var(--steel); }
+  /* After .shot deliberately: that rule sets the `margin` shorthand, so declaring these
+     before it lost both the centring and the top gap to source order. The menu is tall and
+     narrow, so it is capped rather than left to set the row height, and a capped block has
+     to be centred or it reads as a mistake. */
+  .shot-menu {
+    max-width: min(520px, 40vw);
+    margin-inline: auto;
+    margin-top: clamp(1.25rem, 3vw, 2rem);
+  }
+  @media (max-width: 700px) { .shot-menu { max-width: 100%; } }
 
   .install-grid {
     display: grid;
