@@ -202,6 +202,12 @@ struct DashboardData {
     var claudeLimitsAsOf: Date?
     var visibleServices: [Snapshot.Service] { services.filter { matches($0.provider) } }
     var today = Agg()
+    /// The session window, so the Session (5h) rail has a volume beside its percentage.
+    /// The rail says how much is gone; this says what it bought.
+    var block5h = Agg()
+    /// Rolling 24 hours, which is the window the hourly chart draws. Shown in that panel's
+    /// header rather than as another tile, because the panel already names the window.
+    var day24 = Agg()
     /// Totals over the selected range, not a fixed week. Named for what it is so a future
     /// edit cannot read it as seven days again.
     var ranged = Agg()
@@ -237,6 +243,8 @@ struct DashboardData {
     }
 
     var todaySlice: Slice { slice(today) }
+    var block5hSlice: Slice { slice(block5h) }
+    var day24Slice: Slice { slice(day24) }
     var rangedSlice: Slice { slice(ranged) }
 
     /// "7 days", "14 days", "30 days". One source for every label that names the window.
@@ -301,6 +309,11 @@ final class DashboardModel: ObservableObject {
 
     /// The shape of the range: when the work happened, the longest unbroken run in it, and
     /// how many consecutive days reach up to today.
+    /// Deliberately every provider, even while one track is focused, and the panel labels
+    /// itself so. A run is measured from the gaps between records, so filtering to one
+    /// provider inserts gaps that were never idle time: alternating Claude and Codex for three
+    /// hours would report several short runs instead of one long one. Narrowing the question
+    /// would not make the answer smaller, it would make it wrong.
     static func cadenceSummary(_ entries: [Entry],
                                now: Date) -> DashboardData.CadenceSummary? {
         guard !entries.isEmpty else { return nil }
@@ -370,6 +383,11 @@ final class DashboardModel: ObservableObject {
             let models = Trends.byModel(entries, since: since, config: cfg)
             let today = aggregate(entries, since: Calendar.current.startOfDay(for: now),
                                  config: cfg)
+            // Both are inside any range the picker offers, so they come from the same read
+            let block5h = aggregate(entries, since: now.addingTimeInterval(-5 * 3600),
+                                    config: cfg)
+            let day24 = aggregate(entries, since: now.addingTimeInterval(-24 * 3600),
+                                  config: cfg)
             let ranged = aggregate(entries, since: since, config: cfg)
             let history = cfg.recordHistory ? Self.historySummary() : nil
             let cadence = cfg.mindfulCues ? Self.cadenceSummary(entries, now: now) : nil
@@ -379,6 +397,8 @@ final class DashboardModel: ObservableObject {
                 self.data.hourly = hourly
                 self.data.models = models
                 self.data.today = today
+                self.data.block5h = block5h
+                self.data.day24 = day24
                 self.data.ranged = ranged
                 self.data.scannedAt = now
                 self.data.history = history
@@ -1178,8 +1198,18 @@ private struct OllamaPanel: View {
 private struct CadencePanel: View {
     let cadence: DashboardData.CadenceSummary
     let cues: [CadenceCue]
+    /// True when one track is focused. This panel still counts every provider, so it says so;
+    /// see cadenceSummary for why it is not scoped like the tiles are.
+    let focused: Bool
 
     private var peak: Int { max(1, cadence.hours.max() ?? 1) }
+
+    /// Names the scope before the detail, because every other panel narrows to the focused
+    /// track and this one does not. Left off when nothing is focused, where it would be noise.
+    private var note: String {
+        let parts = [focused ? "all providers" : nil, busiest.map { "busiest at \($0)" }]
+        return parts.compactMap { $0 }.joined(separator: " · ")
+    }
 
     /// The busiest hour, named the way a person says it rather than as an index
     private var busiest: String? {
@@ -1189,7 +1219,7 @@ private struct CadencePanel: View {
     }
 
     var body: some View {
-        Panel(title: "Cadence", note: busiest.map { "busiest at \($0)" }) {
+        Panel(title: "Cadence", note: note) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 22) {
                     StatTile(label: "Current run",
@@ -1314,7 +1344,7 @@ struct DashboardView: View {
                             DailyCostChart(trends: data.visibleTrends, range: data.range)
                         }
                     }
-                    Panel(title: "Last 24 hours") {
+                    Panel(title: "Last 24 hours", note: hourlyNote) {
                         if data.visibleHourly.isEmpty { empty } else {
                             HourlyChart(trends: data.visibleHourly)
                         }
@@ -1467,7 +1497,8 @@ struct DashboardView: View {
     private var historyPanel: some View {
         if let history = data.history, history.days > 0 {
             if let cadence = data.cadence {
-                CadencePanel(cadence: cadence, cues: data.cues)
+                CadencePanel(cadence: cadence, cues: data.cues,
+                             focused: !data.focusingAll)
             }
             Panel(title: "Recorded history", note: "kept locally, UTC days") {
                 VStack(alignment: .leading, spacing: 8) {
@@ -1616,15 +1647,25 @@ struct DashboardView: View {
         }
     }
 
+    /// The rolling day's own total, so the shape above it can be read against a figure
+    private var hourlyNote: String {
+        let d = data.day24Slice
+        guard d.io > 0 else { return "no usage" }
+        return "\(fmtTokens(d.io)) · \(fmtCost(d.cost))\(d.hasUnpriced ? "+" : "") est"
+    }
+
     private var tiles: some View {
         // Labels name the track so a focused figure cannot be read as the global one
         let scope = data.focusingAll ? "" : " · \(data.focus)"
         let today = data.todaySlice
+        let block5h = data.block5hSlice
         let ranged = data.rangedSlice
         let peak = data.visibleTrends.compactMap(\.peak).map(\.io).max()
         return HStack(spacing: 12) {
             StatTile(label: "Today\(scope)", value: fmtTokens(today.io),
                      sub: "\(fmtCost(today.cost))\(today.hasUnpriced ? "+" : "") est")
+            StatTile(label: "Last 5 hours\(scope)", value: fmtTokens(block5h.io),
+                     sub: "\(fmtCost(block5h.cost))\(block5h.hasUnpriced ? "+" : "") est")
             StatTile(label: "Last \(data.rangeLabel)\(scope)", value: fmtTokens(ranged.io),
                      sub: "\(fmtCost(ranged.cost))\(ranged.hasUnpriced ? "+" : "") est")
             StatTile(label: "Cache read", value: fmtTokens(ranged.cacheRead),

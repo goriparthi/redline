@@ -452,9 +452,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layout,
 window with charts built from the same data the menu bar summarises:
 
 - a provider dropdown: all of them at once, or focus one
+- tiles for today, the last 5 hours, and the selected range, so the Session (5h) rail below
+  has a token and cost figure beside its percentage
 - tokens per day by provider, over 7, 14, 30, 60, or 90 days
 - estimated cost per day, over the same range
-- the last 24 hours, hour by hour
+- the last 24 hours, hour by hour, with that rolling day's own total in the panel header
 - the model mix, with unpriced models shown as `—` rather than `$0.00`
 - current limit rails, each ending at its threshold, with time to limit and a pace marker
 - setup findings, and what the local history holds
@@ -629,6 +631,13 @@ gives advice; a cue states what was counted and stops. A cue can only fire when 
 recent activity, so a machine nobody is using is silent without needing a quiet hours setting.
 `redline cadence` asks the same questions on demand, and the dashboard draws the hour of day
 shape next to the recorded history.
+
+The dashboard's cadence panel counts **every provider** even when one track is focused, and it
+says so in its header. That is not an oversight. A run is measured from the gaps between
+records, so filtering to one provider would insert gaps that were never idle time: three hours
+of alternating between Claude and Codex would be reported as several short runs instead of one
+long one. Narrowing the question there would not make the answer smaller, it would make it
+wrong.
 
 ## The usage sidecar, and the command line
 
