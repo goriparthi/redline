@@ -6,8 +6,8 @@
 #
 # Bump version and sha256 after each beta release; scripts/release.sh prints both.
 cask "redline-beta" do
-  version "0.7.2-beta.1"
-  sha256 "5c17959899683b6b5f5d7174c7e7a0ecc874fe5be29eb46d91b32eb606aa26c7"
+  version "0.7.2-beta.2"
+  sha256 "359ffed06407b3377ef9779a656991bcfd9c29bf1ca10ae2de46f936054feb66"
 
   url "https://github.com/goriparthi/redline/releases/download/v#{version}/Redline-#{version}.dmg"
   name "RedLine Beta"
