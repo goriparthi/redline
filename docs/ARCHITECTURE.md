@@ -21,7 +21,12 @@ Sources/RedlineCore/     Pure parsing and aggregation. No AppKit, no network, no
   StatuslineFeed.swift   Claude's limit windows as Claude Code itself reports them
   CredentialScan.swift   Finds a credential in an undocumented JSON blob, plus hex decoding
   ClaudeAuth.swift       What a failed credential read means, plus the usage-endpoint backoff
-  Brand.swift/BrandUI    Colour tokens and the shared track badges
+  Brand.swift/BrandUI    Fixed brand tones, the RedLine mark, and the widget's rail
+  DesignSystem.swift     Every colour, space, radius and text style the UI may use
+  Components.swift       The shared cards, badges, tiles, rails, status marks and states
+  ProviderGlyph.swift    The provider marks as vector data, plus the template loader
+  ProviderOverview.swift What a provider's overview card says, and which warnings earn a place
+  ClaudeLimitsChoice     Where Claude's percentages come from, and which route is current
 
 Sources/redline/         The app. AppKit, network and Keychain live here only.
   main.swift             Entry point, instance guard, and the LaunchAgent CLI flags
@@ -31,6 +36,9 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
   Updates.swift          Release check and the verified in-place install
   FirstRun.swift         The providers and limits setup window
   MenuRowView.swift      Menu rows that read as information, not controls
+  ProviderCards.swift    The overview cards and the warnings above them
+  SettingsWindow.swift   Settings in named sections, driving the app's own actions
+  Previews.swift         Sample data and every UI state, DEBUG only
   TerminalFocus.swift    Finds the app and tab a session runs in, by process tree and tty
   OAuth.swift            Keychain token storage, CLI-token borrowing, PKCE sign-in
   ClaudeCredentialSource Reads the CLI's credential from file, Keychain, or security(1)
@@ -39,7 +47,7 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
 
 Sources/RedlineWidget/   The WidgetKit extension. Renders the snapshot, parses nothing.
 
-Tests/RedlineCoreTests/  261 tests over the core
+Tests/RedlineCoreTests/  332 tests over the core
 scripts/                 Build, test, bundle, install, DMG, release, Ollama shim,
                          Claude usage feed
 Casks/redline.rb         Homebrew cask
@@ -199,9 +207,19 @@ Constraints that shaped the implementation:
 - **The endpoint requires the OAuth scope `user:profile`**; only the token Claude Code writes
   at `/login` carries it, which is why `claude setup-token` output is rejected. RedLine's own
   PKCE sign-in requests the same scope, and the endpoint accepts it.
-- **`invalid_grant` on refresh is terminal.** The dead token is cleared so the app falls
-  back to offering Sign In. Without this it stays "signed in" and retries a dead token
-  forever.
+- **A rejected refresh is terminal, not only `invalid_grant`.** The dead token is cleared so
+  the app falls back to offering Sign In. The original test looked for the literal string
+  `invalid_grant`, and this endpoint answers in Anthropic's API envelope instead
+  (`invalid_request_error`), so a rejected refresh was retried on every poll forever: the app
+  stayed "signed in", the percentages never came back, and nothing offered Sign In.
+  `ClaudeAuthPolicy.classifyRefresh` inverts the rule. Only a lifted rate limit, a recovered
+  server or a working network can make an identical request succeed later, so those three
+  retry and everything else in the 4xx family clears the grant.
+- **Token requests are form-encoded, with a JSON retry.** RFC 6749 specifies
+  `application/x-www-form-urlencoded` for the token endpoint, and this code only ever sent
+  JSON. Which of the two this undocumented endpoint honours is not established, so the
+  spec-compliant body goes first, a 4xx is retried the other way, and whichever answers is
+  remembered for the rest of the launch.
 - **A rebuild changes an ad-hoc code identity**, so the old Keychain item's ACL rejects the
   new binary. `TokenStore.save()` therefore handles `errSecDuplicateItem` by updating in
   place, and reports failure instead of claiming a successful sign-in.

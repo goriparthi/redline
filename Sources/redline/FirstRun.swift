@@ -5,14 +5,6 @@
 import RedlineCore
 import SwiftUI
 
-// Where the Claude rate-limit percentages come from, if anywhere
-enum ClaudeLimitsChoice {
-    case off        // percentages stay hidden; everything else still works
-    case feed       // the statusline usage feed: no credentials, updates while Claude Code runs
-    case cliToken   // read (never refresh) the Claude Code CLI's Keychain token
-    case browser    // RedLine's own OAuth sign-in, live between sessions and for claude.ai users
-}
-
 struct FirstRunView: View {
     let availability: ProviderAvailability
     @State private var selection: Set<String>
@@ -35,13 +27,12 @@ struct FirstRunView: View {
         let current = currentProviders.filter { availability.has($0) }
         _selection = State(initialValue: current.isEmpty ? Set(availability.installed)
                                                          : Set(current))
-        // Reopened, the window reflects what is actually running; on a true first run
-        // nothing is set up yet, so the recommended zero-credential route is preselected.
-        let initial: ClaudeLimitsChoice = feedInstalled ? .feed
-            : useCLIToken ? .cliToken
-            : signedIn ? .browser
-            : .feed
-        _limitsChoice = State(initialValue: initial)
+        // Reopened, the window reflects the choice the user actually made, not whichever
+        // artifact happens to be on disk. See ClaudeLimitsChoice.current for why the order
+        // matters: Start writes useCLIToken from this, so an under-reporting preselection
+        // silently reverted it.
+        _limitsChoice = State(initialValue: ClaudeLimitsChoice.current(
+            feedInstalled: feedInstalled, useCLIToken: useCLIToken, signedIn: signedIn))
         _clientId = State(initialValue: oauthClientId)
     }
 

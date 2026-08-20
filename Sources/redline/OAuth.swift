@@ -139,6 +139,8 @@ final class OAuthManager {
     // The usage endpoint rate-limits hard and stays limited, so back off rather than
     // hammering it every poll. See anthropics/claude-code issues 31021 and 31637.
     private var backoffUntil: Date?
+    /// Which body encoding this endpoint answered, once one has
+    private var tokenEncoding: TokenEncoding?
     private var consecutive429 = 0
 
     init(settings: OAuthSettings, useCLIToken: Bool) {
@@ -405,16 +407,17 @@ final class OAuthManager {
         let verifier = pendingVerifier ?? ""
         pendingState = nil
         pendingVerifier = nil
-        postJSON(settings.tokenUrl, body: [
+        postToken(settings.tokenUrl, body: [
             "grant_type": "authorization_code",
             "code": code,
             "state": state,
             "client_id": settings.clientId,
             "redirect_uri": redirectUri,
             "code_verifier": verifier,
-        ]) { json, err in
+        ]) { json, status, text in
             guard let json, let access = json["access_token"] as? String else {
-                completion("Token exchange failed: \(err ?? "no access_token")")
+                completion("Sign-in could not be completed (HTTP \(status)). "
+                           + String(text.prefix(120)))
                 return
             }
             let expiresIn = (json["expires_in"] as? Double) ?? 3600
@@ -448,20 +451,19 @@ final class OAuthManager {
             completion(nil, "Token expired; sign in again")
             return
         }
-        postJSON(settings.tokenUrl, body: [
+        postToken(settings.tokenUrl, body: [
             "grant_type": "refresh_token",
             "refresh_token": refresh,
             "client_id": settings.clientId,
-        ]) { json, err in
+        ]) { json, status, text in
             guard let json, let access = json["access_token"] as? String else {
-                // A rejected grant is terminal, so drop the dead token; otherwise the app
-                // stays "signed in" and retries it forever instead of offering Sign In.
-                if let err, err.contains("invalid_grant") {
-                    TokenStore.clear()
-                    completion(nil, "Sign-in expired; sign in again")
-                    return
-                }
-                completion(nil, "Token refresh failed: \(err ?? "no access_token")")
+                // A rejection is terminal, so drop the dead grant; otherwise the app stays
+                // "signed in" and retries a request that cannot succeed, on every poll, with
+                // nothing offering Sign In. The old test for this looked for the literal
+                // "invalid_grant", which this endpoint does not say.
+                let outcome = ClaudeAuthPolicy.classifyRefresh(status: status, body: text)
+                if outcome.isTerminal { TokenStore.clear() }
+                completion(nil, outcome.message)
                 return
             }
             let expiresIn = (json["expires_in"] as? Double) ?? 3600
@@ -535,30 +537,92 @@ final class OAuthManager {
         }
     }
 
-    private func postJSON(_ urlStr: String, body: [String: Any],
-                          completion: @escaping ([String: Any]?, String?) -> Void) {
+    /// How the token endpoint wants its body.
+    ///
+    /// RFC 6749 specifies `application/x-www-form-urlencoded` for token requests, and this code
+    /// only ever sent JSON. That is the leading suspect for the refresh failing with the
+    /// endpoint's own "Invalid request format" while the code exchange happened to be accepted.
+    /// Rather than guess which one this undocumented endpoint honours, the first attempt is the
+    /// spec-compliant one and a rejected request is retried the other way; whichever answers is
+    /// remembered so the second request happens at most once per launch.
+    private enum TokenEncoding {
+        case form, json
+    }
+
+    private func postToken(_ urlStr: String, body: [String: String],
+                           completion: @escaping ([String: Any]?, Int, String) -> Void) {
+        let first = preferredTokenEncoding ?? .form
+        send(urlStr, body: body, encoding: first) { [weak self] json, status, text in
+            guard let self else {
+                completion(json, status, text)
+                return
+            }
+            if json != nil {
+                self.rememberTokenEncoding(first)
+                completion(json, status, text)
+                return
+            }
+            // Only a rejection of the request itself is worth re-sending differently. A 5xx or
+            // a rate limit says nothing about the encoding.
+            guard (400..<500).contains(status), self.preferredTokenEncoding == nil else {
+                completion(json, status, text)
+                return
+            }
+            let other: TokenEncoding = first == .form ? .json : .form
+            self.send(urlStr, body: body, encoding: other) { retryJSON, retryStatus, retryText in
+                if retryJSON != nil { self.rememberTokenEncoding(other) }
+                // The first answer is the one reported when both fail: it is the spec-compliant
+                // request, so its rejection is the more meaningful one.
+                completion(retryJSON, retryJSON != nil ? retryStatus : status,
+                           retryJSON != nil ? retryText : text)
+            }
+        }
+    }
+
+    private var preferredTokenEncoding: TokenEncoding? {
+        lock.lock()
+        defer { lock.unlock() }
+        return tokenEncoding
+    }
+
+    private func rememberTokenEncoding(_ encoding: TokenEncoding) {
+        lock.lock()
+        tokenEncoding = encoding
+        lock.unlock()
+    }
+
+    /// Reports the parsed body on success, plus the status and the raw text either way, so the
+    /// caller can decide what a failure means instead of parsing a prose string.
+    private func send(_ urlStr: String, body: [String: String], encoding: TokenEncoding,
+                      completion: @escaping ([String: Any]?, Int, String) -> Void) {
         guard let url = URL(string: urlStr) else {
-            completion(nil, "Bad URL \(urlStr)")
+            completion(nil, 0, "Bad URL \(urlStr)")
             return
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        switch encoding {
+        case .form:
+            req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            req.httpBody = Data(FormBody.encoded(body).utf8)
+        case .json:
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
         URLSession.shared.dataTask(with: req) { data, resp, err in
             if let err {
-                completion(nil, err.localizedDescription)
+                completion(nil, 0, err.localizedDescription)
                 return
             }
             let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            let text = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
             guard let data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   (200..<300).contains(status) else {
-                let snippet = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(160) ?? ""
-                completion(nil, "HTTP \(status): \(snippet)")
+                completion(nil, status, String(text.prefix(300)))
                 return
             }
-            completion(json, nil)
+            completion(json, status, text)
         }.resume()
     }
 

@@ -4,102 +4,63 @@ import Charts
 import RedlineCore
 import SwiftUI
 
+/// The dashboard's bridge to the design system.
+///
+/// Every colour here forwards to `RL` in RedlineCore, which is the single definition. This
+/// layer exists for two things the tokens cannot do on their own: hand AppKit an NSColor for
+/// the menu and the status item, and name the chart series.
 enum Brandkit {
-    // Dashboard surface and ink tokens resolve per appearance: the brand's dark world by
-    // default, and honest light equivalents when the window is light. The status trio
-    // stays fixed. Every other painted surface in the app forces dark, so only the
-    // dashboard actually exercises the light side.
-    private static func dynamic(dark: BrandColor, light: BrandColor) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let c = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-            return NSColor(red: c.red, green: c.green, blue: c.blue, alpha: 1)
-        })
-    }
-    private static func dynamic(dark: (Double, Double, Double),
-                                light: (Double, Double, Double)) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let c = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-            return NSColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
-        })
-    }
-
-    static let carbon = dynamic(dark: Brand.carbon, light: Brand.chalk)          // ground
-    static let graphite = dynamic(dark: Brand.graphite,
-                                  light: BrandColor(0xFFFFFF))                   // panels
-    static let chalk = dynamic(dark: Brand.chalk, light: Brand.carbon)           // ink
-    static let steel = dynamic(dark: Brand.steel, light: BrandColor(0x5C6270))   // quiet ink
-    static let signal = BrandUI.signal
-    static let amber = BrandUI.amber
-    static let clear = BrandUI.clear
-    /// Money reads green by convention. Distinct from `clear` so the light side can run
-    /// darker: the status green is tuned for dark panels and washes out on white.
-    static let money = dynamic(dark: Brand.clear, light: BrandColor(0x1E8E3E))
+    // Surfaces and ink, straight through to the tokens
+    static var carbon: Color { RL.Surface.ground }
+    static var graphite: Color { RL.Surface.raised }
+    static var well: Color { RL.Surface.sunken }
+    static var chalk: Color { RL.Ink.primary }
+    static var steel: Color { RL.Ink.muted }
+    static var hairline: Color { RL.Stroke.hairline }
+    static var signal: Color { RL.Brandmark.signal }
+    static var amber: Color { RL.State.warning }
+    static var clear: Color { RL.State.success }
+    /// Money reads green by convention, and runs darker on the light side so it does not
+    /// wash out against paper.
+    static var money: Color { RL.Brandmark.money }
 
     /// The status trio, chosen by tone rather than by reading an indicator string twice
     static func tone(_ tone: ServiceGlyph.Tone) -> Color {
-        switch tone {
-        case .healthy:  return clear
-        case .warning:  return amber
-        case .critical: return signal
-        case .unknown:  return steel
-        }
+        RLStatus.forTone(tone).color
     }
 
     static func nsTone(_ tone: ServiceGlyph.Tone) -> NSColor {
         switch tone {
-        case .healthy:  return NSColor(Brand.clear)
-        case .warning:  return NSColor(Brand.amber)
-        case .critical: return NSColor(Brand.signal)
-        case .unknown:  return NSColor(Brand.steel)
+        case .healthy:  return RL.State.nsSuccess
+        case .warning:  return RL.State.nsWarning
+        case .critical: return RL.State.nsError
+        case .unknown:  return RL.State.nsUnknown
         }
     }
 
-    // Menus follow the system theme and cannot be painted, so these two resolve per
-    // appearance: chalk on dark menus, carbon on light ones. Fixed chalk was invisible on
-    // light Macs. Every other surface paints Carbon and keeps the fixed brand tones.
-    static let menuPrimary = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(Brand.chalk) : NSColor(Brand.carbon)
-    }
-    static let menuSecondary = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(white: 0.72, alpha: 1) : NSColor(white: 0.35, alpha: 1)
-    }
+    // Menus follow the system theme and cannot be painted, so these resolve per appearance:
+    // light ink on dark menus, dark ink on light ones. Fixed chalk was invisible on light Macs.
+    static var menuPrimary: NSColor { RL.Ink.nsPrimary }
+    static var menuSecondary: NSColor { RL.Ink.nsSecondary }
 
-    // AppKit counterpart for the menu, from the same tokens. Claude's chalk flips with the
-    // theme like the primary text; the saturated tones read on both.
+    /// AppKit counterpart of a provider's accent, for the menu and the status item.
     static func nsColor(for provider: String) -> NSColor {
-        switch provider {
-        case UsageStore.provider:  return menuPrimary
-        case CodexStore.provider:  return NSColor(Brand.steel)
-        case OllamaStore.provider: return NSColor(Brand.clear)
-        default:                   return NSColor(Brand.amber)
-        }
+        ProviderIdentity.nsAccent(for: provider)
     }
 
     static func color(for provider: String) -> Color {
-        BrandUI.color(forProvider: provider)
+        ProviderIdentity.accent(for: provider)
     }
 
-    // Chart series colors, distinct from the track identity tones on purpose: chalk and
-    // steel are near-neutrals that read as one gray mass in a chart. This triple passes
-    // the categorical checks (lightness band, chroma floor, CVD separation, contrast) on
-    // Carbon; the legend ties names to colors so identity is never color alone.
-    // Each mode's steps validated separately against its own surface: dark on Carbon,
-    // light on chalk paper (the light steps sit darker to clear 3:1)
+    /// Chart series take the provider's own accent, so a series and a card carry one identity.
+    /// The accents are validated as a categorical set: one lightness band, separated by hue,
+    /// still separable under protanopia, deuteranopia and tritanopia, and each kept clear of
+    /// the signal red. The legend ties names to colours, so identity is never colour alone.
     static func chartColor(for provider: String) -> Color {
-        switch provider {
-        case UsageStore.provider:  // B9822A / A6741F
-            return dynamic(dark: (0.725, 0.510, 0.165), light: (0.651, 0.455, 0.122))
-        case CodexStore.provider:  // 5B8DE8 / 3E6FC9
-            return dynamic(dark: (0.357, 0.553, 0.910), light: (0.243, 0.435, 0.788))
-        case OllamaStore.provider: // 23A63C / 1E8F33
-            return dynamic(dark: (0.137, 0.651, 0.235), light: (0.118, 0.561, 0.200))
-        default:                   return steel
-        }
+        ProviderIdentity.accent(for: provider)
     }
 
-    /// Vertical fade for bar and area fills: full color at the data end, quieter at the
+    /// Vertical fade for bar and area fills: full colour at the data end, quieter at the
     /// baseline, so stacks stay separable without extra strokes
     static func chartFill(for provider: String) -> LinearGradient {
         let c = chartColor(for: provider)
@@ -117,9 +78,9 @@ struct ServiceStatusRow: View {
     let detail: String
     let checkedAt: Date?
 
-    private var symbol: String { ServiceGlyph.symbol(for: indicator) }
-
-    private var color: Color { Brandkit.tone(ServiceGlyph.tone(for: indicator)) }
+    private var status: RLStatus {
+        RLStatus.forTone(ServiceGlyph.tone(for: indicator), phrase: phrase)
+    }
 
     private var tooltip: String {
         let when = checkedAt.map {
@@ -130,21 +91,24 @@ struct ServiceStatusRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(color)
-            TrackBadge(provider: provider, size: 16)
+        HStack(spacing: RL.Space.lg) {
+            RLStatusIndicator(status, size: 14)
+            ProviderTile(provider: provider, size: 18)
             Text(provider)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Brandkit.chalk)
-            Spacer()
+                .font(RL.Typography.subheading)
+                .foregroundStyle(RL.Ink.primary)
+            Text(phrase)
+                .font(RL.Typography.caption)
+                .foregroundStyle(RL.Ink.secondary)
+            Spacer(minLength: RL.Space.md)
             Text(detail)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Brandkit.steel)
+                .font(RL.Typography.monoSmall)
+                .foregroundStyle(RL.Ink.muted)
                 .lineLimit(1)
         }
         .help(tooltip)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(provider): \(phrase)")
     }
 }
 
@@ -214,8 +178,71 @@ struct DashboardData {
     var loading = true
     var scannedAt: Date?
     var ollamaReachableHint = false
+    /// How often the app rescans, so the header can state the monitoring cadence rather
+    /// than leaving the user to guess whether anything is still running.
+    var pollSeconds: Double = 300
+    /// Which providers the config actually reads. A provider that is installed but switched
+    /// off has a card saying so, which is different from having no card at all.
+    var readProviders: [String] = Config.knownProviders
+    /// The thresholds from the config, so the rails, the cards and the notifications all
+    /// agree on what "approaching" means. These were hardcoded at 60 and 85 in the rails.
+    var yellowPct: Double = 60
+    var redPct: Double = 85
 
     var focusingAll: Bool { focus == Config.autoProvider }
+
+    /// Providers whose percentages are older than the staleness threshold. Only Claude can
+    /// go stale: Codex's windows are read from disk with the rest of its scan.
+    var staleProviders: Set<String> {
+        guard let asOf = claudeLimitsAsOf,
+              Date().timeIntervalSince(asOf) > ProviderOverview.stalenessThreshold else {
+            return []
+        }
+        return ["Claude"]
+    }
+
+    /// One card per provider RedLine knows about, whether or not it is installed: a card
+    /// saying "not found on this Mac" answers a question that a missing card leaves open.
+    var providerCards: [ProviderCard] {
+        Config.knownProviders.map { provider in
+            let reads = readProviders.contains {
+                $0.caseInsensitiveCompare(provider) == .orderedSame
+            }
+            let usage = ranged.providers.first {
+                $0.key.caseInsensitiveCompare(provider) == .orderedSame
+            }?.value
+            let service = services.first {
+                $0.provider.caseInsensitiveCompare(provider) == .orderedSame
+            }
+            let trend = trends.first {
+                $0.provider.caseInsensitiveCompare(provider) == .orderedSame
+            }?.points.map(\.io) ?? []
+            return ProviderOverview.card(
+                provider: provider,
+                installed: availability.has(provider),
+                read: reads,
+                // Only a local provider can be unreachable; a hosted one's transcripts are
+                // on disk whether or not its endpoint is up
+                reachable: ProviderIdentity.of(provider)?.isLocal == true
+                    ? ollamaReachableHint : nil,
+                usage: usage,
+                hasUnpriced: usage?.models.values.contains { !$0.priced } ?? false,
+                windows: limits,
+                paces: paces,
+                asOf: provider == UsageStore.provider ? claudeLimitsAsOf : nil,
+                serviceTone: service.map { ServiceGlyph.tone(for: $0.indicator) },
+                servicePhrase: service?.phrase,
+                trend: trend,
+                limitsNote: provider == UsageStore.provider ? limitsNote : nil)
+        }
+    }
+
+    /// What is worth reading before the cards. Empty is the ordinary case.
+    var warnings: [ProviderOverview.Warning] {
+        ProviderOverview.warnings(windows: limits, paces: paces,
+                                  approaching: yellowPct, atLimit: redPct,
+                                  staleProviders: staleProviders)
+    }
 
     func matches(_ provider: String) -> Bool {
         focusingAll || provider.caseInsensitiveCompare(focus) == .orderedSame
@@ -346,6 +373,12 @@ final class DashboardModel: ObservableObject {
         data.limits = limits
         let cfg = Config.load()
         let days = range
+        // Read here rather than at each use, so a rail, a card and an alert cannot disagree
+        // about where the thresholds are
+        data.readProviders = cfg.providers
+        data.yellowPct = cfg.limitYellowPct
+        data.pollSeconds = cfg.pollIntervalSeconds
+        data.redPct = cfg.limitRedPct
         let detected = ProviderAvailability.detect(
             ollamaReachable: data.ollamaReachableHint)
         data.availability = detected
@@ -411,31 +444,41 @@ final class DashboardModel: ObservableObject {
 
 // MARK: - Building blocks
 
-private struct Panel<Content: View>: View {
+/// A titled section of the dashboard. One card, one header, one vocabulary, so no two panels
+/// announce themselves differently. `accessory` is for a control that belongs to the section
+/// rather than to its content, such as a rescan button.
+private struct Panel<Content: View, Accessory: View>: View {
     let title: String
     var note: String? = nil
     var badge: String? = nil
+    @ViewBuilder var accessory: Accessory
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center) {
-                if let badge { TrackBadge(provider: badge, size: 19) }
-                Text(title.uppercased())
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .tracking(1.6)
-                    .foregroundStyle(Brandkit.steel)
-                Spacer()
-                if let note {
-                    Text(note)
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(Brandkit.steel)
+        RLCard {
+            VStack(alignment: .leading, spacing: RL.Space.lg) {
+                HStack(spacing: RL.Space.md) {
+                    // A provider-scoped panel is marked with that provider's own glyph; the
+                    // title beside it is what names the provider in words.
+                    if let badge { ProviderTile(provider: badge, size: 18) }
+                    RLSectionHeader(title, note: note) {
+                        accessory
+                    }
                 }
+                content
             }
-            content
         }
-        .padding(16)
-        .background(Brandkit.graphite, in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+extension Panel where Accessory == EmptyView {
+    init(title: String, note: String? = nil, badge: String? = nil,
+         @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.note = note
+        self.badge = badge
+        self.accessory = EmptyView()
+        self.content = content()
     }
 }
 
@@ -452,75 +495,62 @@ private struct LimitRailRow: View {
 
     private var stale: Bool {
         guard let asOf else { return false }
-        return Date().timeIntervalSince(asOf) > 900
+        return Date().timeIntervalSince(asOf) > ProviderOverview.stalenessThreshold
     }
 
-    private var status: Brand.Status {
-        Brand.status(for: window.utilization, approachingPct: yellow, atLimitPct: red)
-    }
-
-    private var valueColor: Color {
-        stale ? Brandkit.steel : BrandUI.color(forStatus: status)
+    private var status: RLStatus {
+        RLStatus.forUtilization(window.utilization, approaching: yellow, atLimit: red,
+                                stale: stale)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 7) {
-                TrackBadge(provider: window.provider, size: 19)
+        VStack(alignment: .leading, spacing: RL.Space.sm) {
+            HStack(spacing: RL.Space.md) {
+                ProviderTile(provider: window.provider, size: 19)
                 Text("\(window.provider) · \(window.displayName)")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Brandkit.chalk)
-                Spacer()
+                    .font(RL.Typography.subheading)
+                    .foregroundStyle(RL.Ink.primary)
+                // The status as a shape as well as a colour, so the reading survives
+                // greyscale and colour blindness
+                RLStatusIndicator(status, size: 11)
+                Spacer(minLength: RL.Space.md)
                 if stale, let asOf {
                     Text("as of \(asOf.formatted(date: .omitted, time: .shortened))")
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(BrandUI.amber)
+                        .font(RL.Typography.monoSmall)
+                        .foregroundStyle(RL.State.warning)
+                        .help("The last reading RedLine has. Claude Code only feeds the "
+                              + "usage feed while it runs.")
                 }
                 Text("\(Int(window.utilization.rounded()))% used")
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(valueColor)
+                    .font(RL.Typography.mono)
+                    .foregroundStyle(status.color)
+                    .contentTransition(.numericText())
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Brandkit.carbon)
-                    Capsule()
-                        .fill(valueColor)
-                        .frame(width: max(2, geo.size.width * window.utilization / 100))
-                    // The limit itself, always at the end of the rail
-                    Rectangle()
-                        .fill(Brandkit.signal)
-                        .frame(width: 2)
-                        .offset(x: geo.size.width - 2)
-                    // Where the clock has got to. Level with the fill means the window is
-                    // being spent at exactly the rate it refills; ahead of it means it runs
-                    // out early. No arithmetic required to see which.
-                    if !stale, let elapsed = pace?.elapsedFraction, elapsed > 0, elapsed < 1 {
-                        Rectangle()
-                            .fill(Brandkit.chalk.opacity(0.65))
-                            .frame(width: 1)
-                            .offset(x: geo.size.width * elapsed)
-                            .help("where the clock is: \(Int((elapsed * 100).rounded()))% "
-                                  + "of this window has passed")
-                    }
-                }
-            }
-            .frame(height: 8)
-            HStack(spacing: 8) {
+            RLUsageRail(utilization: window.utilization, status: status, height: 8,
+                        elapsed: stale ? nil : pace?.elapsedFraction)
+            HStack(spacing: RL.Space.md) {
                 if let r = window.resetsAt {
                     Text("Resets \(r.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(Brandkit.steel)
+                        .font(RL.Typography.monoSmall)
+                        .foregroundStyle(RL.Ink.muted)
                 }
                 if !stale, let pace, let summary = pace.summary() {
                     Text("· " + summary)
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(pace.hitsLimitBeforeReset ? BrandUI.amber
-                                                                   : Brandkit.steel)
+                        .font(RL.Typography.monoSmall)
+                        .foregroundStyle(pace.hitsLimitBeforeReset ? RL.State.warning
+                                                                   : RL.Ink.muted)
                         .help(pace.basisNote)
                 }
                 Spacer()
+                // Where a percentage came from, said in a word: three sources can produce
+                // the same number, and one that cannot name its origin cannot be trusted.
+                RLPill(window.source.label, tint: RL.Ink.muted, help: window.source.note)
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(window.provider) \(window.displayName)")
+        .accessibilityValue("\(Int(window.utilization.rounded())) percent used, "
+                            + status.phrase)
     }
 }
 
@@ -650,27 +680,17 @@ private struct FindingRow: View {
     }
 }
 
+/// The dashboard's tile, forwarding to the shared metric tile so the dashboard, the overview
+/// and the detail view cannot drift on how a number is presented.
 private struct StatTile: View {
     let label: String
     let value: String
     var sub: String? = nil
+    var tint: Color? = nil
+    var help: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label.uppercased())
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .tracking(1.4)
-                .foregroundStyle(Brandkit.steel)
-            Text(value)
-                .font(.system(size: 25, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Brandkit.chalk)
-            if let sub {
-                Text(sub)
-                    .font(.system(size: 13, design: .monospaced))
-                    .foregroundStyle(Brandkit.steel)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        RLMetricTile(label: label, value: value, note: sub, tint: tint, help: help)
     }
 }
 
@@ -723,10 +743,11 @@ private struct ChartReadout: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(minWidth: 150, alignment: .leading)
-        .background(Brandkit.graphite, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8)
-            .stroke(Brandkit.steel.opacity(0.25), lineWidth: 1))
-        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+        .background(RL.Surface.overlay, in: RoundedRectangle(cornerRadius: RL.Radius.control,
+                                                             style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: RL.Radius.control, style: .continuous)
+            .strokeBorder(RL.Stroke.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.28), radius: 10, y: 3)
     }
 }
 
@@ -778,6 +799,28 @@ private func readoutRows(_ trends: [ProviderTrend], at start: Date,
         guard amount > 0 else { return nil }
         return (provider: trend.provider, value: format(amount))
     }
+}
+
+/// A chart's contents in words. A Charts view is opaque to assistive technology, so every
+/// chart in the dashboard carries one of these as its accessibility label.
+private func chartSummary(_ what: String, trends: [ProviderTrend],
+                          value: (UsagePoint) -> Double,
+                          format: (Double) -> String) -> String {
+    let named = trends.map { trend -> String in
+        let total = trend.points.reduce(0.0) { $0 + value($1) }
+        return "\(trend.provider) \(format(total))"
+    }
+    guard !named.isEmpty else { return "\(what): no data" }
+    let overall = trends.reduce(0.0) { sum, trend in
+        sum + trend.points.reduce(0.0) { $0 + value($1) }
+    }
+    let peak = trends.flatMap(\.points).max(by: { value($0) < value($1) })
+    var line = "\(what). Total \(format(overall)), by provider: \(named.joined(separator: ", "))."
+    if let peak, value(peak) > 0 {
+        line += " Busiest bucket \(peak.start.formatted(date: .abbreviated, time: .shortened))"
+            + " at \(format(value(peak)))."
+    }
+    return line
 }
 
 private struct DailyTokensChart: View {
@@ -847,6 +890,10 @@ private struct DailyTokensChart: View {
         }
         .chartHover(over: starts, hover: $hover)
         .frame(height: 215)
+        .accessibilityElement()
+        .accessibilityLabel(chartSummary("Tokens per day over \(range) days",
+                                         trends: trends, value: { Double($0.io) },
+                                         format: { fmtTokens(Int($0)) }))
     }
 
     private func total(at start: Date) -> Int {
@@ -934,6 +981,10 @@ private struct DailyCostChart: View {
         }
         .chartHover(over: starts, hover: $hover)
         .frame(height: 175)
+        .accessibilityElement()
+        .accessibilityLabel(chartSummary("Estimated cost per day over \(range) days",
+                                         trends: trends, value: { $0.cost },
+                                         format: { fmtCost($0) }))
     }
 
     private func total(at start: Date) -> Double {
@@ -1007,6 +1058,10 @@ private struct HourlyChart: View {
         }
         .chartHover(over: starts, hover: $hover)
         .frame(height: 155)
+        .accessibilityElement()
+        .accessibilityLabel(chartSummary("Tokens per hour over the last 24 hours",
+                                         trends: trends, value: { Double($0.io) },
+                                         format: { fmtTokens(Int($0)) }))
     }
 
     private func total(at start: Date) -> Int {
@@ -1038,8 +1093,8 @@ private struct ModelMix: View {
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(Brandkit.steel)
                         .frame(width: 68, alignment: .trailing)
-                    // An unpriced model shows a dash, never a zero that reads as free
-                    Text(m.priced ? fmtCost(m.cost) : "—")
+                    // An unpriced model reads "n/a", never a zero that reads as free
+                    Text(m.priced ? fmtCost(m.cost) : "n/a")
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(m.priced ? Brandkit.money : Brandkit.steel)
                         .lineLimit(1)
@@ -1068,7 +1123,7 @@ private struct ModelMix: View {
                     .frame(width: 96, alignment: .trailing)
             }
             if models.contains(where: { !$0.priced }) {
-                Text("— means no pricing entry, so it is counted in tokens only")
+                Text("n/a means no pricing entry, so it is counted in tokens only")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(Brandkit.steel)
             }
@@ -1268,67 +1323,63 @@ private struct CadencePanel: View {
     }
 }
 
+/// The window's scroll container, kept separate from what it scrolls.
+///
+/// The split is not decorative: `ImageRenderer` draws nothing inside a `ScrollView`, so every
+/// rendered state of this screen would have been an empty rectangle. The content is a view in
+/// its own right, so it can be rendered, previewed and measured.
 struct DashboardView: View {
     @ObservedObject var model: DashboardModel
     @ObservedObject var ollama: OllamaService
     let onReload: (Int) -> Void
     let onFocus: (String) -> Void
+    /// Opens the settings window. Nil in a preview, where there is no app to open it.
+    var onOpenSettings: (() -> Void)? = nil
+
+    var body: some View {
+        ScrollView {
+            DashboardContent(model: model, ollama: ollama, onReload: onReload,
+                             onFocus: onFocus, onOpenSettings: onOpenSettings)
+        }
+        .background(RL.Surface.ground)
+        // The theme is applied to the window itself, in AppDelegate. preferredColorScheme
+        // here would fight it and reintroduce the lag on returning to "follow the OS".
+    }
+}
+
+struct DashboardContent: View {
+    @ObservedObject var model: DashboardModel
+    @ObservedObject var ollama: OllamaService
+    let onReload: (Int) -> Void
+    let onFocus: (String) -> Void
+    var onOpenSettings: (() -> Void)? = nil
     // Entries are kept a year, so the long ranges answer from the store rather than from
     // whatever Claude Code has not pruned yet. That is the whole reason the store exists.
     private let ranges = [7, 14, 30, 60, 90]
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var data: DashboardData { model.data }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: RL.Space.lg) {
                 header
 
                 if data.loading {
                     Panel(title: "Reading transcripts") {
-                        HStack(spacing: 10) {
-                            ProgressView().controlSize(.small)
-                            Text("Scanning \(data.range) days of usage")
-                                .font(.system(size: 14, design: .monospaced))
-                                .foregroundStyle(Brandkit.steel)
-                        }
+                        RLStateBlock(.loading("Scanning \(data.range) days of usage"),
+                                     hint: "Transcripts are read off the main thread, so the "
+                                         + "window stays responsive while this runs")
                     }
                 } else {
+                    // The overview answers "is anything about to stop me" before any chart
+                    // is read. Focused on one provider, its detail takes the same slot.
+                    if data.focusingAll { overview } else { providerDetail }
                     tiles
                     // Limits before service status: the limit rails are the product's
                     // headline, and the menu already leads with them.
                     limitsPanel
-                    if !data.visibleServices.isEmpty {
-                        Panel(title: "Service status", note: "as reported by each operator") {
-                            VStack(alignment: .leading, spacing: 10) {
-                                ForEach(data.visibleServices, id: \.provider) { s in
-                                    ServiceStatusRow(provider: s.provider,
-                                                     indicator: s.indicator,
-                                                     phrase: s.phrase,
-                                                     detail: s.description,
-                                                     checkedAt: data.servicesCheckedAt)
-                                }
-                                HStack(spacing: 8) {
-                                    Button {
-                                        model.onStatusRefresh?()
-                                    } label: {
-                                        Label("Check now", systemImage: "arrow.clockwise")
-                                            .font(.system(size: 11))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(Brandkit.steel)
-                                    .help("Re-check every status immediately")
-                                    if let at = data.servicesCheckedAt {
-                                        Text("last checked " + DateFormatter.localizedString(
-                                            from: at, dateStyle: .none, timeStyle: .short))
-                                            .font(.system(size: 11, design: .monospaced))
-                                            .foregroundStyle(Brandkit.steel)
-                                    }
-                                    Spacer()
-                                }
-                            }
-                        }
-                    }
+                    servicePanel
                     findingsPanel
                     if data.focus == OllamaStore.provider {
                         OllamaPanel(service: ollama)
@@ -1356,13 +1407,422 @@ struct DashboardView: View {
                     }
                     historyPanel
                 }
-            }
-            .padding(16)
         }
-        .background(Brandkit.carbon)
-        // The theme is applied to the window itself, in AppDelegate. preferredColorScheme
-        // here would fight it and reintroduce the lag on returning to "follow the OS".
+        .padding(RL.Space.xl)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RL.Surface.ground)
+        // Content changing under a live monitor must not jump, and must not animate at
+        // all when the user has asked for less motion
+        .animation(reduceMotion ? nil : .easeInOut(duration: RL.Motion.content),
+                   value: data.loading)
+        .animation(reduceMotion ? nil : .easeInOut(duration: RL.Motion.content),
+                   value: data.focus)
     }
+
+    // MARK: - Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: RL.Space.lg) {
+            HStack(alignment: .top, spacing: RL.Space.lg) {
+                identity
+                Spacer(minLength: RL.Space.lg)
+                monitoringStatus
+            }
+            // The red rule under the wordmark, as in the supplied lockup
+            Rectangle()
+                .fill(RL.Brandmark.signal)
+                .frame(width: 132, height: 3)
+                .clipShape(Capsule())
+            scopeBar
+        }
+    }
+
+    private var identity: some View {
+        HStack(spacing: RL.Space.lg) {
+            RedlineMarkAdaptive(size: 31)
+            VStack(alignment: .leading, spacing: 1) {
+                // Wordmark specs follow brand/logo/redline-wordmark-dark.svg
+                Text("RedLine")
+                    .font(RL.Typography.title)
+                    .tracking(-0.7)
+                    .foregroundStyle(RL.Ink.primary)
+                Text("Know your limit.")
+                    .font(RL.Typography.mono)
+                    .tracking(0.8)
+                    .foregroundStyle(RL.Ink.muted)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("RedLine. Know your limit.")
+    }
+
+    /// Whether monitoring is actually running, and when it last did something. A monitor that
+    /// cannot say this is indistinguishable from one that has quietly stopped.
+    private var monitoringStatus: some View {
+        VStack(alignment: .trailing, spacing: RL.Space.xs) {
+            HStack(spacing: RL.Space.sm) {
+                RLStatusIndicator(RLStatus(.healthy, phrase: "Monitoring"), size: 11)
+                Text("Monitoring \(readProvidersPhrase)")
+                    .font(RL.Typography.caption)
+                    .foregroundStyle(RL.Ink.secondary)
+                    .lineLimit(1)
+            }
+            HStack(spacing: RL.Space.sm) {
+                Text(data.scannedAt.map {
+                    "Updated \($0.formatted(date: .omitted, time: .standard))"
+                } ?? "Reading…")
+                    .font(RL.Typography.monoSmall)
+                    .foregroundStyle(RL.Ink.muted)
+                    .contentTransition(.numericText())
+                Text("· every \(cadencePhrase)")
+                    .font(RL.Typography.monoSmall)
+                    .foregroundStyle(RL.Ink.muted)
+                    .help("How often RedLine rescans. Claude's windows also update the moment "
+                          + "Claude Code writes them, without waiting for this.")
+                Button { onReload(data.range) } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(RL.Ink.secondary)
+                .help("Rescan now")
+                .accessibilityLabel("Rescan now")
+                if let onOpenSettings {
+                    Button(action: onOpenSettings) {
+                        Image(systemName: "gearshape")
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(RL.Ink.secondary)
+                    .help("Open settings")
+                    .accessibilityLabel("Open settings")
+                }
+            }
+        }
+    }
+
+    /// "Claude, Codex and Ollama", or "nothing yet" when every provider is switched off.
+    private var readProvidersPhrase: String {
+        let names = Config.knownProviders.filter { provider in
+            data.availability.has(provider)
+                && data.readProviders.contains {
+                    $0.caseInsensitiveCompare(provider) == .orderedSame
+                }
+        }
+        switch names.count {
+        case 0:  return "nothing yet"
+        case 1:  return names[0]
+        case 2:  return names.joined(separator: " and ")
+        default: return names.dropLast().joined(separator: ", ") + " and " + names[names.count - 1]
+        }
+    }
+
+    /// Human units, not developer ones: "every 300s" made users ask what was wrong.
+    private var cadencePhrase: String {
+        let seconds = data.pollSeconds
+        if seconds.truncatingRemainder(dividingBy: 60) == 0 {
+            return "\(Int(seconds / 60))m"
+        }
+        return "\(Int(seconds))s"
+    }
+
+    /// Which provider is in view, the appearance, and the range. The provider control carries
+    /// each provider's own mark, so the scope is recognisable before it is read.
+    ///
+    /// Two rows when one will not fit. Squeezing the row instead truncated the provider names
+    /// away and left three bare third-party marks acting as controls, which is exactly what a
+    /// mark on its own must not do.
+    private var scopeBar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: RL.Space.lg) {
+                providerScope
+                Spacer(minLength: RL.Space.lg)
+                themeControl
+                rangeControl
+            }
+            VStack(alignment: .leading, spacing: RL.Space.md) {
+                providerScope
+                HStack(spacing: RL.Space.lg) {
+                    themeControl
+                    Spacer(minLength: 0)
+                    rangeControl
+                }
+            }
+        }
+    }
+
+    private var rangeControl: some View {
+        RLSegmented(options: ranges.map {
+                        (value: $0, label: "\($0)d",
+                         help: "Show the last \($0) days")
+                    },
+                    selection: data.range,
+                    onSelect: onReload)
+    }
+
+    @ViewBuilder
+    private var providerScope: some View {
+        if data.availability.hasChoice {
+            HStack(spacing: RL.Space.xs) {
+                ForEach(data.availability.trackChoices, id: \.self) { choice in
+                    let active = choice.caseInsensitiveCompare(data.focus) == .orderedSame
+                    let all = choice == Config.autoProvider
+                    let accent = all ? RL.Brandmark.signal
+                                     : ProviderIdentity.accent(for: choice)
+                    Button { onFocus(choice) } label: {
+                        HStack(spacing: RL.Space.sm) {
+                            if all {
+                                RedlineMarkAdaptive(size: 13)
+                            } else if let mark = ProviderIdentity.of(choice)?.mark {
+                                ProviderGlyph(mark, size: 13)
+                                    .foregroundStyle(active ? accent : RL.Ink.muted)
+                            }
+                            Text(all ? "All" : choice)
+                                .font(.system(size: 12, weight: .medium))
+                                // The name is what makes the mark an identification rather
+                                // than a decoration, so it is never what gets truncated
+                                .fixedSize()
+                        }
+                        .padding(.horizontal, RL.Space.lg)
+                        .frame(height: 26)
+                        .foregroundStyle(active ? RL.Ink.primary : RL.Ink.muted)
+                        .background(active ? accent.opacity(0.16) : RL.Surface.sunken,
+                                    in: RoundedRectangle(cornerRadius: RL.Radius.chip,
+                                                         style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: RL.Radius.chip, style: .continuous)
+                                .strokeBorder(active ? accent.opacity(0.5) : .clear,
+                                              lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help(all ? "Show every provider together"
+                              : "Show only \(choice)")
+                    .accessibilityLabel(all ? "All providers" : choice)
+                    .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
+                }
+            }
+        } else if let only = data.availability.installed.first {
+            // Nothing to choose between, so state the track rather than offer it
+            ProviderBadge.forProvider(only, size: 14)
+        }
+    }
+
+    /// Appearance: auto follows the OS, light and dark force the window. The choice persists
+    /// in the config like every other preference.
+    private var themeControl: some View {
+        RLSegmented(options: [("auto", "Auto", "Follow the system appearance"),
+                              ("light", "Light", "Always use the light appearance"),
+                              ("dark", "Dark", "Always use the dark appearance")]
+                        .map { (value: $0.0, label: $0.1, help: $0.2) },
+                    selection: data.theme,
+                    width: 46,
+                    onSelect: { model.setTheme($0) })
+    }
+
+    // MARK: - Overview
+
+    /// Every provider at a glance: what is about to stop you, the totals over the range, and
+    /// one card per provider.
+    private var overview: some View {
+        VStack(alignment: .leading, spacing: RL.Space.lg) {
+            if !data.warnings.isEmpty {
+                OverviewWarnings(warnings: data.warnings, onOpen: onFocus)
+            }
+            summaryCard
+            let cards = data.providerCards
+            ProviderCardGrid(count: cards.count) { index in
+                let card = cards[index]
+                ProviderCardView(card: card, yellow: data.yellowPct, red: data.redPct,
+                                 periodLabel: "last \(data.rangeLabel)",
+                                 scannedAt: data.scannedAt,
+                                 selected: false,
+                                 onOpen: { onFocus(card.provider) })
+            }
+        }
+    }
+
+    /// The single number that answers "how close am I", with the window it came from named
+    /// beside it. Nothing here is invented: with no limits anywhere, it says so.
+    ///
+    /// Stacks when the row will not fit. Side by side at a narrow width, the tile labels were
+    /// the first thing to truncate, and "ESTIMATED CO…" over a figure is worse than no label.
+    private var summaryCard: some View {
+        let worst = data.visibleLimits.max(by: { $0.utilization < $1.utilization })
+        let stale = worst.map { data.staleProviders.contains($0.provider) } ?? false
+        return RLCard {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: RL.Space.xxl) {
+                    nearestLimit(worst, stale: stale)
+                    Divider().frame(height: 84).overlay(RL.Stroke.hairline)
+                    rangeTotals
+                }
+                VStack(alignment: .leading, spacing: RL.Space.lg) {
+                    nearestLimit(worst, stale: stale)
+                    Divider().overlay(RL.Stroke.hairline)
+                    rangeTotals
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func nearestLimit(_ worst: LimitWindow?, stale: Bool) -> some View {
+        VStack(alignment: .leading, spacing: RL.Space.md) {
+            RLSectionHeader("Nearest limit",
+                            note: worst.map { "\($0.provider) · \($0.displayName)" }
+                                ?? "across every provider")
+            if let worst {
+                let status = RLStatus.forUtilization(worst.utilization,
+                                                    approaching: data.yellowPct,
+                                                    atLimit: data.redPct, stale: stale)
+                HStack(alignment: .firstTextBaseline, spacing: RL.Space.md) {
+                    Text("\(Int(worst.utilization.rounded()))%")
+                        .font(.system(size: 34, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(status.color)
+                        .contentTransition(.numericText())
+                    RLStatusIndicator(status, size: 13, showsLabel: true)
+                }
+                RLUsageRail(utilization: worst.utilization, status: status, height: 8,
+                            elapsed: stale ? nil : data.pace(for: worst)?.elapsedFraction)
+                Text(worst.resetsAt.map {
+                    "Resets \($0.formatted(date: .abbreviated, time: .shortened))"
+                } ?? "No reset time reported")
+                    .font(RL.Typography.monoSmall)
+                    .foregroundStyle(RL.Ink.muted)
+            } else {
+                RLStateBlock(.unavailable("No rate limit is being reported"),
+                             hint: "Cost and token counts below are unaffected")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var rangeTotals: some View {
+        let ranged = data.rangedSlice
+        return HStack(alignment: .top, spacing: RL.Space.xxl) {
+            RLMetricTile(label: "Tokens · \(data.rangeLabel)",
+                         value: fmtTokens(ranged.io),
+                         note: "in + out")
+            RLMetricTile(label: "Estimated cost",
+                         value: fmtCost(ranged.cost) + (ranged.hasUnpriced ? "+" : ""),
+                         note: ranged.hasUnpriced ? "some models unpriced"
+                                                  : "configured pricing",
+                         tint: RL.Brandmark.money,
+                         help: "Estimated from your pricing table over measured counts. "
+                             + "Never a bill.")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Provider detail
+
+    /// One provider in full: what it has spent, what is left, when it resets, where the
+    /// figures came from, and what cannot be answered here and why.
+    @ViewBuilder
+    private var providerDetail: some View {
+        if let card = data.providerCards.first(where: {
+            $0.provider.caseInsensitiveCompare(data.focus) == .orderedSame
+        }) {
+            let status = card.status(approaching: data.yellowPct, atLimit: data.redPct)
+            let accent = card.identity?.accent ?? RL.Accent.neutral
+            RLCard(accent: accent) {
+                VStack(alignment: .leading, spacing: RL.Space.lg) {
+                    HStack(alignment: .center, spacing: RL.Space.lg) {
+                        ProviderBadge.forProvider(card.provider, size: 17)
+                        RLStatusIndicator(status, size: 14, showsLabel: true)
+                        Spacer(minLength: RL.Space.md)
+                        RLInlineButton("All providers", systemImage: "square.grid.2x2",
+                                       help: "Back to the overview") {
+                            onFocus(Config.autoProvider)
+                        }
+                    }
+                    if let blurb = card.identity?.blurb {
+                        Text(blurb)
+                            .font(RL.Typography.body)
+                            .foregroundStyle(RL.Ink.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Divider().overlay(RL.Stroke.hairline)
+                    detailMetrics(card)
+                    if let window = card.worstWindow {
+                        RLUsageRail(utilization: window.utilization, status: status, height: 8,
+                                    elapsed: card.pace?.elapsedFraction)
+                    }
+                    if let note = card.limitNote {
+                        RLStateBlock(.unavailable(note),
+                                     hint: card.identity?.isLocal == true
+                                         ? "Token counts and cost are still recorded"
+                                         : nil)
+                    }
+                    provenanceRow(card)
+                }
+            }
+        }
+    }
+
+    private func detailMetrics(_ card: ProviderCard) -> some View {
+        let ranged = data.rangedSlice
+        let today = data.todaySlice
+        return HStack(alignment: .top, spacing: RL.Space.xxl) {
+            RLMetricTile(label: "This period",
+                         value: card.worstWindow.map {
+                             "\(Int($0.utilization.rounded()))%"
+                         } ?? fmtTokens(today.io),
+                         note: card.worstWindow?.displayName ?? "tokens today",
+                         help: card.worstWindow == nil
+                             ? "This provider reports no limit window, so the figure is volume"
+                             : "Share of the window that has been consumed")
+            RLMetricTile(label: "Remaining",
+                         value: card.remainingPercent.map {
+                             "\(Int($0.rounded()))%"
+                         } ?? "not reported",
+                         note: card.remainingPercent == nil ? "no limit to have capacity in"
+                                                            : "of this window",
+                         help: card.remainingPercent == nil
+                             ? "Nothing is inferred here: with no limit reported there is no "
+                                 + "capacity figure to give"
+                             : nil)
+            RLMetricTile(label: "Resets",
+                         value: card.worstWindow?.resetsAt.map {
+                             $0.formatted(date: .omitted, time: .shortened)
+                         } ?? "not reported",
+                         note: card.worstWindow?.resetsAt.map {
+                             $0.formatted(.relative(presentation: .named))
+                         } ?? nil)
+            RLMetricTile(label: "Tokens · \(data.rangeLabel)", value: fmtTokens(ranged.io),
+                         note: fmtCost(ranged.cost) + (ranged.hasUnpriced ? "+" : "") + " est",
+                         help: ranged.hasUnpriced
+                             ? "Some models here have no pricing entry, so they are counted "
+                                 + "in tokens only and the total carries a plus"
+                             : nil)
+        }
+    }
+
+    /// Where the figures came from and how fresh they are. Three sources can produce the same
+    /// percentage, so a reading that cannot name its origin cannot be argued with or fixed.
+    private func provenanceRow(_ card: ProviderCard) -> some View {
+        HStack(spacing: RL.Space.md) {
+            if let window = card.worstWindow {
+                RLPill(window.source.label, tint: RL.Ink.muted, help: window.source.note)
+            }
+            if card.identity?.isLocal == true {
+                RLPill("local", tint: card.identity?.accent ?? RL.Accent.neutral,
+                       help: "Probed directly on this Mac; nothing leaves the machine")
+            }
+            if let asOf = card.asOf {
+                Text("windows as of \(asOf.formatted(date: .omitted, time: .standard))")
+                    .font(RL.Typography.monoSmall)
+                    .foregroundStyle(card.isStale ? RL.State.warning : RL.Ink.muted)
+            }
+            Spacer(minLength: 0)
+            if let at = data.scannedAt {
+                Text("transcripts read \(at.formatted(date: .omitted, time: .standard))")
+                    .font(RL.Typography.monoSmall)
+                    .foregroundStyle(RL.Ink.muted)
+            }
+        }
+    }
+
+    // MARK: - Panels
 
     /// The rails, or a way to get them. An empty panel with only an error string was a dead
     /// end exactly where a new user needs a door; the setup button is the door.
@@ -1370,17 +1830,15 @@ struct DashboardView: View {
     private var limitsPanel: some View {
         if !data.visibleLimits.isEmpty || data.limitsNote != nil {
             Panel(title: "Limits", note: "the red line marks the limit") {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: RL.Space.lg) {
                     ForEach(data.visibleLimits) { window in
-                        LimitRailRow(window: window, yellow: 60, red: 85,
+                        LimitRailRow(window: window, yellow: data.yellowPct, red: data.redPct,
                                      pace: data.pace(for: window),
                                      asOf: window.provider == "Claude"
                                          ? data.claudeLimitsAsOf : nil)
                     }
                     if let note = data.limitsNote {
-                        Text(note)
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(Brandkit.steel)
+                        RLStateBlock(.unavailable(note))
                     }
                     // No Claude rails and no feed installed: offer the recommended fix
                     // right here rather than sending the user hunting through the menu
@@ -1388,19 +1846,45 @@ struct DashboardView: View {
                        !data.visibleLimits.contains(where: { $0.provider == "Claude" }),
                        !StatuslineInstaller.isInstalled(),
                        data.availability.has("Claude") {
-                        Button {
+                        RLInlineButton("Set Up Claude Tracking…", systemImage: "waveform.path",
+                                       help: "Reads the windows Claude Code hands its "
+                                           + "statusline. No sign-in, no Keychain, no "
+                                           + "network.") {
                             model.onSetupClaudeTracking?()
-                        } label: {
-                            Label("Set Up Claude Tracking…", systemImage: "waveform.path")
-                                .font(.system(size: 12))
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(Brandkit.chalk)
-                        .help("Reads the windows Claude Code hands its statusline. "
-                              + "No sign-in, no Keychain, no network.")
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var servicePanel: some View {
+        if !data.visibleServices.isEmpty {
+            Panel(title: "Service status", note: "as reported by each operator",
+                  accessory: {
+                      RLInlineButton("Check now", systemImage: "arrow.clockwise",
+                                     help: "Re-check every status immediately") {
+                          model.onStatusRefresh?()
+                      }
+                  },
+                  content: {
+                      VStack(alignment: .leading, spacing: RL.Space.lg) {
+                          ForEach(data.visibleServices, id: \.provider) { s in
+                              ServiceStatusRow(provider: s.provider,
+                                               indicator: s.indicator,
+                                               phrase: s.phrase,
+                                               detail: s.description,
+                                               checkedAt: data.servicesCheckedAt)
+                          }
+                          if let at = data.servicesCheckedAt {
+                              Text("last checked " + DateFormatter.localizedString(
+                                  from: at, dateStyle: .none, timeStyle: .short))
+                                  .font(RL.Typography.monoSmall)
+                                  .foregroundStyle(RL.Ink.muted)
+                          }
+                      }
+                  })
         }
     }
 
@@ -1414,27 +1898,25 @@ struct DashboardView: View {
                   note: "\(report.sessionsScanned) sessions · \(report.windowDays) days") {
                 VStack(alignment: .leading, spacing: 0) {
                     if report.isEmpty {
-                        Text(report.hidden > 0
-                             ? "Nothing left in this window; \(report.hidden) marked as read."
-                             : "Nothing worth changing in this window.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Brandkit.steel)
-                            .padding(.bottom, 14)
+                        RLStateBlock(.empty(report.hidden > 0
+                            ? "Nothing left in this window; \(report.hidden) marked as read."
+                            : "Nothing worth changing in this window."))
+                            .padding(.bottom, RL.Space.lg)
                     } else {
                         ForEach(Array(report.findings.enumerated()), id: \.element.id) {
                             index, finding in
                             if index > 0 {
                                 Divider()
-                                    .overlay(Brandkit.steel.opacity(0.18))
-                                    .padding(.vertical, 14)
+                                    .overlay(RL.Stroke.hairline)
+                                    .padding(.vertical, RL.Space.lg)
                             }
                             FindingRow(finding: finding) {
                                 model.onDismissFinding?(finding.id)
                             }
                         }
                         Divider()
-                            .overlay(Brandkit.steel.opacity(0.18))
-                            .padding(.vertical, 14)
+                            .overlay(RL.Stroke.hairline)
+                            .padding(.vertical, RL.Space.lg)
                     }
                     footer(report)
                 }
@@ -1445,48 +1927,39 @@ struct DashboardView: View {
     /// The one caveat that applies to every row, said once, next to the control that
     /// regenerates them.
     private func footer(_ report: FindingsReport) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: RL.Space.lg) {
             Text("Estimates over measured counts, never a bill. "
                  + "A finding with nothing honest to put on it carries no figure.")
-                .font(.system(size: 11))
-                .foregroundStyle(Brandkit.steel.opacity(0.85))
+                .font(RL.Typography.caption)
+                .foregroundStyle(RL.Ink.muted)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 16)
+            Spacer(minLength: RL.Space.xl)
             // Said wherever findings are counted, so a hidden one is never mistaken for one
             // that stopped being true
             if report.hidden > 0 {
-                Button {
+                RLInlineButton("\(report.hidden) read",
+                               help: "Marked as read and hidden. Click to show them again "
+                                   + "now.") {
                     model.onRestoreFindings?()
-                } label: {
-                    Text("\(report.hidden) read")
-                        .font(.system(size: 11, design: .monospaced))
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Brandkit.steel)
-                .help("Marked as read and hidden. Click to show them again now.")
             }
             if data.findingsScanning {
-                HStack(spacing: 6) {
+                HStack(spacing: RL.Space.sm) {
                     ProgressView().controlSize(.small).scaleEffect(0.7)
                     Text("Scanning")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Brandkit.steel)
+                        .font(RL.Typography.monoSmall)
+                        .foregroundStyle(RL.Ink.muted)
                 }
             } else {
-                Button {
+                RLInlineButton("Scan again", systemImage: "arrow.clockwise",
+                               help: "Reads the transcripts again now, rather than waiting "
+                                   + "for the background pass") {
                     model.onRescanFindings?()
-                } label: {
-                    Label("Scan again", systemImage: "arrow.clockwise")
-                        .font(.system(size: 11))
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Brandkit.chalk.opacity(0.85))
-                .help("Reads the transcripts again now, rather than waiting for the "
-                      + "background pass")
             }
             Text(report.generatedAt.formatted(date: .omitted, time: .standard))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Brandkit.steel)
+                .font(RL.Typography.monoSmall)
+                .foregroundStyle(RL.Ink.muted)
                 .help("when this report was generated")
         }
     }
@@ -1501,21 +1974,22 @@ struct DashboardView: View {
                              focused: !data.focusingAll)
             }
             Panel(title: "Recorded history", note: "kept locally, UTC days") {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 22) {
+                VStack(alignment: .leading, spacing: RL.Space.md) {
+                    HStack(spacing: RL.Space.xxl) {
                         StatTile(label: "Days", value: "\(history.days)",
                                  sub: [history.earliest, history.latest]
                                     .compactMap { $0 }.joined(separator: " to "))
                         StatTile(label: "Tokens", value: fmtTokens(history.tokens))
                         StatTile(label: "Estimated cost",
                                  value: fmtCost(history.cost) + (history.complete ? "" : "+"),
-                                 sub: history.complete ? nil : "some models have no price")
+                                 sub: history.complete ? nil : "some models have no price",
+                                 tint: RL.Brandmark.money)
                         Spacer()
                     }
                     Text("Recorded as RedLine polls, so it survives Claude Code's own "
                          + "transcript cleanup. \(ByteCountFormatter.string(fromByteCount: history.sizeBytes, countStyle: .file)) on disk.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brandkit.steel)
+                        .font(RL.Typography.caption)
+                        .foregroundStyle(RL.Ink.muted)
                 }
             }
         }
@@ -1523,128 +1997,12 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var empty: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("No usage recorded in this range")
-                .font(.system(size: 14, design: .monospaced))
-                .foregroundStyle(Brandkit.steel)
-            // Ollama keeps no history of its own, so say how to start collecting it
-            if data.focus == OllamaStore.provider {
-                Text("Use Set Up Ollama Tracking in the menu to record calls")
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Brandkit.steel.opacity(0.8))
-            }
-        }
-        .frame(height: 60, alignment: .topLeading)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                RedlineMark(size: 31)
-                VStack(alignment: .leading, spacing: 1) {
-                    // Wordmark specs follow brand/logo/redline-wordmark-dark.svg
-                    Text("RedLine")
-                        .font(.system(size: 24, weight: .bold))
-                        .tracking(-0.7)
-                        .foregroundStyle(Brandkit.chalk)
-                    Text("Know your limit.")
-                        .font(.system(size: 13, design: .monospaced))
-                        .tracking(0.8)
-                        .foregroundStyle(Brandkit.steel)
-                }
-                Spacer()
-                Text(data.scannedAt.map {
-                    "Updated \($0.formatted(date: .omitted, time: .standard))"
-                } ?? "Reading…")
-                    .font(.system(size: 13, design: .monospaced))
-                    .foregroundStyle(Brandkit.steel)
-                Button {
-                    onReload(data.range)
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(Brandkit.steel)
-                .help("Rescan now")
-            }
-            // The red rule under the wordmark, as in the supplied lockup
-            Rectangle()
-                .fill(Brandkit.signal)
-                .frame(width: 132, height: 3)
-                .clipShape(Capsule())
-
-            HStack(spacing: 10) {
-                HStack(spacing: 7) {
-                    TrackBadge(provider: data.focusingAll ? nil : data.focus, size: 23)
-                    if data.availability.hasChoice {
-                        Picker("", selection: Binding(
-                            get: { data.focus },
-                            set: { onFocus($0) }
-                        )) {
-                            ForEach(data.availability.trackChoices, id: \.self) { choice in
-                                Text(choice == Config.autoProvider ? "All providers" : choice)
-                                    .tag(choice)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(width: 180)
-                        .help("Show one provider, or all of them")
-                    } else if let only = data.availability.installed.first {
-                        // Nothing to choose between, so state the track rather than offer it
-                        Text(only)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Brandkit.chalk)
-                    }
-                }
-
-                Spacer()
-
-                // Theme: auto follows the OS, light and dark force the window. The choice
-                // persists in the config like every other preference.
-                HStack(spacing: 4) {
-                    ForEach([("auto", "circle.lefthalf.filled"),
-                             ("light", "sun.max.fill"),
-                             ("dark", "moon.fill")], id: \.0) { value, icon in
-                        Button {
-                            model.setTheme(value)
-                        } label: {
-                            Image(systemName: icon)
-                                .font(.system(size: 12, weight: .medium))
-                                .frame(width: 32, height: 25)
-                                .background(value == data.theme
-                                            ? Brandkit.signal.opacity(0.22)
-                                            : Brandkit.graphite)
-                                .foregroundStyle(value == data.theme ? Brandkit.chalk
-                                                                     : Brandkit.steel)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
-                        .help("Appearance: \(value)")
-                    }
-                }
-                .padding(.trailing, 10)
-
-                // Segmented controls take the system accent, so drive the range with plain
-                // buttons that can carry the brand tint instead
-                HStack(spacing: 4) {
-                    ForEach(ranges, id: \.self) { r in
-                        Button {
-                            onReload(r)
-                        } label: {
-                            Text("\(r)d")
-                                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                                .frame(width: 40, height: 25)
-                                .background(r == data.range ? Brandkit.signal.opacity(0.22)
-                                                            : Brandkit.graphite)
-                                .foregroundStyle(r == data.range ? Brandkit.chalk
-                                                                 : Brandkit.steel)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
+        RLStateBlock(.empty("No usage recorded in this range"),
+                     // Ollama keeps no history of its own, so say how to start collecting it
+                     hint: data.focus == OllamaStore.provider
+                         ? "Use Set Up Ollama Tracking in Settings to record calls"
+                         : nil)
+            .frame(height: 60, alignment: .topLeading)
     }
 
     /// The rolling day's own total, so the shape above it can be read against a figure
@@ -1661,19 +2019,21 @@ struct DashboardView: View {
         let block5h = data.block5hSlice
         let ranged = data.rangedSlice
         let peak = data.visibleTrends.compactMap(\.peak).map(\.io).max()
-        return HStack(spacing: 12) {
-            StatTile(label: "Today\(scope)", value: fmtTokens(today.io),
-                     sub: "\(fmtCost(today.cost))\(today.hasUnpriced ? "+" : "") est")
-            StatTile(label: "Last 5 hours\(scope)", value: fmtTokens(block5h.io),
-                     sub: "\(fmtCost(block5h.cost))\(block5h.hasUnpriced ? "+" : "") est")
-            StatTile(label: "Last \(data.rangeLabel)\(scope)", value: fmtTokens(ranged.io),
-                     sub: "\(fmtCost(ranged.cost))\(ranged.hasUnpriced ? "+" : "") est")
-            StatTile(label: "Cache read", value: fmtTokens(ranged.cacheRead),
-                     sub: data.rangeLabel)
-            StatTile(label: "Busiest day",
-                     value: peak.map(fmtTokens) ?? "—", sub: "in range")
+        return RLCard {
+            HStack(spacing: RL.Space.lg) {
+                StatTile(label: "Today\(scope)", value: fmtTokens(today.io),
+                         sub: "\(fmtCost(today.cost))\(today.hasUnpriced ? "+" : "") est")
+                StatTile(label: "Last 5 hours\(scope)", value: fmtTokens(block5h.io),
+                         sub: "\(fmtCost(block5h.cost))\(block5h.hasUnpriced ? "+" : "") est")
+                StatTile(label: "Last \(data.rangeLabel)\(scope)", value: fmtTokens(ranged.io),
+                         sub: "\(fmtCost(ranged.cost))\(ranged.hasUnpriced ? "+" : "") est")
+                StatTile(label: "Cache read", value: fmtTokens(ranged.cacheRead),
+                         sub: data.rangeLabel,
+                         help: "Cache reads are billed at a fraction of the input rate, so "
+                             + "they are counted separately from in+out")
+                StatTile(label: "Busiest day",
+                         value: peak.map(fmtTokens) ?? "no data", sub: "in range")
+            }
         }
-        .padding(16)
-        .background(Brandkit.graphite, in: RoundedRectangle(cornerRadius: 12))
     }
 }

@@ -15,6 +15,13 @@ case "--uninstall-launch-agent":
     print("Removed LaunchAgent \(LaunchAgent.label)")
 case "--version":
     print("redline \(redlineVersion)")
+#if DEBUG
+// Renders the UI's states to PNGs for review. Debug builds only: it draws sample data, and a
+// release binary must have no path that puts invented figures on screen.
+case "--render-previews":
+    let dir = CommandLine.arguments.dropFirst(2).first ?? "dist/previews"
+    exit(MainActor.assumeIsolated { PreviewRenderer.run(directory: dir) })
+#endif
 // The bundled CLI. Anything a status bar, a script or an agent might ask is answered from
 // the same files the app publishes, so nothing here starts a second copy of the app.
 case .some(let arg) where RedlineCLI.commands.contains(arg):

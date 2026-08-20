@@ -1,12 +1,15 @@
 // Shared SwiftUI brand pieces. This is the one place the core reaches beyond plain parsing,
 // because the app and the widget are separate binaries and must not draw different marks.
-// Still no AppKit, no network, no Keychain here.
+// Still no network and no Keychain here.
 import SwiftUI
 
 public extension Color {
     init(brand c: BrandColor) { self.init(red: c.red, green: c.green, blue: c.blue) }
 }
 
+/// Fixed brand tones, for the surfaces that paint Carbon in every OS theme and force
+/// `.dark` so the dynamic tokens in `RL` resolve to their dark values: the widget and the
+/// setup window. Anything that follows the OS appearance uses `RL` instead.
 public enum BrandUI {
     public static let carbon = Color(brand: Brand.carbon)
     public static let graphite = Color(brand: Brand.graphite)
@@ -16,23 +19,10 @@ public enum BrandUI {
     public static let amber = Color(brand: Brand.amber)
     public static let clear = Color(brand: Brand.clear)
 
-    /// Providers keep one colour everywhere they appear: menu, dashboard, widget.
+    /// A provider keeps one accent everywhere it appears: menu, dashboard, widget. The accent
+    /// surrounds the provider's mark; it is never applied to the mark itself.
     public static func color(forProvider provider: String) -> Color {
-        switch provider.lowercased() {
-        // Claude's identity is chalk, which only exists against a dark ground; in a light
-        // context it resolves to carbon so the badge never disappears into the paper.
-        // Surfaces that paint carbon regardless of the OS theme (the widget, the setup
-        // window) force .dark so this resolves to chalk there.
-        case "claude":
-            return Color(nsColor: NSColor(name: nil) { appearance in
-                let c = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                    ? Brand.chalk : Brand.carbon
-                return NSColor(red: c.red, green: c.green, blue: c.blue, alpha: 1)
-            })
-        case "codex":  return steel
-        case "ollama": return clear
-        default:       return amber
-        }
+        ProviderIdentity.accent(for: provider)
     }
 
     public static func color(forStatus status: Brand.Status) -> Color {
@@ -89,7 +79,24 @@ public struct RedlineMark: View {
     }
 }
 
-/// A usage rail that ends at its limit, echoing the mark.
+/// The RedLine mark that follows the window's appearance, for surfaces that do not force
+/// dark. The fixed `RedlineMark` above is chalk-on-carbon and disappears on paper.
+public struct RedlineMarkAdaptive: View {
+    private let size: CGFloat
+
+    public init(size: CGFloat = 26) { self.size = size }
+
+    public var body: some View {
+        RedlineMark(size: size)
+            // The mark's chalk and steel strokes are drawn from the fixed dark tones, so on a
+            // light window the whole mark is re-inked rather than redrawn twice.
+            .colorMultiply(RL.Ink.primary)
+            .accessibilityLabel("RedLine")
+    }
+}
+
+/// A usage rail that ends at its limit, echoing the mark. Kept as the widget's rail: fixed
+/// brand tones, no environment to read, no animation in a timeline-rendered view.
 public struct LimitRail: View {
     private let utilization: Double
     private let height: CGFloat
@@ -126,156 +133,51 @@ public struct LimitRail: View {
     }
 }
 
-/// Which glyph identifies a track.
+/// A tinted tile carrying the provider's own mark. Sits beside the title so the provider is
+/// readable at a glance, with the RedLine mark kept separate as the app's own signature.
 ///
-/// Deliberately original iconography rather than vendor logos. Anthropic, OpenAI, and Ollama
-/// all restrict third-party use of their marks, and a redrawn approximation would breach the
-/// usual requirement that a mark be reproduced unaltered. These read as generic categories:
-/// a remote endpoint, source code, local layers.
-public enum TrackGlyph: String, CaseIterable {
-    case redline   // all providers, the app's own mark
-    case hosted    // Claude: a remote model behind an endpoint
-    case code      // Codex: source code
-    case layers    // Ollama: model weights held locally
-
-    public static func of(provider: String?) -> TrackGlyph {
-        switch provider?.lowercased() {
-        case nil:       return .redline
-        case "claude":  return .hosted
-        case "codex":   return .code
-        case "ollama":  return .layers
-        default:        return .redline
-        }
-    }
-}
-
-/// A tinted tile carrying the track glyph. Sits beside the title so the track is readable at a
-/// glance, with the RedLine mark kept separate as the app's own signature.
+/// The mark inside is a third-party glyph, monochrome and unaltered; the tile around it is
+/// RedLine's. A provider is never identified by the tile alone: every caller puts the
+/// provider's name in the row beside it.
 public struct TrackBadge: View {
-    private let glyph: TrackGlyph
-    private let tint: Color
+    private let provider: String?
     private let size: CGFloat
 
     public init(provider: String?, size: CGFloat = 22) {
-        self.glyph = TrackGlyph.of(provider: provider)
-        self.tint = provider.map { BrandUI.color(forProvider: $0) } ?? BrandUI.chalk
+        self.provider = provider
         self.size = size
     }
 
-    private var inset: CGFloat { size * 0.26 }
-
     public var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(tint.opacity(0.16))
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .stroke(tint.opacity(0.45), lineWidth: max(1, size * 0.045))
-            shape
-                .frame(width: size - inset * 2, height: size - inset * 2)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
-    }
-
-    @ViewBuilder
-    private var shape: some View {
-        switch glyph {
-        case .redline:
-            RedlineMark(size: size - inset * 2)
-        case .hosted:
-            HostedGlyph(tint: tint)
-        case .code:
-            CodeGlyph(tint: tint)
-        case .layers:
-            LayersGlyph(tint: tint)
-        }
+        ProviderTile(provider: provider, size: size)
     }
 }
 
-/// The track glyph without the badge tile, for a place where a tinted tile would outweigh the
-/// text beside it. The tint is passed in rather than derived, because a caller that rasterises
-/// this has to resolve the colour for an appearance itself; a bitmap cannot follow a theme.
+/// The provider mark without the tile, for a place where a tinted tile would outweigh the
+/// text beside it. The tint is passed in rather than derived, because a caller that
+/// rasterises this has to resolve the colour for an appearance itself; a bitmap cannot
+/// follow a theme.
 public struct TrackMark: View {
-    private let glyph: TrackGlyph
+    private let provider: String?
     private let tint: Color
     private let size: CGFloat
 
     public init(provider: String?, tint: Color, size: CGFloat = 12) {
-        self.glyph = TrackGlyph.of(provider: provider)
+        self.provider = provider
         self.tint = tint
         self.size = size
     }
 
     public var body: some View {
         Group {
-            switch glyph {
-            case .redline: RedlineMark(size: size)
-            case .hosted:  HostedGlyph(tint: tint)
-            case .code:    CodeGlyph(tint: tint)
-            case .layers:  LayersGlyph(tint: tint)
+            if let mark = ProviderIdentity.of(provider)?.mark {
+                ProviderGlyph(mark, size: size)
+                    .foregroundStyle(tint)
+            } else {
+                RedlineMark(size: size)
             }
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
-    }
-}
-
-/// A ring with a satellite dot: a model reached over the network.
-private struct HostedGlyph: View {
-    let tint: Color
-
-    var body: some View {
-        GeometryReader { geo in
-            let s = min(geo.size.width, geo.size.height)
-            ZStack {
-                Circle()
-                    .stroke(tint, lineWidth: s * 0.14)
-                    .frame(width: s * 0.72, height: s * 0.72)
-                Circle()
-                    .fill(tint)
-                    .frame(width: s * 0.26, height: s * 0.26)
-                    .offset(x: s * 0.34, y: -s * 0.34)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-    }
-}
-
-/// Opposed chevrons: source code.
-private struct CodeGlyph: View {
-    let tint: Color
-
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width, h = geo.size.height
-            Path { p in
-                p.move(to: CGPoint(x: w * 0.38, y: h * 0.16))
-                p.addLine(to: CGPoint(x: w * 0.08, y: h * 0.5))
-                p.addLine(to: CGPoint(x: w * 0.38, y: h * 0.84))
-                p.move(to: CGPoint(x: w * 0.62, y: h * 0.16))
-                p.addLine(to: CGPoint(x: w * 0.92, y: h * 0.5))
-                p.addLine(to: CGPoint(x: w * 0.62, y: h * 0.84))
-            }
-            .stroke(tint, style: StrokeStyle(lineWidth: min(w, h) * 0.15,
-                                            lineCap: .round, lineJoin: .round))
-        }
-    }
-}
-
-/// Stacked bars: weights sitting on local disk.
-private struct LayersGlyph: View {
-    let tint: Color
-
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width, h = geo.size.height
-            let bar = h * 0.19
-            VStack(alignment: .leading, spacing: h * 0.115) {
-                Capsule().fill(tint).frame(width: w, height: bar)
-                Capsule().fill(tint.opacity(0.75)).frame(width: w * 0.74, height: bar)
-                Capsule().fill(tint.opacity(0.5)).frame(width: w * 0.48, height: bar)
-            }
-            .frame(width: w, height: h, alignment: .leading)
-        }
     }
 }

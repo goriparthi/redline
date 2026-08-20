@@ -159,7 +159,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private var availability = ProviderAvailability.detect()
     private var dashboardWindow: NSWindow?
     private var setupWindow: NSWindow?
+    private var settingsWindow: NSWindow?
     private lazy var dashboardModel = DashboardModel()
+    private lazy var settingsModel = SettingsModel(config: config)
     private lazy var ollamaService = OllamaService()
 
     private var allLimits: [LimitWindow] { claudeLimits + codexLimits }
@@ -245,6 +247,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             title: "About RedLine",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""))
+        appMenu.addItem(.separator())
+        // The conventional place and shortcut, so settings can be found without opening the
+        // status item menu first
+        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings(_:)),
+                                  keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(settings)
         appMenu.addItem(.separator())
         // ⌘Q from a window closes it and leaves the menu bar app running; a full
         // quit stays on ⌥⌘Q here and on Quit in the status item menu.
@@ -372,14 +381,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         return (report.indicator, report.phrase)
     }
 
-    /// An SF Symbol as inline text, so a menu row can carry the same glyph the dashboard
-    /// draws. Menu rows are attributed strings, and an attachment is how an image gets in.
-    /// The track glyphs as menu-sized images, rendered from the same SwiftUI source the
-    /// dashboard and widget draw so the three surfaces cannot drift.
+    /// The provider marks as menu-sized images, rendered from the same SwiftUI source the
+    /// dashboard and widget draw, so the three surfaces cannot drift. Menu rows are attributed
+    /// strings, and an image attachment is how a glyph gets into one.
     ///
     /// Cached per appearance, not just per provider: a bitmap freezes the colour it was drawn
-    /// with, and Claude's tint flips with the theme. Deliberately RedLine's own iconography
-    /// rather than a vendor logo; see TrackGlyph for why.
+    /// with, and every provider accent resolves differently on a light menu. The mark itself
+    /// is the provider's own, monochrome and unaltered; the accent is only the ink it is drawn
+    /// in. The provider's name always follows it in the row.
     private static var trackMarkCache: [String: NSImage] = [:]
 
     private func trackMark(for provider: String, size: CGFloat = 13) -> NSImage? {
@@ -595,6 +604,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
     }
 
+    /// Whether RedLine's own shim is the ollama on the PATH. Identified by the same marker
+    /// the installer looks for, so a real binary someone else put there is never claimed.
+    private var ollamaShimInstalled: Bool {
+        let dest = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/bin/ollama")
+        guard let head = try? String(contentsOf: dest, encoding: .utf8) else { return false }
+        return head.prefix(300).contains("RedLine ollama shim")
+    }
+
     // The shim ships inside the app so every install route has it. Copying it onto the
     // PATH is on request, not at launch, since writing outside the bundle needs a decision.
     @objc func installOllamaShim(_ sender: Any?) {
@@ -749,17 +767,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
     }
 
+    /// Every window the app owns. Kept in one place so a new window cannot be forgotten by
+    /// the activation-policy bookkeeping and leave the app stuck in .regular with nothing open.
+    private var ownWindows: [NSWindow] {
+        [dashboardWindow, setupWindow, settingsWindow].compactMap { $0 }
+    }
+
     @objc func closeWindows(_ sender: Any?) {
-        for w in [dashboardWindow, setupWindow].compactMap({ $0 }) where w.isVisible {
-            w.close()
-        }
+        for w in ownWindows where w.isVisible { w.close() }
     }
 
     func windowWillClose(_ notification: Notification) {
         guard let closing = notification.object as? NSWindow,
-              closing == dashboardWindow || closing == setupWindow else { return }
-        let stillOpen = [dashboardWindow, setupWindow].compactMap { $0 }
-            .contains { $0 != closing && $0.isVisible }
+              ownWindows.contains(closing) else { return }
+        let stillOpen = ownWindows.contains { $0 != closing && $0.isVisible }
         if !stillOpen { NSApp.setActivationPolicy(.accessory) }
     }
 
@@ -791,6 +812,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             self.dashboardModel.setFocus(provider)
             // Ollama's state is live rather than derived from transcripts, so fetch on demand
             if provider == OllamaStore.provider { self.ollamaService.refresh() }
+        }, onOpenSettings: { [weak self] in
+            self?.openSettings(nil)
         })
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 860, height: 720),
@@ -829,7 +852,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                                 useCLIToken: config.useCLIToken,
                                 oauthClientId: config.oauth.clientId,
                                 feedInstalled: StatuslineInstaller.isInstalled(),
-                                signedIn: oauth.isSignedIn) {
+                                // This app's own grant, not the broader isSignedIn, which is
+                                // also true while a borrowed CLI credential is readable. The
+                                // browser radio means "RedLine is signed in itself".
+                                signedIn: oauth.hasOwnGrant) {
             [weak self] providers, choice, clientId in
             guard let self else { return }
             if !providers.isEmpty { Config.setProviders(providers) }
@@ -2228,10 +2254,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(r)
         menu.addItem(.separator())
 
-        // One hover away, rather than a flat column of toggles under the numbers: the
-        // readout is what the dropdown is for, and the settings had grown longer than it.
-        let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
-        settingsItem.submenu = buildSettingsMenu()
+        // A window rather than a submenu. The settings had grown longer than the readout
+        // the dropdown exists for, and a flat column of toggles is not where a threshold or
+        // a privacy choice can explain itself.
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings(_:)),
+                                      keyEquivalent: ",")
+        settingsItem.target = self
         menu.addItem(settingsItem)
         menu.addItem(.separator())
 
@@ -2266,250 +2294,174 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(q)
     }
 
-    /// Everything that changes how RedLine behaves, in the order it gets reached for.
-    /// Providers are chosen in one place only, the setup window, which also carries the
-    /// Claude limits decision.
-    /// Sources first, display second, behaviour third, the raw file last. Every credential
-    /// and setup decision lives under exactly one roof so it can be found again later, not
-    /// only at the moment a conditional item happened to be visible.
-    private func buildSettingsMenu() -> NSMenu {
-        let menu = NSMenu()
-        let setup = NSMenuItem(title: "Set Up RedLine…",
-                               action: #selector(showSetup(_:)), keyEquivalent: ",")
-        setup.target = self
-        setup.toolTip = "Which providers RedLine reads, and where Claude's percentages "
-                      + "come from"
-        menu.addItem(setup)
+    // MARK: - Settings window
 
-        // Every way the Claude percentages can be sourced, in one place, with the active
-        // ones checked. These items used to be scattered across conditional menus, which
-        // meant sign-in could be found only while it was broken.
-        if availability.has(UsageStore.provider) || config.wants(UsageStore.provider)
-            || oauth.isSignedIn {
-            let srcItem = NSMenuItem(title: "Claude Limits Source",
-                                     action: nil, keyEquivalent: "")
-            let src = NSMenu()
-            if availability.has(UsageStore.provider) {
-                let feedInstalled = StatuslineInstaller.isInstalled()
-                let f = NSMenuItem(title: "Set Up Claude Tracking…",
-                                   action: #selector(installStatuslineFeed(_:)),
-                                   keyEquivalent: "")
-                f.target = self
-                f.state = feedInstalled ? .on : .off
-                f.toolTip = feedInstalled
-                    ? "Installed: the usage feed reads the windows Claude Code hands its "
-                        + "statusline. Re-running updates the wrapper."
-                    : "The recommended source: the windows Claude Code hands its statusline. "
-                        + "No sign-in, no Keychain, no network."
-                src.addItem(f)
+    /// Everything that changes how RedLine behaves, in named sections. Replaces the settings
+    /// submenu, which had grown longer than the readout the dropdown exists for.
+    ///
+    /// Every preference with a side effect still runs through the same method the submenu
+    /// called, so switching alerts on still asks macOS for permission and switching the agent
+    /// fleet on still starts its watchers. The window drives those; it does not reimplement
+    /// them.
+    @objc func openSettings(_ sender: Any?) {
+        refreshSettingsState()
+        if let w = settingsWindow {
+            becomeRegularApp()
+            w.makeKeyAndOrderFront(nil)
+            return
+        }
+        settingsModel.onConfigChanged = { [weak self] in self?.applyPlainSettingsChange() }
+        settingsModel.actions = settingsActions()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 780, height: 520),
+                              styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                              backing: .buffered, defer: false)
+        window.title = "RedLine Settings"
+        window.contentView = NSHostingView(rootView: SettingsView(model: settingsModel))
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.delegate = self
+        becomeRegularApp()
+        window.makeKeyAndOrderFront(nil)
+        settingsWindow = window
+    }
+
+    /// The questions settings asks about the machine rather than about a preference. Read when
+    /// the window opens and after anything that could change one, never cached across a
+    /// launch.
+    private func refreshSettingsState() {
+        settingsModel.reload()
+        settingsModel.state = SettingsEnvironmentState(
+            signedIn: oauth.hasOwnGrant,
+            oauthConfigured: config.oauth.isConfigured,
+            claudeFeedInstalled: StatuslineInstaller.isInstalled(),
+            ollamaShimInstalled: ollamaShimInstalled,
+            launchAtLogin: LaunchAgent.isInstalled,
+            fullDiskAccess: hasFullDiskAccess,
+            availability: ProviderAvailability.detect(
+                ollamaReachable: ollamaSection?.reachable ?? false,
+                claudeAccount: oauth.isSignedIn || config.oauth.isConfigured),
+            appVersion: Updates.bundleVersion)
+    }
+
+    /// A preference whose whole effect is the stored value still has to reach the surfaces
+    /// that read it: the timer, the title and the dashboard.
+    private func applyPlainSettingsChange() {
+        config = Config.load()
+        scheduleTimer()
+        updateTitle()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+        reloadDashboardIfOpen()
+    }
+
+    /// Thresholds and ranges are read when the dashboard loads, so a change to one has to
+    /// trigger a reload rather than waiting for the next poll.
+    private func reloadDashboardIfOpen() {
+        guard dashboardWindow != nil else { return }
+        dashboardModel.load(range: dashboardModel.data.range, limits: allLimits)
+    }
+
+    private func settingsActions() -> SettingsActions {
+        var actions = SettingsActions()
+        actions.openSetup = { [weak self] in self?.showSetup(nil) }
+        actions.installClaudeFeed = { [weak self] in self?.installStatuslineFeed(nil) }
+        actions.signIn = { [weak self] in self?.browserSignIn(nil) }
+        actions.signOut = { [weak self] in self?.signOut(nil) }
+        actions.installOllamaShim = { [weak self] in self?.installOllamaShim(nil) }
+        actions.openNotificationSettings = { [weak self] in
+            self?.openNotificationSettings(nil)
+        }
+        actions.grantFullDiskAccess = { [weak self] in
+            self?.grantFullDiskAccess(nil)
+            self?.refreshSettingsState()
+        }
+        actions.toggleLaunchAtLogin = { [weak self] in
+            self?.toggleLaunchAtLogin(nil)
+            self?.refreshSettingsState()
+        }
+        actions.checkForUpdates = { [weak self] in self?.checkForUpdates(nil) }
+        actions.editConfig = { [weak self] in self?.editConfig(nil) }
+        actions.openDataFolder = {
+            NSWorkspace.shared.open(RedlineHome.url
+                .appendingPathComponent(".local/share/redline"))
+        }
+        actions.uninstall = { [weak self] in self?.uninstall(nil) }
+        actions.openNotice = { file in
+            // The notices ship inside the bundle, so they are readable from an installed copy
+            // and not only from a clone
+            if let url = Bundle.main.url(forResource: file, withExtension: nil) {
+                NSWorkspace.shared.open(url)
             }
-            let signedIn = oauth.hasOwnGrant
-            let b = NSMenuItem(title: signedIn ? "Sign Out of Claude"
-                                               : "Sign In with Browser…",
-                               action: signedIn ? #selector(signOut(_:))
-                                                : #selector(browserSignIn(_:)),
-                               keyEquivalent: "")
-            b.target = self
-            b.state = signedIn ? .on : .off
-            b.toolTip = signedIn
-                ? "Signed in: RedLine fetches live percentages with its own grant whenever "
-                    + "the feed is quiet"
-                : "Live between sessions too; also the route for claude.ai users without "
-                    + "Claude Code. Needs oauth.clientId in the config."
-            src.addItem(b)
-            let cli = NSMenuItem(title: "Use the Claude Code CLI's Token",
-                                 action: #selector(toggleCLIToken(_:)), keyEquivalent: "")
-            cli.target = self
-            cli.state = config.useCLIToken ? .on : .off
-            cli.toolTip = "Reads Claude Code's token from your Keychain. Only ever read, "
-                        + "never refreshed, so it cannot sign the CLI out."
-            src.addItem(cli)
-            srcItem.submenu = src
-            menu.addItem(srcItem)
         }
 
-        // Only offered when Ollama is actually installed; a setup step for a missing tool
-        // is noise
-        if availability.installed.contains(where: {
-            $0.caseInsensitiveCompare(OllamaStore.provider) == .orderedSame
-        }) {
-            let w = NSMenuItem(title: "Set Up Ollama Tracking…",
-                               action: #selector(installOllamaShim(_:)), keyEquivalent: "")
-            w.target = self
-            w.toolTip = "Installs a transparent ollama shim in ~/.local/bin so plain "
-                      + "`ollama run` calls are counted"
-            menu.addItem(w)
+        // Each of these is the same method the submenu called, so the side effects stay in
+        // one place. The bindings only fire when the value actually changes.
+        actions.setProviders = { [weak self] providers in
+            self?.applyProviderSelection(providers)
         }
-        menu.addItem(.separator())
-
-        // One submenu for everything the menu bar readout is, was two ("Shows" / "Style")
-        let barItem = NSMenuItem(title: "Menu Bar", action: nil, keyEquivalent: "")
-        let bar = NSMenu()
-        if availability.hasChoice {
-            for choice in availability.trackChoices {
-                let title = choice == Config.autoProvider
-                    ? "Nearest Limit (any provider)" : choice
-                let item = NSMenuItem(title: title,
-                                      action: #selector(pickMenuBarProvider(_:)),
-                                      keyEquivalent: "")
-                item.target = self
-                item.representedObject = choice
-                item.state = choice.caseInsensitiveCompare(config.menuBarProvider)
-                    == .orderedSame ? .on : .off
-                // A provider that is switched off entirely has nothing to report
-                if choice != Config.autoProvider, !config.wants(choice) {
-                    item.isEnabled = false
-                    item.toolTip = "Enable \(choice) in Set Up RedLine first"
-                } else if choice == OllamaStore.provider {
-                    item.toolTip = "Ollama has no rate limit; shows tokens used today"
-                }
-                bar.addItem(item)
-            }
-            bar.addItem(.separator())
+        actions.setCLIToken = { [weak self] _ in
+            self?.toggleCLIToken(nil)
+            self?.refreshSettingsState()
         }
-        // Compactness is taste, so every element is a choice rather than a mode
-        let icon = NSMenuItem(title: "Show Icon", action: #selector(toggleMenuIcon(_:)),
-                              keyEquivalent: "")
-        icon.target = self
-        icon.state = config.showMenuIcon ? .on : .off
-        bar.addItem(icon)
-        let resets = NSMenuItem(title: "Show Reset Times",
-                                action: #selector(toggleResetTimes(_:)), keyEquivalent: "")
-        resets.target = self
-        resets.state = config.showResetTimes ? .on : .off
-        bar.addItem(resets)
-        bar.addItem(.separator())
-        for (title, value) in [("All Limits", "all"), ("Session Only", "session"),
-                               ("Week Only", "week")] {
-            let item = NSMenuItem(title: title, action: #selector(pickLimitWindows(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = value
-            item.state = config.limitWindows == value ? .on : .off
-            bar.addItem(item)
+        actions.setAlerts = { [weak self] _ in self?.toggleAlerts(nil) }
+        actions.setCues = { [weak self] _ in self?.toggleCues(nil) }
+        actions.setHistory = { [weak self] _ in self?.toggleHistory(nil) }
+        actions.setSidecar = { [weak self] _ in self?.toggleSidecar(nil) }
+        actions.setStatusChecks = { [weak self] _ in self?.toggleStatusChecks(nil) }
+        actions.setAutoUpdates = { [weak self] _ in self?.toggleAutoUpdates(nil) }
+        actions.setUpdateChannel = { [weak self] channel in
+            self?.applyUpdateChannel(channel)
         }
-        barItem.submenu = bar
-        menu.addItem(barItem)
-
-        let alerts = NSMenuItem(title: "Notify at Thresholds",
-                                action: #selector(toggleAlerts(_:)), keyEquivalent: "")
-        alerts.target = self
-        alerts.state = config.alerts ? .on : .off
-        alerts.toolTip = "Posts a notification when a window crosses \(Int(config.limitYellowPct))%, "
-                       + "\(Int(config.limitRedPct))% or 95%, when one is about to run out "
-                       + "before it resets, and when one rolls over. Never from a stale reading."
-        menu.addItem(alerts)
-
-        // macOS owns how long a banner stays on screen; there is no API for it. What the user
-        // can change is the style, and Alerts keeps a notification up until it is dismissed.
-        // This is the door to that setting, because nobody finds it by hunting.
-        let style = NSMenuItem(title: "Notification Style…",
-                               action: #selector(openNotificationSettings(_:)),
-                               keyEquivalent: "")
-        style.target = self
-        style.toolTip = "Opens System Settings. Banners disappear on their own; Alerts stay "
-                      + "until you dismiss them. How long a banner lasts is macOS's to decide, "
-                      + "not RedLine's."
-        menu.addItem(style)
-
-        let history = NSMenuItem(title: "Keep Local History",
-                                 action: #selector(toggleHistory(_:)), keyEquivalent: "")
-        history.target = self
-        history.state = config.recordHistory ? .on : .off
-        history.toolTip = "Rolls each day up into ~/.local/share/redline/history so your "
-                        + "own numbers outlive Claude Code's 30 day transcript cleanup. "
-                        + "Local file, no network."
-        menu.addItem(history)
-
-        let cues = NSMenuItem(title: "Say How the Day Is Going",
-                              action: #selector(toggleCues(_:)), keyEquivalent: "")
-        cues.target = self
-        cues.state = config.mindfulCues ? .on : .off
-        cues.toolTip = "Says when a run has gone \(Int(config.stretchMinutes)) minutes "
-                     + "without a break, when you are still going after "
-                     + "\(config.lateHour):00, and when \(config.streakDays) days have run "
-                     + "together. Counted from timestamps, stated once, no advice."
-        menu.addItem(cues)
-
-        let agents = NSMenuItem(title: "Show Running Agents",
-                                action: #selector(toggleAgentFleet(_:)), keyEquivalent: "")
-        agents.target = self
-        agents.state = config.agentFleet ? .on : .off
-        agents.toolTip = "Lists the Claude Code sessions running on this Mac and marks the "
-                       + "menu bar when one is waiting on you. Reads Claude Code's own "
-                       + "session registry; nothing is written there."
-        menu.addItem(agents)
-
-        let sidecar = NSMenuItem(title: "Publish Usage Sidecar",
-                                 action: #selector(toggleSidecar(_:)), keyEquivalent: "")
-        sidecar.target = self
-        sidecar.state = config.publishSidecar ? .on : .off
-        sidecar.toolTip = "Writes the current windows to "
-                        + "~/.local/share/redline/usage-snapshot.json in the shape other "
-                        + "local tools already read. Nothing leaves this machine."
-        menu.addItem(sidecar)
-
-        let svc = NSMenuItem(title: "Check Service Status Pages",
-                             action: #selector(toggleStatusChecks(_:)), keyEquivalent: "")
-        svc.target = self
-        svc.state = config.statusChecks ? .on : .off
-        svc.toolTip = "Polls the providers' public status pages every 15 minutes; "
-                    + "Refresh Now checks immediately"
-        menu.addItem(svc)
-        menu.addItem(.separator())
-
-        let l = NSMenuItem(title: "Launch at Login",
-                           action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
-        l.target = self
-        l.state = LaunchAgent.isInstalled ? .on : .off
-        menu.addItem(l)
-
-        // Updates under one roof: how often RedLine looks, and which releases it will offer.
-        // The channel used to be reachable only by hand-editing config.json.
-        let updItem = NSMenuItem(title: "Updates", action: nil, keyEquivalent: "")
-        let upd = NSMenu()
-        let auto = NSMenuItem(title: "Check Daily",
-                              action: #selector(toggleAutoUpdates(_:)), keyEquivalent: "")
-        auto.target = self
-        auto.state = config.autoCheckUpdates ? .on : .off
-        auto.toolTip = "Asks the GitHub releases API once a day and speaks up only when an "
-                     + "update exists. This is the one network request RedLine makes without "
-                     + "being asked; switch it off and updates are yours to check for."
-        upd.addItem(auto)
-        upd.addItem(.separator())
-        for (title, value) in [("Stable Releases", "stable"), ("Beta Releases", "beta")] {
-            let item = NSMenuItem(title: title, action: #selector(pickUpdateChannel(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = value
-            item.state = config.updateChannel == value ? .on : .off
-            item.toolTip = value == "beta"
-                ? "Also offers prerelease builds such as 0.5.0-beta.1. Newest always wins, so "
-                    + "a stable release still reaches you the moment it outranks them."
-                : "Full releases only. Picked while running a beta, RedLine stays on that "
-                    + "build until a stable release outranks it."
-            upd.addItem(item)
+        actions.setAgentFleet = { [weak self] _ in self?.toggleAgentFleet(nil) }
+        actions.setMenuIcon = { [weak self] _ in self?.toggleMenuIcon(nil) }
+        actions.setResetTimes = { [weak self] _ in self?.toggleResetTimes(nil) }
+        actions.setLimitWindows = { [weak self] choice in self?.applyLimitWindows(choice) }
+        actions.setMenuBarProvider = { [weak self] provider in
+            self?.applyMenuBarProvider(provider)
         }
-        updItem.submenu = upd
-        menu.addItem(updItem)
-
-        // Only shown while the durable grant is missing; once FDA is on there is nothing
-        // left to fix
-        if !hasFullDiskAccess {
-            let fda = NSMenuItem(title: "Stop Permission Prompts…",
-                                 action: #selector(grantFullDiskAccess(_:)), keyEquivalent: "")
-            fda.target = self
-            fda.toolTip = "Full Disk Access is the one grant macOS remembers"
-            menu.addItem(fda)
+        actions.setTheme = { [weak self] theme in
+            self?.dashboardModel.setTheme(theme)
+            self?.settingsModel.reload()
         }
-        menu.addItem(.separator())
+        return actions
+    }
 
-        let e = NSMenuItem(title: "Edit Config…", action: #selector(editConfig(_:)),
-                           keyEquivalent: "")
-        e.target = self
-        e.toolTip = "The raw config.json; everything above edits the same file"
-        menu.addItem(e)
-        return menu
+    /// Changing what is read changes what is detected, so availability and the scan both
+    /// follow the write rather than waiting for the next poll.
+    private func applyProviderSelection(_ providers: [String]) {
+        guard !providers.isEmpty, Config.setProviders(providers) else { return }
+        config = Config.load()
+        refreshAvailability()
+        refresh()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
+        reloadDashboardIfOpen()
+    }
+
+    /// Switching channels rechecks straight away, so the choice answers with the build it
+    /// found rather than with silence until tomorrow's poll.
+    private func applyUpdateChannel(_ channel: String) {
+        guard channel != config.updateChannel else { return }
+        guard Config.write(["updateChannel": channel]) else {
+            updateStatus = "Could not write config"
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
+        config = Config.load()
+        checkForUpdates(nil)
+    }
+
+    private func applyLimitWindows(_ choice: String) {
+        setStyle(["limitWindows": choice])
+    }
+
+    private func applyMenuBarProvider(_ provider: String) {
+        guard Config.setMenuBarProvider(provider) else {
+            limitsStatus = "Could not write config"
+            if let menu = statusItem.menu { rebuildMenu(menu) }
+            return
+        }
+        config = Config.load()
+        updateTitle()
+        if let menu = statusItem.menu { rebuildMenu(menu) }
     }
 
     // A fetch that keeps failing must not leave old percentages looking current
@@ -2548,7 +2500,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             }
         }
         if agg.hasUnpriced {
-            addInfo(menu, "    + no pricing entry for models shown with a dash",
+            addInfo(menu, "    + no pricing entry for models shown as n/a",
                     secondary: true)
         }
         // An installed provider that simply went quiet is not the same as one that is absent
@@ -2595,9 +2547,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         parts.append((" \(Sparkline.bar(share: share, width: Self.barWidth))",
                       contrasted(tint)))
         parts.append((" \(Sparkline.percent(share))", Brandkit.menuSecondary))
-        // A dash rather than $0.00, which would read as free. Money is green wherever it
+        // "n/a" rather than $0.00, which would read as free. Money is green wherever it
         // appears, and the column is sized for grouped thousands ("$18,108.58").
-        let costText = priced ? fmtCost(cost) : "—"
+        let costText = priced ? fmtCost(cost) : "n/a"
         parts.append(("  \(Sparkline.pad(costText, to: 11, alignRight: true))",
                       priced ? contrasted(Brandkit.nsTone(.healthy)) : Brandkit.menuSecondary))
         parts.append(("  \(Sparkline.pad(fmtTokens(io), to: 7, alignRight: true))",

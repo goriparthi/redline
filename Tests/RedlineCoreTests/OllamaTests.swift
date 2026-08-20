@@ -104,26 +104,3 @@ final class LimitIdentityTests: XCTestCase {
         XCTAssertEqual(claude.id, "Claude|seven_day")
     }
 }
-
-final class TrackGlyphTests: XCTestCase {
-    func testEachProviderMapsToItsOwnGlyph() {
-        XCTAssertEqual(TrackGlyph.of(provider: "Claude"), .hosted)
-        XCTAssertEqual(TrackGlyph.of(provider: "Codex"), .code)
-        XCTAssertEqual(TrackGlyph.of(provider: "Ollama"), .layers)
-    }
-
-    func testMatchingIsCaseInsensitive() {
-        XCTAssertEqual(TrackGlyph.of(provider: "ollama"), .layers)
-        XCTAssertEqual(TrackGlyph.of(provider: "CLAUDE"), .hosted)
-    }
-
-    func testNoProviderAndUnknownProviderFallBackToTheAppMark() {
-        XCTAssertEqual(TrackGlyph.of(provider: nil), .redline)
-        XCTAssertEqual(TrackGlyph.of(provider: "gemini"), .redline)
-    }
-
-    func testGlyphsAreDistinctPerTrack() {
-        let glyphs = ["Claude", "Codex", "Ollama"].map { TrackGlyph.of(provider: $0) }
-        XCTAssertEqual(Set(glyphs).count, 3, "each track must be visually distinguishable")
-    }
-}

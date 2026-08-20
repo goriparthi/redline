@@ -19,8 +19,8 @@ settings:
     # Empty by default so a clone builds without belonging to anyone's team. Set
     # REDLINE_TEAM_ID before `make xcodeproj` to sign with your own.
     DEVELOPMENT_TEAM: ${REDLINE_TEAM_ID}
-    MARKETING_VERSION: "0.7.2"
-    CURRENT_PROJECT_VERSION: "0.7.2"
+    MARKETING_VERSION: "0.8.0-beta.1"
+    CURRENT_PROJECT_VERSION: "0.8.0"
 
 targets:
   RedlineCore:
@@ -48,6 +48,19 @@ targets:
       - path: Resources/RedlineTemplate.png
         buildPhase: resources
       - path: Resources/RedlineTemplate@2x.png
+        buildPhase: resources
+      # The provider marks. Compiled here; the same vectors are embedded in RedlineCore for
+      # the SwiftPM bundle path, which never runs actool. ProviderGlyphTests pins the two
+      # together.
+      - path: Resources/ProviderIcons.xcassets
+        buildPhase: resources
+      # Retained with the marks they cover, and shipped so About can open them from an
+      # installed copy rather than only from a clone
+      - path: brand/provider-glyphs/THIRD_PARTY_NOTICES.md
+        buildPhase: resources
+      - path: brand/provider-glyphs/LICENSE-simple-icons.md
+        buildPhase: resources
+      - path: brand/provider-glyphs/LICENSE-bootstrap-icons.txt
         buildPhase: resources
       # Shipped so a DMG or cask install has the Ollama shim too, not just a clone
       - path: scripts/ollama-shim.sh
@@ -77,6 +90,9 @@ targets:
     platform: macOS
     sources:
       - path: Sources/RedlineWidget
+      # The widget is its own bundle, so it needs its own copy of the marks it draws
+      - path: Resources/ProviderIcons.xcassets
+        buildPhase: resources
     dependencies:
       - target: RedlineCore
     settings:

@@ -13,6 +13,15 @@ cp "$REPO_ROOT/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 cp "$REPO_ROOT/Resources/Redline.icns" "$APP_BUNDLE/Contents/Resources/"
 cp "$REPO_ROOT/Resources/RedlineTemplate.png" \
    "$REPO_ROOT/Resources/RedlineTemplate@2x.png" "$APP_BUNDLE/Contents/Resources/"
+# Provider marks. This path never runs actool, so the app falls back to the same vectors
+# embedded in RedlineCore; the catalog is copied anyway so an Xcode-built and a script-built
+# bundle carry the same files.
+cp -R "$REPO_ROOT/Resources/ProviderIcons.xcassets" "$APP_BUNDLE/Contents/Resources/"
+# Third-party notices, retained with the marks they cover and readable from About
+cp "$REPO_ROOT/brand/provider-glyphs/THIRD_PARTY_NOTICES.md" \
+   "$REPO_ROOT/brand/provider-glyphs/LICENSE-simple-icons.md" \
+   "$REPO_ROOT/brand/provider-glyphs/LICENSE-bootstrap-icons.txt" \
+   "$APP_BUNDLE/Contents/Resources/"
 # The Ollama shim ships inside the app so every install route has it, not just a clone
 cp "$REPO_ROOT/scripts/ollama-shim.sh" "$APP_BUNDLE/Contents/Resources/"
 chmod 755 "$APP_BUNDLE/Contents/Resources/ollama-shim.sh"

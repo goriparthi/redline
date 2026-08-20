@@ -117,8 +117,9 @@ private struct Header: View {
     /// nil shows the app mark, a provider shows that track's badge
     var provider: String? = nil
     var trailing: String? = nil
-    /// Service health as a dot beside the title: present at every size, never words
-    var statusColor: Color? = nil
+    /// Service health beside the title: a glyph rather than a bare dot, so the reading does
+    /// not depend on telling two small colours apart, and never words at this size.
+    var status: RLStatus? = nil
 
     var body: some View {
         HStack(spacing: 7) {
@@ -129,8 +130,11 @@ private struct Header: View {
                 .foregroundStyle(BrandUI.chalk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-            if let statusColor {
-                Circle().fill(statusColor).frame(width: 6, height: 6)
+            if let status {
+                Image(systemName: status.symbol)
+                    .font(.system(size: m.detail, weight: .semibold))
+                    .foregroundStyle(status.color)
+                    .accessibilityLabel(status.phrase)
             }
             Spacer(minLength: 2)
             if let trailing {
@@ -171,7 +175,7 @@ private struct WindowBlock: View {
                     .minimumScaleFactor(0.6)
             } else {
                 // A dash, never a zero that would read as plenty left
-                Text("—")
+                Text("n/a")
                     .font(.system(size: heroSize ?? m.hero, weight: .bold, design: .rounded))
                     .foregroundStyle(BrandUI.steel)
             }
@@ -208,7 +212,7 @@ private struct WindowLine: View {
                     .foregroundStyle(stale ? BrandUI.steel
                                            : BrandUI.statusColor(w.utilization))
             } else {
-                Text("—")
+                Text("n/a")
                     .font(.system(size: m.label + 5, weight: .bold))
                     .foregroundStyle(BrandUI.steel)
             }
@@ -356,7 +360,9 @@ private struct OllamaBody: View {
         VStack(alignment: .leading, spacing: m.spacing) {
             Header(title: "Ollama", m: m, provider: "Ollama",
                    trailing: detail == .full ? o?.version.map { "v\($0)" } : nil,
-                   statusColor: (o?.reachable ?? false) ? BrandUI.clear : BrandUI.steel)
+                   status: (o?.reachable ?? false)
+                       ? RLStatus(.healthy, phrase: "local server running")
+                       : RLStatus(.offline, phrase: "local server not reachable"))
 
             if let o, o.reachable {
                 // The counts are the glanceable part, so they carry the type weight.
@@ -505,19 +511,25 @@ private struct UsageBody: View {
         w?.provider == "Claude" && snapshot.claudeLimitsAreStale()
     }
 
-    // The title dot: this provider's report, or for the all track the worst anyone has.
-    // nil when status was never published, so nothing is claimed that was not checked.
-    private var headerStatusColor: Color? {
+    // The title's health mark: this provider's report, or for the all track the worst anyone
+    // has. nil when status was never published, so nothing is claimed that was not checked.
+    private var headerStatus: RLStatus? {
         guard let services = snapshot.services, !services.isEmpty else { return nil }
         let relevant = provider.map { p in services.filter { $0.provider == p } } ?? services
         guard !relevant.isEmpty else { return nil }
-        if relevant.contains(where: { ["major", "critical"].contains($0.indicator) }) {
-            return BrandUI.signal
+        let worst = relevant.map { ServiceGlyph.tone(for: $0.indicator) }
+            .max { severity($0) < severity($1) } ?? .unknown
+        return RLStatus.forTone(worst, phrase: relevant.count == 1 ? relevant[0].phrase : nil)
+    }
+
+    /// Worst-first ordering for the tones, so one provider in trouble is what the header says.
+    private func severity(_ tone: ServiceGlyph.Tone) -> Int {
+        switch tone {
+        case .critical: return 3
+        case .warning:  return 2
+        case .unknown:  return 1
+        case .healthy:  return 0
         }
-        if relevant.contains(where: { ["minor", "local-down"].contains($0.indicator) }) {
-            return BrandUI.amber
-        }
-        return BrandUI.clear
     }
 
     var body: some View {
@@ -534,7 +546,7 @@ private struct UsageBody: View {
             Header(title: title, m: m, provider: provider,
                    trailing: detail == .full && provider == nil && !snapshot.limits.isEmpty
                        ? "nearest" : nil,
-                   statusColor: headerStatusColor)
+                   status: headerStatus)
 
             if session == nil && week == nil {
                 Spacer(minLength: 0)
