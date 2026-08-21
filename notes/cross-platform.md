@@ -23,14 +23,22 @@ Linux or Windows build cannot pull AppKit in by accident.
   sees one layout everywhere.
 - SQLite vendored for non-Darwin as `Sources/CSQLite`. macOS still links the SDK's copy.
 - `SnapshotStore`'s App Group, widget container and Application Support paths gated to macOS.
-- `SingleInstance` gained a Windows branch.
-- CI gained `core-linux` and `core-windows` jobs.
+- `SingleInstance` gained a Windows named-mutex branch, and `ClaudeFleet` gained per-platform
+  process probes.
+- CI gained `core-linux` and `core-windows` jobs, both green.
 
 ## Verified
 
-- macOS: `make ci` green, 347 tests, widget builds and the bundle verifies.
-- Linux: `swift test` under `swift:6.0-jammy` green, 343 tests, 0 failures. That build
-  compiled the vendored SQLite through SwiftPM, so `import CSQLite` is proven too.
+All three build and all three test suites pass on real CI.
+
+| Platform | Toolchain | Tests | State |
+|---|---|---|---|
+| macOS | Xcode | 347 | `make ci` green, widget builds, bundle verifies |
+| Linux | Swift 6.0, ubuntu | 343 | green |
+| Windows | Swift 6.3.3, windows-latest | 336 | green |
+
+The counts differ only by the tests that are gated to a platform. Every build compiles the
+vendored SQLite through SwiftPM off macOS, so `import CSQLite` is proven on both.
 
 Reproduce the Linux run with:
 
@@ -77,9 +85,10 @@ The routes that work:
   widget need an interactive desktop that no CI runner can give. Swift ships an ARM64 Windows
   toolchain. ARM64 rather than x64, so x64-specific packaging still wants CI or a cloud VM.
 
-## Still to do in Phase 0
+## Phase 0 is done
 
-Push, and let `core-windows` turn the Windows column from reasoning into fact.
+Next is Phase 1: lift the refresh loop into `RedlineService`, and add the credential store,
+autostart, notifier and directory-watcher abstractions with three backends each.
 
 ## Deliberately not in the core
 
