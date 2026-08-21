@@ -18,6 +18,7 @@
 		1752D25154FFE7F6FD37E7AF /* Previews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18079D6CA1E6CAB72A75E7E3 /* Previews.swift */; };
 		177BBC02BE0031772154DB68 /* Sidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */; };
 		1A1B2F755E5743D39AA18A88 /* RedlineUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A58AC339EE1A4BD137204A06 /* RedlineUI.framework */; };
+		1B53697CE78B7CC94A9D7F52 /* WatchLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = C75B54D920970947D5F7A0F6 /* WatchLoop.swift */; };
 		1C9DAD2B8067833CC4E648E0 /* RedlineWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */; };
 		2044E58B5F45345FAF072297 /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC0415DE092CA1B2B112DCB /* CredentialStore.swift */; };
 		233F0A121677C30B02115400 /* DirectoryWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 416FA0591EE378363A4170F5 /* DirectoryWatcher.swift */; };
@@ -47,7 +48,9 @@
 		8767E8452B43CF2B2D1E14D5 /* SingleInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED513D0EA87D7E4737349F9 /* SingleInstance.swift */; };
 		8A37C1B9C476E667D3C7626E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594A59204E47A19AF9380F42 /* AppDelegate.swift */; };
 		8C2563A6AFA609A303856A8E /* FindingsDismissal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E6A1635E2B50F8522016FE /* FindingsDismissal.swift */; };
+		907581D12B2C9014E996E105 /* Autostart.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06A292080944DB679F86D72 /* Autostart.swift */; };
 		90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C70F9EB19961D2896832675D /* Trends.swift */; };
+		9197A24AB81C1D3C19307F86 /* Ingest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00E5E86766312978A8A9BC7 /* Ingest.swift */; };
 		946B9D6449A2548826A4E638 /* ClaudeAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F803F78EF03A83B38E36C88 /* ClaudeAuth.swift */; };
 		956A9B97A5E38D715C965369 /* RedlinePlatform.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 025DD5A0E7F60DB53C11EA5A /* RedlinePlatform.framework */; };
 		98575FC0468EE2F4E87260DF /* ProviderIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1F788537B5D5D2CBAFC5D04F /* ProviderIcons.xcassets */; };
@@ -63,6 +66,7 @@
 		B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B28FA77D5BF771D09A8333 /* Ollama.swift */; };
 		B0C07761E587F08B6AE9CE9A /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
 		B1CD68EEBE3BAB5D79E7B792 /* RedlineHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3364DACF0254F15DD72B8C /* RedlineHome.swift */; };
+		B23013FA3C37A9F5FB51090F /* SnapshotBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 124D1B863855FE42D77FD945 /* SnapshotBuilder.swift */; };
 		B43EDC81370FECE3252B446A /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
 		B60126738CA4B07C53ED7548 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AF4BF9E1F8FE7E67230776 /* Brand.swift */; };
 		B7F10B5D17960404187C323C /* TerminalFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 189B263A79FBCA8DC0F50A4A /* TerminalFocus.swift */; };
@@ -187,6 +191,7 @@
 		0CB13536CAA9E455E2773311 /* ProviderCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderCards.swift; sourceTree = "<group>"; };
 		0FF162160942F2D6D8978624 /* GitHubMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubMark.swift; sourceTree = "<group>"; };
 		123B39085985A12AC4A883B1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		124D1B863855FE42D77FD945 /* SnapshotBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotBuilder.swift; sourceTree = "<group>"; };
 		14EF4F63030F2362796BB6E3 /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
 		18079D6CA1E6CAB72A75E7E3 /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
 		189B263A79FBCA8DC0F50A4A /* TerminalFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFocus.swift; sourceTree = "<group>"; };
@@ -234,6 +239,7 @@
 		9F803F78EF03A83B38E36C88 /* ClaudeAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAuth.swift; sourceTree = "<group>"; };
 		9FA07D3D6BF92948B549F7B3 /* RedlineWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RedlineWidget.entitlements; sourceTree = "<group>"; };
 		9FC0415DE092CA1B2B112DCB /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
+		A00E5E86766312978A8A9BC7 /* Ingest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ingest.swift; sourceTree = "<group>"; };
 		A3459AC42335624CB7D0D2B9 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		A58AC339EE1A4BD137204A06 /* RedlineUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = RedlineUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA4715000A481576A5DCAE84 /* ClaudeLimitsChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsChoice.swift; sourceTree = "<group>"; };
@@ -249,6 +255,7 @@
 		BEC12E0335BA36753D581E3A /* StatuslineInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatuslineInstaller.swift; sourceTree = "<group>"; };
 		C22011EC7B7826162254D682 /* Cadence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cadence.swift; sourceTree = "<group>"; };
 		C70F9EB19961D2896832675D /* Trends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trends.swift; sourceTree = "<group>"; };
+		C75B54D920970947D5F7A0F6 /* WatchLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLoop.swift; sourceTree = "<group>"; };
 		C95D59B24DE8A443953B9222 /* DelegatedRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DelegatedRefresh.swift; sourceTree = "<group>"; };
 		CE0F1328D40B59A59DB9A303 /* TranscriptTail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTail.swift; sourceTree = "<group>"; };
 		CED513D0EA87D7E4737349F9 /* SingleInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleInstance.swift; sourceTree = "<group>"; };
@@ -258,6 +265,7 @@
 		E42BD3B72393530FD2217E05 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		E6D5DF78B76A1A05E1DC5517 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
 		EF2D39E506526264BDC08DB4 /* CodexSessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSessions.swift; sourceTree = "<group>"; };
+		F06A292080944DB679F86D72 /* Autostart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Autostart.swift; sourceTree = "<group>"; };
 		F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaUsage.swift; sourceTree = "<group>"; };
 		F243DEA3F6D6C090FFF94EF1 /* Availability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Availability.swift; sourceTree = "<group>"; };
 		F50E09070EBE226E6195A468 /* Dashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dashboard.swift; sourceTree = "<group>"; };
@@ -307,8 +315,10 @@
 		24F22ED05CAA74E4E7A50ACE /* RedlinePlatform */ = {
 			isa = PBXGroup;
 			children = (
+				F06A292080944DB679F86D72 /* Autostart.swift */,
 				9FC0415DE092CA1B2B112DCB /* CredentialStore.swift */,
 				416FA0591EE378363A4170F5 /* DirectoryWatcher.swift */,
+				C75B54D920970947D5F7A0F6 /* WatchLoop.swift */,
 			);
 			path = RedlinePlatform;
 			sourceTree = "<group>";
@@ -441,6 +451,7 @@
 				E42BD3B72393530FD2217E05 /* Diagnostics.swift */,
 				32F42B9C62E394CFF7098FF6 /* Findings.swift */,
 				B2E6A1635E2B50F8522016FE /* FindingsDismissal.swift */,
+				A00E5E86766312978A8A9BC7 /* Ingest.swift */,
 				9AF292E55776C9FDD7D18743 /* Limits.swift */,
 				91B28FA77D5BF771D09A8333 /* Ollama.swift */,
 				F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */,
@@ -454,6 +465,7 @@
 				0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */,
 				CED513D0EA87D7E4737349F9 /* SingleInstance.swift */,
 				3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */,
+				124D1B863855FE42D77FD945 /* SnapshotBuilder.swift */,
 				AB7A91F7558A008A61D6AE0B /* Sparkline.swift */,
 				67B7FD6A0630E63983E47356 /* Status.swift */,
 				316615D98C6029DA63C5F95F /* StatuslineFeed.swift */,
@@ -719,6 +731,7 @@
 				2E9DF5B50A68B9D9DE4CE0E3 /* Diagnostics.swift in Sources */,
 				4FB45D1DB225292BDB1B1E64 /* Findings.swift in Sources */,
 				8C2563A6AFA609A303856A8E /* FindingsDismissal.swift in Sources */,
+				9197A24AB81C1D3C19307F86 /* Ingest.swift in Sources */,
 				6C7AAC7DE7E9AEFD5E977096 /* Limits.swift in Sources */,
 				B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */,
 				24926363A3D24D71291FCE23 /* OllamaUsage.swift in Sources */,
@@ -732,6 +745,7 @@
 				177BBC02BE0031772154DB68 /* Sidecar.swift in Sources */,
 				8767E8452B43CF2B2D1E14D5 /* SingleInstance.swift in Sources */,
 				2F1CF67F76429502CD8D63D1 /* Snapshot.swift in Sources */,
+				B23013FA3C37A9F5FB51090F /* SnapshotBuilder.swift in Sources */,
 				D1346E76D50919C07BCA074F /* Sparkline.swift in Sources */,
 				BFD47662265902E42C8C8B3B /* Status.swift in Sources */,
 				C5C2F68D2DB0C05BBE58D058 /* StatuslineFeed.swift in Sources */,
@@ -760,8 +774,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				907581D12B2C9014E996E105 /* Autostart.swift in Sources */,
 				2044E58B5F45345FAF072297 /* CredentialStore.swift in Sources */,
 				233F0A121677C30B02115400 /* DirectoryWatcher.swift in Sources */,
+				1B53697CE78B7CC94A9D7F52 /* WatchLoop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

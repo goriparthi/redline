@@ -104,6 +104,43 @@ final class WatchLoopTests: XCTestCase {
                                  + "debounce is not collapsing them")
     }
 
+    // MARK: - Not waking itself up
+
+    /// Publishing writes into the same directory the loop watches, so without this guard
+    /// every publish would trigger the pass that produced it, forever.
+    func testOurOwnOutputDoesNotCountAsAChange() throws {
+        let subject = loop()
+        let data = subject.dataDirectory
+        try FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
+        let feed = data.appendingPathComponent("claude-usage.json")
+        try "{}".write(to: feed, atomically: true, encoding: .utf8)
+
+        XCTAssertTrue(subject.dataDirectoryHasNewInput(), "the first look must see the input")
+        XCTAssertFalse(subject.dataDirectoryHasNewInput(), "nothing moved, so nothing changed")
+
+        // What publishing does
+        try "{\"limits\":[]}".write(to: data.appendingPathComponent("snapshot.json"),
+                                     atomically: true, encoding: .utf8)
+        XCTAssertFalse(subject.dataDirectoryHasNewInput(),
+                       "writing our own snapshot registered as an input change")
+    }
+
+    func testAReplacedFeedFileDoesCountAsAChange() throws {
+        let subject = loop()
+        let data = subject.dataDirectory
+        try FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
+        let feed = data.appendingPathComponent("claude-usage.json")
+        try "{}".write(to: feed, atomically: true, encoding: .utf8)
+        _ = subject.dataDirectoryHasNewInput()
+
+        // mtime has one second of resolution on some filesystems, so the write has to land
+        // in a different one for the comparison to mean anything
+        Thread.sleep(forTimeInterval: 1.1)
+        try "{\"five_hour\":{}}".write(to: feed, atomically: true, encoding: .utf8)
+        XCTAssertTrue(subject.dataDirectoryHasNewInput(),
+                      "a genuine feed update was mistaken for our own write")
+    }
+
     func testStoppingIsIdempotent() {
         let subject = loop()
         Thread.detachNewThread { subject.run() }

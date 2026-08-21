@@ -19,15 +19,20 @@ public final class WatchLoop {
         /// What a pass actually does. Injectable so a test can exercise the scheduling
         /// without reading anyone's real transcripts or writing a real warehouse.
         public var ingest: () -> Ingest.Outcome?
+        /// Publishing the wire format a UI renders. Off by default because the CLI's own
+        /// commands read the warehouse directly and do not need it.
+        public var publishSnapshot: Bool
 
         public init(sweepSeconds: TimeInterval = 60, debounceSeconds: TimeInterval = 2,
                     home: URL = RedlineHome.url,
+                    publishSnapshot: Bool = false,
                     ingest: @escaping () -> Ingest.Outcome? = {
                         Ingest.run(config: Config.load())
                     }) {
             self.sweepSeconds = sweepSeconds
             self.debounceSeconds = debounceSeconds
             self.home = home
+            self.publishSnapshot = publishSnapshot
             self.ingest = ingest
         }
     }
@@ -35,6 +40,7 @@ public final class WatchLoop {
     public enum Event {
         case started(watching: [URL], sweep: TimeInterval)
         case ingested(Ingest.Outcome, reason: String)
+        case published(Snapshot)
         case historyOff
     }
 
@@ -43,6 +49,9 @@ public final class WatchLoop {
     private let queue = DispatchQueue(label: "redline.watch")
     private var watchers: [String: DirectoryWatching] = [:]
     private var pending: DispatchWorkItem?
+    /// Last seen mtime per input file in the data directory. Publishing writes into that same
+    /// directory, so without this every publish would wake the loop that produced it.
+    private var seenInputMtimes: [String: Date] = [:]
     private let stopped = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private var running = false
@@ -94,6 +103,7 @@ public final class WatchLoop {
         lock.unlock()
 
         refreshWatchers()
+        _ = dataDirectoryHasNewInput()
         report(.started(watching: watchedPaths, sweep: options.sweepSeconds))
         ingest(reason: "start")
 
@@ -130,6 +140,28 @@ public final class WatchLoop {
         return watchers.keys.sorted().map { URL(fileURLWithPath: $0) }
     }
 
+    var dataDirectory: URL {
+        AppPaths.data(in: options.home == RedlineHome.url ? nil : options.home)
+    }
+
+    /// True when a file we read, rather than one we wrote, has changed since last time.
+    func dataDirectoryHasNewInput() -> Bool {
+        // The shim log and Claude Code's own feed. Everything else in here is ours.
+        let inputs = ["ollama.jsonl", "claude-usage.json"]
+        var moved = false
+        lock.lock(); defer { lock.unlock() }
+        for name in inputs {
+            let path = dataDirectory.appendingPathComponent(name).path
+            guard let mtime = (try? FileManager.default.attributesOfItem(atPath: path))?[
+                .modificationDate] as? Date else { continue }
+            if seenInputMtimes[path] != mtime {
+                seenInputMtimes[path] = mtime
+                moved = true
+            }
+        }
+        return moved
+    }
+
     /// Adds a watcher for anything new and drops one for anything gone. Cheap enough to run
     /// on every sweep, which is what keeps a brand new project directory from being missed.
     private func refreshWatchers() {
@@ -145,8 +177,14 @@ public final class WatchLoop {
         lock.unlock()
 
         for directory in missing {
+            // The data directory holds both inputs and our own output, so a change there is
+            // only interesting when one of the inputs actually moved.
+            let isDataDirectory = directory.standardizedFileURL == dataDirectory.standardizedFileURL
             guard let watcher = DirectoryWatcher.watch(directory, queue: queue, onChange: {
-                [weak self] in self?.schedule(reason: "change")
+                [weak self] in
+                guard let self else { return }
+                if isDataDirectory, !self.dataDirectoryHasNewInput() { return }
+                self.schedule(reason: "change")
             }) else { continue }
             lock.lock()
             watchers[directory.path] = watcher
@@ -167,6 +205,15 @@ public final class WatchLoop {
         queue.asyncAfter(deadline: .now() + options.debounceSeconds, execute: work)
     }
 
+    /// Writes the snapshot every UI reads. Separate from ingest so a failure to publish never
+    /// costs the history pass that already succeeded.
+    private func publishIfAsked() {
+        guard options.publishSnapshot else { return }
+        let snapshot = SnapshotBuilder.fromDisk(config: Config.load(), warehouse: Warehouse())
+        guard SnapshotStore.writeEverywhere(snapshot) else { return }
+        report(.published(snapshot))
+    }
+
     private func ingest(reason: String) {
         lock.lock()
         let active = running
@@ -177,5 +224,6 @@ public final class WatchLoop {
             return
         }
         report(.ingested(outcome, reason: reason))
+        publishIfAsked()
     }
 }

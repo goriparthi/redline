@@ -18,7 +18,9 @@ if arguments.first == "--version" {
 // Watching is the standalone tool's own command. On macOS the app is the watcher, so this
 // has no counterpart inside the bundle and is deliberately not in RedlineCLI.commands.
 if arguments.first == "watch" {
-    let loop = WatchLoop { event in
+    // A UI has to read the numbers from somewhere, and off macOS nothing else writes them
+    let options = WatchLoop.Options(publishSnapshot: true)
+    let loop = WatchLoop(options: options) { event in
         switch event {
         case let .started(watching, sweep):
             print("watching \(watching.count) director\(watching.count == 1 ? "y" : "ies"), "
@@ -28,6 +30,10 @@ if arguments.first == "watch" {
             // Silent on the common case, or an idle machine writes a line a minute forever
             guard outcome.added > 0 else { break }
             print("[\(reason)] +\(outcome.added) records, \(outcome.total) held")
+        case let .published(snapshot):
+            guard !snapshot.limits.isEmpty else { break }
+            print("  published \(snapshot.limits.count) limit "
+                  + "window\(snapshot.limits.count == 1 ? "" : "s")")
         case .historyOff:
             FileHandle.standardError.write(Data(
                 "Keep Local History is off, so there is nothing to watch into.\n".utf8))
