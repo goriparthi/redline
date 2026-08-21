@@ -49,18 +49,25 @@ public partial class App : Application
 
         if (!IsSelfTest) return;
 
-        // Long enough for the tray icon and the first render to have happened, short enough
-        // that a hung run is obviously hung
+        // Waits for the chain to complete rather than for a fixed delay: the transcript has
+        // to be found by the watcher this app started, published, noticed, and drawn. Reports
+        // either way after the deadline, so a stall says what it managed rather than hanging.
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(25);
         var timer = DispatcherQueue.GetForCurrentThread().CreateTimer();
-        timer.Interval = TimeSpan.FromSeconds(3);
-        timer.IsRepeating = false;
-        timer.Tick += (_, _) =>
+        timer.Interval = TimeSpan.FromMilliseconds(500);
+        timer.IsRepeating = true;
+        timer.Tick += (t, _) =>
         {
-            var summary = window is MainWindow main ? main.SelfTestSummary : "no window";
+            var main = window as MainWindow;
+            var done = main?.HasRenderedData == true;
+            if (!done && DateTimeOffset.UtcNow < deadline) return;
+
+            t.Stop();
+            var summary = main?.SelfTestSummary ?? "no window";
             // Stopped explicitly: Environment.Exit runs no finalizers, and a watcher left
             // behind by a test run would hold the lock against the next one.
-            (window as MainWindow)?.ShutDown();
-            Report("ok: " + summary);
+            main?.ShutDown();
+            Report((done ? "ok: " : "timeout: ") + summary);
             Environment.Exit(0);
         };
         timer.Start();

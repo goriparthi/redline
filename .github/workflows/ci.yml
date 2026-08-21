@@ -136,8 +136,19 @@ jobs:
           $home_dir = Join-Path $env:RUNNER_TEMP "selftest-home"
           New-Item -ItemType Directory -Force -Path (Join-Path $home_dir ".local\share\redline") | Out-Null
           New-Item -ItemType Directory -Force -Path (Join-Path $home_dir ".claude\projects\demo") | Out-Null
-          Copy-Item windows/RedLine.Core.Tests/fixtures/snapshot-headless.json `
-            (Join-Path $home_dir ".local\share\redline\snapshot.json")
+          # A transcript and a live feed, not a prepared snapshot. The app starts its own
+          # watcher, which republishes immediately, so planting a snapshot would only prove
+          # that it can be overwritten. This proves the whole chain instead.
+          $stamp = (Get-Date).ToUniversalTime().AddMinutes(-20).ToString("yyyy-MM-ddTHH:mm:ss.000Z")
+          $line = '{"timestamp":"' + $stamp + '","requestId":"req_a","message":{"id":"a",' +
+                  '"model":"claude-sonnet-5","usage":{"input_tokens":12000,"output_tokens":900,' +
+                  '"cache_read_input_tokens":0}}}'
+          [System.IO.File]::WriteAllText(
+            (Join-Path $home_dir ".claude\projects\demo\session.jsonl"), $line + "`n")
+          $feed = '{"updated_at":"' + (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") +
+                  '","five_hour":{"used_percentage":42,"resets_at":4102444800}}'
+          [System.IO.File]::WriteAllText(
+            (Join-Path $home_dir ".local\share\redline\claude-usage.json"), $feed)
           $env:REDLINE_HOME = $home_dir
           $log = Join-Path $env:RUNNER_TEMP "selftest.log"
           $env:REDLINE_SELFTEST_LOG = $log
@@ -155,7 +166,9 @@ jobs:
           $report = Get-Content $log -Raw
           if ($report -notmatch "^ok:") { throw "self test did not report ok: $report" }
           # It read the fixture we planted, so the whole path from disk to screen ran
-          if ($report -notmatch "windows=3") { throw "the app did not render the snapshot: $report" }
+          # 42% is the planted feed, arriving through the watcher the app started
+          if ($report -notmatch "title=42%") { throw "the app did not render the reading: $report" }
+          if ($report -notmatch "windows=1") { throw "the limit window never appeared: $report" }
           # A tray app whose icon failed to load is not a tray app
           if ($report -notmatch "tray=created") { throw "the tray icon was never created: $report" }
           # The app has to keep its own data current, not wait for someone to run the watcher

@@ -27,6 +27,11 @@ public sealed partial class MainWindow : Window
 
     private string renderSummary = "not rendered";
 
+    /// <summary>True once a snapshot with something in it has been drawn. The self test waits
+    /// on this rather than on a fixed delay, because it is proving a whole chain: a transcript
+    /// on disk, through the watcher this app started, into the window.</summary>
+    public bool HasRenderedData { get; private set; }
+
     /// <summary>Set when the engine will not run, so the reason can reach a person instead of
     /// leaving them with an empty window.</summary>
     public string EngineNote { get; private set; } = "";
@@ -120,6 +125,7 @@ public sealed partial class MainWindow : Window
             .ToList();
 
         renderSummary = $"title={view.Title} windows={(snapshot?.Limits.Count ?? 0)}";
+        if (snapshot?.Limits.Count > 0 || (snapshot?.Today?.Io ?? 0) > 0) HasRenderedData = true;
     }
 
     private void ShowWindow()
