@@ -30,7 +30,22 @@ Sources/RedlineCore/     Pure parsing and aggregation. Foundation only: no AppKi
   ProviderOverview.swift What a provider's overview card says, and which warnings earn a place
   ClaudeLimitsChoice     Where Claude's percentages come from, and which route is current
 
+  Ingest.swift           Reading every enabled provider into the warehouse, in one place
+  SnapshotBuilder.swift  The published wire format, assembled from disk alone
+  Version.swift          The version, for builds with no Info.plist to read it from
+
 Sources/CSQLite/         The SQLite amalgamation, compiled only off macOS. See its README.
+
+Sources/RedlinePlatform/ Services the operating system provides rather than a file. One
+                         protocol each, three implementations. Builds everywhere.
+  DirectoryWatcher.swift vnode sources, inotify, ReadDirectoryChangesW
+  CredentialStore.swift  Keychain, Credential Manager, Secret Service, and a 0600 file
+  Autostart.swift        LaunchAgent, systemd user unit, the Run key
+  WatchLoop.swift        The headless half of the app: ingest on change, publish the snapshot
+
+Sources/RedlineCLI/      The standalone command line tool. Named "redline" off macOS, where
+                         there is no app to claim the name, and "redline-cli" on macOS so the
+                         entry point cannot rot.
 
 Sources/RedlineUI/       The shared SwiftUI component set. macOS only.
   DesignSystem.swift     Every colour, space, radius and text style the UI may use
@@ -59,6 +74,7 @@ Sources/RedlineWidget/   The WidgetKit extension. Renders the snapshot, parses n
 
 Tests/RedlineCoreTests/  The core suite
 Tests/RedlineUITests/    The three tests that need AppKit to answer
+Tests/RedlinePlatformTests/  The platform services, against each system's real backend
 scripts/                 Build, test, bundle, install, DMG, release, Ollama shim,
                          Claude usage feed
 Casks/redline.rb         Homebrew cask
@@ -76,6 +92,10 @@ The boundary is drawn by symbol rather than by file: `ProviderMark`, `ProviderId
 `RLStatus` are data the CLI needs, so they stay in the core, while their colours, SF Symbol
 names and views live in `RedlineUI` as extensions. `Package.swift` adds the macOS-only
 targets under `#if os(macOS)`, so a Linux build cannot pull AppKit in by accident.
+`RedlinePlatform` is the third: the core is meant to be answerable from files alone, and a
+credential store is the opposite of that. `SingleInstance` and the `ClaudeFleet` process probe
+predate it and still live in the core, which is a wrinkle rather than a rule.
+
 See `notes/cross-platform.md`.
 
 ## Why the core is pure

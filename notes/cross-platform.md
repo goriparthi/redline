@@ -110,8 +110,41 @@ import closure is possible later; over-copying is the safe default.
 
 ## Phase 0 is done
 
-Next is Phase 1: lift the refresh loop into `RedlineService`, and add the credential store,
-autostart, notifier and directory-watcher abstractions with three backends each.
+## Phase 1: what a Windows or Linux machine can now do
+
+Everything below is verified on all three platforms by CI, not reasoned about.
+
+| Capability | How | Verified by |
+|---|---|---|
+| Read Claude, Codex and Ollama from disk | RedlineCore | the core suite |
+| Live Claude limits | `scripts/claude-statusline.ps1` beside the bash one | `StatuslineFeederTests` drives whichever fits the platform |
+| Count Ollama usage | `scripts/ollama-shim.ps1` beside the bash one | `OllamaShimTests`, which also covers the bash shim that had no tests before |
+| Notice a file change | `DirectoryWatcher`: vnode, inotify, ReadDirectoryChangesW | `DirectoryWatcherTests` |
+| Keep a token | `CredentialStore`: Keychain, Credential Manager, Secret Service, 0600 file | one shared contract, run against each real backend |
+| Start at login | `Autostart`: LaunchAgent, systemd user unit, Run key | `AutostartTests`, against a scratch root |
+| Keep history without an app | `redline watch` | `WatchLoopTests` |
+| Publish numbers for a UI | `SnapshotBuilder` plus `redline watch` | manual end to end, plus the loop tests |
+
+Two things worth knowing about the watch loop, because both were bugs before they were features:
+
+- **Watching the roots is not enough.** Claude keeps transcripts one directory below
+  `~/.claude/projects` and Codex three below `~/.codex/sessions`, and no backend here watches
+  a subtree. The loop walks the tree, re-walks it on every sweep so a new project is picked
+  up, and caps the watch count rather than opening a descriptor per directory.
+- **Publishing wakes the loop that published.** The snapshot lands in the directory being
+  watched, so only the two files we read, `ollama.jsonl` and `claude-usage.json`, count as a
+  change. This is the same trick the app plays with the feed sidecar's mtime.
+
+### Still to do
+
+- Notifications are deliberately not here. The engine already produces alert events in
+  `Alerting.swift`; rendering them is the shell's job, and on Windows that shell is C#.
+- `redlined` and its IPC, if the WinUI app cannot simply read `snapshot.json` and shell out
+  to `redline.exe`. Start by assuming it can.
+
+## Phase 2 and 3
+
+The native shells. Nothing has started.
 
 ## Deliberately not in the core
 
