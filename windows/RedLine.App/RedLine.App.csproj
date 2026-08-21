@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <!-- net10.0 because H.NotifyIcon.WinUI targets it, and WindowsAppSDK 1.6 because that is
-         what the same package depends on. Matching the tray library beats being current. -->
-    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!-- net9.0 with WindowsAppSDK 1.8 and H.NotifyIcon 2.3.2, which is the combination that
+         actually agrees: the tray library's 2.4 line is net10 only, and 1.6's XAML compiler
+         does not understand net10 at all. -->
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>RedLine.App</RootNamespace>
     <UseWinUI>true</UseWinUI>
@@ -20,9 +21,9 @@
     <NoWarn>$(NoWarn);CS8305</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250108002" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260804001" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
-    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
+    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.3.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../RedLine.Core/RedLine.Core.csproj" />
