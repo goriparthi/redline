@@ -2,7 +2,6 @@ using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media.Imaging;
 using RedLine.Core;
 
 namespace RedLine.App;
@@ -66,10 +65,17 @@ public sealed partial class MainWindow : Window
             ToolTipText = "RedLine",
             ContextFlyout = menu,
             NoLeftClickDelay = true,
-            // IconSource is an ImageSource here, not a System.Drawing.Icon, so this is a PNG
-            // rather than the .ico the executable itself carries
-            IconSource = new BitmapImage(new Uri("ms-appx:///Assets/tray.png")),
         };
+        // An HICON from the .ico, not an ImageSource. IconSource takes an ImageSource, but a
+        // BitmapImage decodes asynchronously and the conversion to an icon runs before it has
+        // finished, which fails at startup with "must be a picture that can be used as a Icon".
+        var ico = Path.Combine(AppContext.BaseDirectory, "Assets", "RedLine.ico");
+        if (File.Exists(ico))
+        {
+            // 32 rather than 16: Windows scales it down cleanly, and asking for 16 leaves
+            // nothing to scale up on a high DPI display.
+            tray.Icon = new System.Drawing.Icon(ico, new System.Drawing.Size(32, 32));
+        }
         tray.LeftClickCommand = new RelayCommand(ShowWindow);
         tray.ForceCreate();
     }

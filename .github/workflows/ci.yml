@@ -155,6 +155,8 @@ jobs:
           if ($report -notmatch "^ok:") { throw "self test did not report ok: $report" }
           # It read the fixture we planted, so the whole path from disk to screen ran
           if ($report -notmatch "windows=3") { throw "the app did not render the snapshot: $report" }
+          # A tray app whose icon failed to load is not a tray app
+          if ($report -notmatch "tray=created") { throw "the tray icon was never created: $report" }
 
       - uses: actions/upload-artifact@v4
         with:
