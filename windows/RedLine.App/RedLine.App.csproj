@@ -27,7 +27,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.3.2" />
     <!-- For System.Drawing.Icon, which is what TaskbarIcon.Icon actually is -->
-    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../RedLine.Core/RedLine.Core.csproj" />
