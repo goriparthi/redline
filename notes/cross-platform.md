@@ -229,6 +229,40 @@ a clean exit as a decision rather than a crash, so it does not restart it into a
 `redlined` and a named pipe are not needed and will not be built: the app reads `snapshot.json`
 and shells out to `redline.exe`, which is all `RedLine.Core` ever did.
 
+### Seen on a real desktop, 2026-08-21
+
+PG ran it on a throwaway EC2 Windows box over RDP, because there is no Windows machine here.
+Everything under the UI was right first time: the app started, ran its own engine, ingested a
+planted transcript, and drew 42%, both limit windows and the cost. Every number correct.
+
+The UI was the problem. It was a 1500x870 white window with the text in one corner and none of
+the brand on it. Fixed since: carbon ground, chalk and steel text, the reading coloured by
+status with the phrase still carrying the meaning in words, a rail per window, and a size and
+position suited to a status readout.
+
+The percentage is now drawn into the tray icon itself. Windows has no menu-bar text the way
+macOS does, and taskbar deskbands were removed in Windows 11, so an icon that renders the
+number is the only equivalent, and it is what every other taskbar meter does. `GetHicon` hands
+back a GDI handle the `Icon` wrapper never frees, so each redraw destroys the one it replaces.
+
+### Distribution: exe or MSI
+
+Ship **both**, for different audiences.
+
+- The self-contained folder is what CI already publishes and what a beta tester should get:
+  unzip, run, delete. No installer, no uninstall entry, nothing left behind.
+- **MSIX** is the real answer for a released app, not MSI. It gives a proper install and
+  uninstall, per-user install without admin, background auto-update from a URL, and it is the
+  only packaging that can carry a Windows 11 widget. MSI is the older story and buys nothing
+  here.
+
+Signing is not optional at that point. The macOS equivalent of notarization is
+**Authenticode**, and the important difference is that a fresh certificate carries no
+reputation: SmartScreen warns anyway until enough installs accumulate. An **EV** certificate
+skips that wait but needs hardware token or cloud HSM key storage. Budget roughly $200 to $400
+a year for OV, more for EV. Azure Trusted Signing is the cheapest current route if the
+eligibility rules fit.
+
 ### Still to do
 
 The dashboard and its charts, settings, first run, toasts, MSIX packaging, the widget
