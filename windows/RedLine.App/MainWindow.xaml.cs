@@ -17,6 +17,9 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private TaskbarIcon? tray;
 
+    /// <summary>What the self test reports: enough to tell a real start from an empty one.</summary>
+    public string SelfTestSummary { get; private set; } = "not rendered";
+
     public MainWindow()
     {
         InitializeComponent();
@@ -88,6 +91,9 @@ public sealed partial class MainWindow : Window
             .OrderByDescending(w => w.Utilization)
             .Select(w => $"{w.Provider} · {w.DisplayName}   {Math.Round(w.Utilization)}%")
             .ToList();
+
+        SelfTestSummary = $"tray={(tray?.IsCreated == true ? "created" : "missing")} "
+            + $"title={view.Title} windows={(snapshot?.Limits.Count ?? 0)}";
     }
 
     private void ShowWindow()

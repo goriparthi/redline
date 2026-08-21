@@ -126,6 +126,36 @@ jobs:
           Write-Host "published:"
           Get-ChildItem dist/app | Measure-Object -Property Length -Sum |
             ForEach-Object { "  {0} files, {1:N0} bytes" -f $_.Count, $_.Sum }
+      # Compiling is a much weaker claim than starting. This launches the published app for
+      # real: XAML loads, the tray icon is created, the snapshot is read and rendered, and it
+      # reports what it saw before exiting. A runner with no desktop would fail here, which is
+      # itself worth knowing.
+      - name: Prove the app starts
+        shell: pwsh
+        run: |
+          $home_dir = Join-Path $env:RUNNER_TEMP "selftest-home"
+          New-Item -ItemType Directory -Force -Path (Join-Path $home_dir ".local\share\redline") | Out-Null
+          Copy-Item windows/RedLine.Core.Tests/fixtures/snapshot-headless.json `
+            (Join-Path $home_dir ".local\share\redline\snapshot.json")
+          $env:REDLINE_HOME = $home_dir
+          $log = Join-Path $env:RUNNER_TEMP "selftest.log"
+          $env:REDLINE_SELFTEST_LOG = $log
+          Remove-Item $log -ErrorAction SilentlyContinue
+
+          $p = Start-Process -FilePath dist\app\RedLine.App.exe -ArgumentList "--selftest" `
+                             -PassThru
+          if (-not $p.WaitForExit(60000)) {
+            $p.Kill($true)
+            throw "the app never exited; it hung during startup"
+          }
+          if (Test-Path $log) { Write-Host ("report: " + (Get-Content $log -Raw)) }
+          else { Write-Host "report: (none written)" }
+          if ($p.ExitCode -ne 0) { throw "the app exited $($p.ExitCode)" }
+          $report = Get-Content $log -Raw
+          if ($report -notmatch "^ok:") { throw "self test did not report ok: $report" }
+          # It read the fixture we planted, so the whole path from disk to screen ran
+          if ($report -notmatch "windows=3") { throw "the app did not render the snapshot: $report" }
+
       - uses: actions/upload-artifact@v4
         with:
           name: redline-windows-app-x64
