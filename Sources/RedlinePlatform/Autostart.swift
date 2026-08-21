@@ -168,6 +168,11 @@ public struct SystemdUserAutostart: Autostarting {
 /// The per-user Run key, which is where Windows itself lists startup apps and therefore where
 /// someone will go to turn this off.
 public struct RunKeyAutostart: Autostarting {
+    // KEY_READ and KEY_WRITE are macros built from other macros and a bitwise negation, which
+    // the Swift importer does not fold, so their documented values are spelled out.
+    private static let keyRead: DWORD = 0x2_0019
+    private static let keyWrite: DWORD = 0x2_0006
+
     public let name = "Run key"
     private let subkey: String
     private let valueName: String
@@ -184,9 +189,9 @@ public struct RunKeyAutostart: Autostarting {
             if create {
                 return RegCreateKeyExW(HKEY_CURRENT_USER, path, 0, nil,
                                        DWORD(REG_OPTION_NON_VOLATILE),
-                                       DWORD(KEY_READ | KEY_WRITE), nil, &key, nil)
+                                       Self.keyRead | Self.keyWrite, nil, &key, nil)
             }
-            return RegOpenKeyExW(HKEY_CURRENT_USER, path, 0, DWORD(KEY_READ), &key)
+            return RegOpenKeyExW(HKEY_CURRENT_USER, path, 0, Self.keyRead, &key)
         }
         guard status == ERROR_SUCCESS, let key else {
             throw AutostartError.backend(name, detail: "opening \(subkey) failed (\(status))")
