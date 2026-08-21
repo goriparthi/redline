@@ -156,7 +156,10 @@ enum StatuslineInstaller {
         let url = settingsURL(home: home)
         guard let data = try? JSONSerialization.data(
             withJSONObject: settings,
-            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) else { return false }
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) else {
+            Diag.log.error("feed.settings_encode_failed", "could not encode settings.json")
+            return false
+        }
         let tmp = url.deletingLastPathComponent()
             .appendingPathComponent(".\(url.lastPathComponent).redline.tmp")
         do {
@@ -166,6 +169,10 @@ enum StatuslineInstaller {
             _ = try FileManager.default.replaceItemAt(url, withItemAt: tmp)
             return true
         } catch {
+            // This writes into a file Claude Code owns, so a failure here is the difference
+            // between "the feed is not installed" and "we could not touch your settings".
+            Diag.log.error("feed.settings_write_failed", "could not write settings.json",
+                           ["path": url.path, "error": String(describing: error)])
             try? FileManager.default.removeItem(at: tmp)
             return false
         }

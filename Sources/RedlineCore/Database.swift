@@ -55,7 +55,9 @@ public final class Database {
         guard rc == SQLITE_OK else {
             let message = error.map { String(cString: $0) } ?? "unknown"
             sqlite3_free(error)
-            throw DatabaseError(code: rc, message: message)
+            let failure = DatabaseError(code: rc, message: message)
+            record("db.execute_failed", failure, sql)
+            throw failure
         }
     }
 
@@ -66,7 +68,7 @@ public final class Database {
         defer { lock.unlock() }
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK, let stmt else {
-            throw error(prefix: sql)
+            throw fail("db.prepare_failed", sql)
         }
         defer { sqlite3_finalize(stmt) }
         for (i, value) in bindings.enumerated() { value.bind(to: stmt, at: Int32(i + 1)) }
@@ -74,7 +76,7 @@ public final class Database {
             let rc = sqlite3_step(stmt)
             if rc == SQLITE_ROW { row(Row(stmt: stmt)); continue }
             if rc == SQLITE_DONE { return }
-            throw error(prefix: sql)
+            throw fail("db.step_failed", sql)
         }
     }
 
@@ -86,7 +88,12 @@ public final class Database {
             try body()
             try execute("COMMIT")
         } catch {
-            try? execute("ROLLBACK")
+            // A rollback that itself fails leaves the connection inside a transaction, so
+            // every later write fails too. That cascade used to have no first cause on record.
+            do { try execute("ROLLBACK") } catch {
+                Diag.log.error("db.rollback_failed", "could not roll back",
+                               ["error": String(describing: error)])
+            }
             throw error
         }
     }
@@ -103,6 +110,25 @@ public final class Database {
 
     /// Reclaims space after a retention pass. Cheap to call and a no-op when nothing freed.
     public func compact() { try? execute("PRAGMA incremental_vacuum; VACUUM") }
+
+    /// Records a SQLite failure at the point it happens. Call sites use `try?` deliberately,
+    /// because a dropped read must not take the app down; this is what stops the drop from
+    /// also losing the reason.
+    private func fail(_ code: String, _ sql: String) -> DatabaseError {
+        let failure = error(prefix: sql)
+        record(code, failure, sql)
+        return failure
+    }
+
+    private func record(_ code: String, _ failure: DatabaseError, _ sql: String) {
+        // SQL text is schema, never row data, so it is safe to keep. Truncated because a
+        // migration statement would otherwise dominate the file.
+        let statement = sql.replacingOccurrences(of: "\n", with: " ")
+            .split(separator: " ").joined(separator: " ")
+        Diag.log.error(code, failure.message,
+                       ["sql": String(statement.prefix(120)),
+                        "sqlite": "\(failure.code)"])
+    }
 
     private func error(prefix: String) -> DatabaseError {
         let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"

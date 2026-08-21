@@ -19,6 +19,7 @@
 		24926363A3D24D71291FCE23 /* OllamaUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */; };
 		28FC1B7A93BE50DE30B5CB7D /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACDA678A22CDEA25530A764 /* SettingsWindow.swift */; };
 		2AB71CA3AA4E2A7761B61628 /* VersionCompare.swift in Sources */ = {isa = PBXBuildFile; fileRef = B629D202EE25A611B666669E /* VersionCompare.swift */; };
+		2E9DF5B50A68B9D9DE4CE0E3 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = E42BD3B72393530FD2217E05 /* Diagnostics.swift */; };
 		2F1CF67F76429502CD8D63D1 /* Snapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */; };
 		33B4AE18BDBDE97F696D61A2 /* claude-statusline.sh in Resources */ = {isa = PBXBuildFile; fileRef = 7F5981A6A2D1BAC9D92B13C1 /* claude-statusline.sh */; };
 		3449476BD8EA798D28593265 /* MenuRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750D227E31167B98C4F99ABF /* MenuRowView.swift */; };
@@ -195,6 +196,7 @@
 		CED513D0EA87D7E4737349F9 /* SingleInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleInstance.swift; sourceTree = "<group>"; };
 		D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatus.swift; sourceTree = "<group>"; };
 		DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedlineWidget.swift; sourceTree = "<group>"; };
+		E42BD3B72393530FD2217E05 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		EF2D39E506526264BDC08DB4 /* CodexSessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSessions.swift; sourceTree = "<group>"; };
 		F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaUsage.swift; sourceTree = "<group>"; };
 		F243DEA3F6D6C090FFF94EF1 /* Availability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Availability.swift; sourceTree = "<group>"; };
@@ -335,6 +337,7 @@
 				7F86294B8C331F3CA4A5DD4F /* CredentialScan.swift */,
 				1F7FBA512B8F449385AC9ED5 /* Database.swift */,
 				AC819AE74BBFBC14AF7BDFE8 /* DesignSystem.swift */,
+				E42BD3B72393530FD2217E05 /* Diagnostics.swift */,
 				32F42B9C62E394CFF7098FF6 /* Findings.swift */,
 				B2E6A1635E2B50F8522016FE /* FindingsDismissal.swift */,
 				9AF292E55776C9FDD7D18743 /* Limits.swift */,
@@ -560,6 +563,7 @@
 				F8E4378AA294C4F6A5FBD381 /* CredentialScan.swift in Sources */,
 				6647DCA6E529792DA6B8AD98 /* Database.swift in Sources */,
 				7C3BDF66B337B00E12CFC968 /* DesignSystem.swift in Sources */,
+				2E9DF5B50A68B9D9DE4CE0E3 /* Diagnostics.swift in Sources */,
 				4FB45D1DB225292BDB1B1E64 /* Findings.swift in Sources */,
 				8C2563A6AFA609A303856A8E /* FindingsDismissal.swift in Sources */,
 				6C7AAC7DE7E9AEFD5E977096 /* Limits.swift in Sources */,
@@ -753,7 +757,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = "0.8.3-beta.1";
+				MARKETING_VERSION = "0.8.3-beta.2";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -843,7 +847,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = "0.8.3-beta.1";
+				MARKETING_VERSION = "0.8.3-beta.2";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

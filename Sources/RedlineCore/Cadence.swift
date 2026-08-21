@@ -278,7 +278,15 @@ public enum CadenceStore {
         guard let data = try? Data(contentsOf: url) else { return CadenceState() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(CadenceState.self, from: data)) ?? CadenceState()
+        // A file that exists but will not decode means the state silently reset. Absence is
+        // ordinary and stays quiet; corruption is not and must leave a record.
+        do {
+            return try decoder.decode(CadenceState.self, from: data)
+        } catch {
+            Diag.log.error("cadence.state_corrupt", "state file did not decode; starting over",
+                           ["path": url.path, "error": String(describing: error)])
+            return CadenceState()
+        }
     }
 
     @discardableResult
@@ -287,7 +295,10 @@ public enum CadenceStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(state) else { return false }
+        guard let data = try? encoder.encode(state) else {
+            Diag.log.error("cadence.encode_failed", "could not encode state")
+            return false
+        }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
@@ -296,6 +307,8 @@ public enum CadenceStore {
                                                    ofItemAtPath: url.path)
             return true
         } catch {
+            Diag.log.error("cadence.save_failed", "could not write state",
+                           ["path": url.path, "error": String(describing: error)])
             return false
         }
     }

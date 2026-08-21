@@ -122,8 +122,15 @@ public struct Config {
     public static func load(from url: URL? = nil) -> Config {
         let url = url ?? configURL
         let cfg = Config()
-        guard let data = try? Data(contentsOf: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let data = try? Data(contentsOf: url) else {
+            writeDefault(to: url)          // no file yet: ordinary first run
+            return cfg
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            // The file is there and unreadable, so every preference in it is about to be
+            // replaced with a default. That has to leave a record.
+            Diag.log.error("config.corrupt", "config did not parse; defaults written over it",
+                           ["path": url.path, "bytes": "\(data.count)"])
             writeDefault(to: url)
             return cfg
         }
@@ -247,9 +254,15 @@ public struct Config {
         ]
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? JSONSerialization.data(
-            withJSONObject: dict, options: [.prettyPrinted, .sortedKeys]) {
-            try? data.write(to: url)
+        // A config that silently fails to save is the worst kind of bug: the UI shows the new
+        // value and the next launch does not have it.
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: dict, options: [.prettyPrinted, .sortedKeys]) else {
+            Diag.log.error("config.encode_failed", "could not encode config")
+            return
+        }
+        Diag.log.attempt("config.write_failed", ["path": url.path]) {
+            try data.write(to: url)
         }
     }
 

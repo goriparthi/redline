@@ -42,13 +42,24 @@ public enum StatuslineFeed {
     /// Reads and parses the sidecar. A missing file is not an error: it means the feeder is
     /// not installed yet, which the caller reports differently from a broken one.
     public static func read(path: URL, now: Date = Date()) -> StatuslineSnapshot? {
-        guard let data = try? Data(contentsOf: path) else { return nil }
+        guard let data = try? Data(contentsOf: path) else {
+            // A missing file is the feeder not being installed, which the caller reports
+            // differently, so this is only worth a debug line.
+            Diag.log.debug("feed.unreadable", "sidecar not readable", ["path": path.path])
+            return nil
+        }
         return parse(data: data, now: now)
     }
 
     public static func parse(data: Data, now: Date = Date()) -> StatuslineSnapshot? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return nil }
+        else {
+            // The file is there and unreadable as JSON, which is a broken feeder rather than
+            // a missing one. That distinction is the whole reason this is an error.
+            Diag.log.error("feed.parse_failed", "sidecar is not valid JSON",
+                           ["bytes": "\(data.count)"])
+            return nil
+        }
         return parse(json, now: now)
     }
 

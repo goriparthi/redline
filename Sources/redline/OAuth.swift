@@ -16,7 +16,10 @@ struct TokenStore: Codable {
 
     @discardableResult
     func save() -> Bool {
-        guard let data = try? JSONEncoder().encode(self) else { return false }
+        guard let data = try? JSONEncoder().encode(self) else {
+            Diag.log.error("oauth.token_encode_failed", "could not encode the token store")
+            return false
+        }
         TokenStore.clear()
         let attrs: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -50,7 +53,15 @@ struct TokenStore: Codable {
         var item: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
               let data = item as? Data else { return nil }
-        return try? JSONDecoder().decode(TokenStore.self, from: data)
+        // A Keychain item that will not decode reads as "signed out" everywhere, which is
+        // indistinguishable from an expired grant unless it says so here.
+        do {
+            return try JSONDecoder().decode(TokenStore.self, from: data)
+        } catch {
+            Diag.log.error("oauth.token_decode_failed", "Keychain item did not decode",
+                           ["error": String(describing: error)])
+            return nil
+        }
     }
 
     static func clear() {

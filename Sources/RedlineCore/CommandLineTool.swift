@@ -29,7 +29,7 @@ public enum RedlineCLI {
     /// The words that mean "run the tool and exit" rather than "launch the app". Kept here
     /// so the entry point and the help text cannot disagree about what exists.
     public static let commands = ["status", "findings", "history", "cadence", "ingest",
-                                  "help"]
+                                  "log", "help"]
 
     public static let usage = """
     redline <command> [options]
@@ -39,12 +39,16 @@ public enum RedlineCLI {
       history             recorded daily history from the local warehouse
       cadence             how the work is spread out: runs, hours, days in a row
       ingest              read new transcript records into the local store now
+      log                 recorded warnings and errors, newest last
       help                this text
 
     options
       --json              machine-readable output
       --csv               comma-separated output (history only)
-      --days N            window to report on (findings, history)
+      --days N            window to report on (findings, history, log)
+      --level L           debug | info | warn | error, lowest to report (log)
+      --tally             group the log by code, most frequent first
+      --tail N            only the last N entries (log)
 
     exit codes
       0 ok · 10 near a limit · 11 at a limit · 20 nothing to report · 30 no data
@@ -65,11 +69,68 @@ public enum RedlineCLI {
         case "history":  return history(json: json, csv: csv, days: days ?? 30, now: now)
         case "cadence":  return cadence(json: json, days: days ?? 14, now: now)
         case "ingest":   return ingest(json: json, now: now)
+        case "log":      return logs(json: json, args: args, days: days, now: now)
         case "help", "--help", "-h": return Result(text: usage, code: Code.ok)
         default:
             return Result(text: "unknown command: \(command)\n\n" + usage,
                           code: Code.noData)
         }
+    }
+
+    /// The diagnostics file, as text or JSON. This is the command an eval loop runs: it
+    /// answers "what has actually been going wrong" without opening the app.
+    static func logs(json: Bool, args: [String], days: Int?, now: Date) -> Result {
+        let level = stringOption(args, name: "--level")
+            .flatMap { DiagLevel(rawValue: $0.lowercased()) } ?? .warn
+        let since = days.map { now.addingTimeInterval(-Double($0) * 86_400) }
+        let log = Diag.log
+
+        if args.contains("--tally") {
+            let rows = log.tally(minimumLevel: level, since: since)
+            guard !rows.isEmpty else {
+                return Result(text: "No entries at \(level.rawValue) or above.",
+                              code: Code.indeterminate)
+            }
+            if json {
+                let out: [[String: Any]] = rows.map {
+                    ["code": $0.code, "count": $0.count, "latest": $0.latest]
+                }
+                return Result(text: encode(["codes": out]), code: Code.ok)
+            }
+            let width = rows.map { $0.code.count }.max() ?? 0
+            let text = rows.map {
+                "\(String(repeating: " ", count: width - $0.code.count))\($0.code)"
+                    + "  \($0.count)  last \($0.latest)"
+            }.joined(separator: "\n")
+            return Result(text: text, code: Code.ok)
+        }
+
+        var events = log.read(minimumLevel: level, since: since)
+        if let tail = intOption(args, name: "--tail"), events.count > tail {
+            events = Array(events.suffix(tail))
+        }
+        guard !events.isEmpty else {
+            return Result(text: "No entries at \(level.rawValue) or above.",
+                          code: Code.indeterminate)
+        }
+        if json {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+            let data = (try? encoder.encode(events)) ?? Data()
+            return Result(text: String(decoding: data, as: UTF8.self), code: Code.ok)
+        }
+        let text = events.map { e -> String in
+            let ctx = e.context.isEmpty ? "" : "  "
+                + e.context.sorted { $0.key < $1.key }
+                    .map { "\($0.key)=\($0.value)" }.joined(separator: " ")
+            return "\(e.at)  \(e.level.rawValue.uppercased())  \(e.code)  \(e.message)\(ctx)"
+        }.joined(separator: "\n")
+        return Result(text: text, code: Code.ok)
+    }
+
+    static func stringOption(_ args: [String], name: String) -> String? {
+        guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
+        return args[i + 1]
     }
 
     static func intOption(_ args: [String], name: String) -> Int? {

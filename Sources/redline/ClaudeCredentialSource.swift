@@ -101,7 +101,10 @@ enum ClaudeCredentialSource {
         let err = Pipe()
         proc.standardOutput = out
         proc.standardError = err
-        guard (try? proc.run()) != nil else { return .accessDenied }
+        let launched: Void? = Diag.log.attempt("keychain.security_launch_failed") {
+            try proc.run()
+        }
+        guard launched != nil else { return .accessDenied }
 
         // The consent dialog blocks until answered. A short kill here reads a waiting user as
         // a denial and reports "disconnected" while the prompt is still on screen.
@@ -130,7 +133,12 @@ enum ClaudeCredentialSource {
 
     private static func parse(_ data: Data) -> CredentialOutcome {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return .unreadable }
+        else {
+            Diag.log.error("keychain.credential_unparsed",
+                           "Keychain payload was not the expected JSON",
+                           ["bytes": "\(data.count)"])
+            return .unreadable
+        }
         guard let credential = CredentialScan.credential(in: json) else { return .unreadable }
         return .found(credential)
     }

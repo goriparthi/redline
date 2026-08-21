@@ -38,8 +38,17 @@ enum LaunchAgent {
             at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         guard let data = try? PropertyListSerialization.data(
-            fromPropertyList: plist, format: .xml, options: 0) else { return }
-        do { try data.write(to: plistURL) } catch { return }
+            fromPropertyList: plist, format: .xml, options: 0) else {
+            Diag.log.error("launchagent.encode_failed", "could not encode the LaunchAgent plist")
+            return
+        }
+        // Without this file the menu bar item does not come back after a restart, and today
+        // that failure is completely silent.
+        do { try data.write(to: plistURL) } catch {
+            Diag.log.error("launchagent.write_failed", "could not write the LaunchAgent plist",
+                           ["path": plistURL.path, "error": String(describing: error)])
+            return
+        }
         // Deliberately not bootstrapped here. This process is already running and owns the
         // status item, so loading the agent now would start a second copy and show two icons.
     }
@@ -69,7 +78,7 @@ enum LaunchAgent {
         p.arguments = [verb, "gui/\(getuid())", plistURL.path]
         p.standardOutput = FileHandle.nullDevice
         p.standardError = FileHandle.nullDevice
-        try? p.run()
+        Diag.log.attempt("launchctl.run_failed", ["verb": verb]) { try p.run() }
         p.waitUntilExit()
     }
 }
@@ -167,6 +176,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private var allLimits: [LimitWindow] { claudeLimits + codexLimits }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Before anything else can fail, so a startup failure has somewhere to go
+        Diag.configure(version: Updates.bundleVersion)
+        Diag.log.info("app.launched", "RedLine started",
+                      ["macos": ProcessInfo.processInfo.operatingSystemVersionString])
         buildMainMenu()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         applyMenuBarIcon()

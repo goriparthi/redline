@@ -19,7 +19,7 @@ settings:
     # Empty by default so a clone builds without belonging to anyone's team. Set
     # REDLINE_TEAM_ID before `make xcodeproj` to sign with your own.
     DEVELOPMENT_TEAM: ${REDLINE_TEAM_ID}
-    MARKETING_VERSION: "0.8.3-beta.1"
+    MARKETING_VERSION: "0.8.3-beta.2"
     CURRENT_PROJECT_VERSION: "0.8.3"
 
 targets:

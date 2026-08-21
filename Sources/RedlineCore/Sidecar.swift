@@ -122,7 +122,10 @@ public enum Sidecar {
                            today: today, week: week, limitsAsOf: limitsAsOf)
         guard let data = try? JSONSerialization.data(withJSONObject: json,
                                                      options: [.prettyPrinted, .sortedKeys])
-        else { return false }
+        else {
+            Diag.log.error("sidecar.encode_failed", "could not encode sidecar payload")
+            return false
+        }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
@@ -131,6 +134,8 @@ public enum Sidecar {
                                                    ofItemAtPath: url.path)
             return true
         } catch {
+            Diag.log.error("sidecar.write_failed", "could not publish sidecar",
+                           ["path": url.path, "error": String(describing: error)])
             return false
         }
     }

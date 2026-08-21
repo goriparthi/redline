@@ -56,6 +56,11 @@ enum Updates {
             } else {
                 json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             }
+            if json == nil {
+                Diag.log.error("updates.payload_unparsed",
+                               "releases response was not the expected JSON",
+                               ["bytes": "\(data.count)", "channel": beta ? "beta" : "stable"])
+            }
             guard let json, let tag = json["tag_name"] as? String else {
                 completion(.failed(beta ? "No releases found"
                                         : "Update check failed: unexpected response"))

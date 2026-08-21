@@ -299,7 +299,10 @@ public enum SnapshotStore {
 
     @discardableResult
     public static func write(_ snapshot: Snapshot, to url: URL = url()) -> Bool {
-        guard let data = try? encoder.encode(snapshot) else { return false }
+        guard let data = try? encoder.encode(snapshot) else {
+            Diag.log.error("snapshot.encode_failed", "could not encode snapshot")
+            return false
+        }
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -309,12 +312,22 @@ public enum SnapshotStore {
                                                    ofItemAtPath: url.path)
             return true
         } catch {
+            // The widget and the CLI both read this file, so a failed write here is the
+            // cause of every "why is it stale" question about either of them.
+            Diag.log.error("snapshot.write_failed", "could not write snapshot",
+                           ["path": url.path, "error": String(describing: error)])
             return false
         }
     }
 
     public static func read(from url: URL = url()) -> Snapshot? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? decoder.decode(Snapshot.self, from: data)
+        do {
+            return try decoder.decode(Snapshot.self, from: data)
+        } catch {
+            Diag.log.error("snapshot.decode_failed", "snapshot on disk did not decode",
+                           ["path": url.path, "error": String(describing: error)])
+            return nil
+        }
     }
 }

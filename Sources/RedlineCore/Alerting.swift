@@ -202,7 +202,15 @@ public enum AlertStore {
         guard let data = try? Data(contentsOf: url) else { return AlertState() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(AlertState.self, from: data)) ?? AlertState()
+        // A file that exists but will not decode means the state silently reset. Absence is
+        // ordinary and stays quiet; corruption is not and must leave a record.
+        do {
+            return try decoder.decode(AlertState.self, from: data)
+        } catch {
+            Diag.log.error("alerts.state_corrupt", "state file did not decode; starting over",
+                           ["path": url.path, "error": String(describing: error)])
+            return AlertState()
+        }
     }
 
     @discardableResult
@@ -211,7 +219,10 @@ public enum AlertStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(state) else { return false }
+        guard let data = try? encoder.encode(state) else {
+            Diag.log.error("alerts.encode_failed", "could not encode state")
+            return false
+        }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
@@ -220,6 +231,8 @@ public enum AlertStore {
                                                    ofItemAtPath: url.path)
             return true
         } catch {
+            Diag.log.error("alerts.save_failed", "could not write state",
+                           ["path": url.path, "error": String(describing: error)])
             return false
         }
     }

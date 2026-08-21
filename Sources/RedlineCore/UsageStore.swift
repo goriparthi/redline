@@ -123,10 +123,25 @@ public final class UsageStore {
     func parse(url: URL, cutoff: Date) -> [Entry] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         var entries: [Entry] = []
+        // Counted per file rather than logged per line: a transcript format change would
+        // otherwise write one event for every record in it.
+        var malformed = 0
         text.enumerateLines { line, _ in
-            guard let e = self.entry(from: line, path: url.path, offset: nil),
-                  e.ts > cutoff else { return }
-            entries.append(e)
+            if let e = self.entry(from: line, path: url.path, offset: nil) {
+                if e.ts > cutoff { entries.append(e) }
+                return
+            }
+            // Only genuinely invalid JSON counts. A line with no usage, or a synthetic model,
+            // is an ordinary skip and says nothing about the format.
+            if line.contains("\"usage\""), let d = line.data(using: .utf8),
+               (try? JSONSerialization.jsonObject(with: d)) == nil {
+                malformed += 1
+            }
+        }
+        if malformed > 0 {
+            Diag.log.warn("transcript.lines_unparsed",
+                          "lines carried usage but were not valid JSON",
+                          ["path": url.path, "count": "\(malformed)"])
         }
         return entries
     }

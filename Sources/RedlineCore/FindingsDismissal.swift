@@ -54,8 +54,15 @@ public enum FindingsDismissalStore {
         guard let data = try? Data(contentsOf: url) else { return FindingsDismissals() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(FindingsDismissals.self, from: data))
-            ?? FindingsDismissals()
+        // A file that exists but will not decode means dismissals silently came back.
+        do {
+            return try decoder.decode(FindingsDismissals.self, from: data)
+        } catch {
+            Diag.log.error("findings.dismissals_corrupt",
+                           "dismissal file did not decode; starting over",
+                           ["path": url.path, "error": String(describing: error)])
+            return FindingsDismissals()
+        }
     }
 
     @discardableResult
@@ -64,7 +71,10 @@ public enum FindingsDismissalStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(state) else { return false }
+        guard let data = try? encoder.encode(state) else {
+            Diag.log.error("findings.dismissals_encode_failed", "could not encode dismissals")
+            return false
+        }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
@@ -73,6 +83,8 @@ public enum FindingsDismissalStore {
                                                    ofItemAtPath: url.path)
             return true
         } catch {
+            Diag.log.error("findings.dismissals_save_failed", "could not write dismissals",
+                           ["path": url.path, "error": String(describing: error)])
             return false
         }
     }
