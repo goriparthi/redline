@@ -11,6 +11,7 @@
 		094AEC9F51AB095AEF705127 /* FindingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A68FC1D13F91D4CD4152F9 /* FindingsService.swift */; };
 		0AA2EE3944F14CF933B1A7F5 /* Availability.swift in Sources */ = {isa = PBXBuildFile; fileRef = F243DEA3F6D6C090FFF94EF1 /* Availability.swift */; };
 		0ABC91673311D851FA108124 /* ClaudeLimitsChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4715000A481576A5DCAE84 /* ClaudeLimitsChoice.swift */; };
+		0B13AB568CED322CBAD183E0 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = 892543FD1D3054EC7BC3AC20 /* Version.swift */; };
 		0D9DAEFA97CE4BFA7E31466B /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8113FDF017A78BE87CDBBACF /* Components.swift */; };
 		10E3438B6F09A1EB0012599A /* ClaudeCredentialSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D2F6C6024C2CB9A31F9F7F /* ClaudeCredentialSource.swift */; };
 		1649CE694ADE1CCFF1E9E6DF /* Usage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4D3B9D0F9D8C9F124020D6 /* Usage.swift */; };
@@ -18,6 +19,8 @@
 		177BBC02BE0031772154DB68 /* Sidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */; };
 		1A1B2F755E5743D39AA18A88 /* RedlineUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A58AC339EE1A4BD137204A06 /* RedlineUI.framework */; };
 		1C9DAD2B8067833CC4E648E0 /* RedlineWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFC50432D0FCCC97E9573105 /* RedlineWidget.swift */; };
+		2044E58B5F45345FAF072297 /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC0415DE092CA1B2B112DCB /* CredentialStore.swift */; };
+		233F0A121677C30B02115400 /* DirectoryWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 416FA0591EE378363A4170F5 /* DirectoryWatcher.swift */; };
 		24926363A3D24D71291FCE23 /* OllamaUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */; };
 		28FC1B7A93BE50DE30B5CB7D /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACDA678A22CDEA25530A764 /* SettingsWindow.swift */; };
 		2AB71CA3AA4E2A7761B61628 /* VersionCompare.swift in Sources */ = {isa = PBXBuildFile; fileRef = B629D202EE25A611B666669E /* VersionCompare.swift */; };
@@ -39,12 +42,14 @@
 		71F757DC9171929689C1C6CD /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3459AC42335624CB7D0D2B9 /* DesignSystem.swift */; };
 		79D9068BE1AC48C32ACE0C45 /* ClaudeFleet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B96BD155016F5F7E62F3C2FC /* ClaudeFleet.swift */; };
 		7C5B56AF030E67CDD8346E0F /* ProviderOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE55B716DD9CD51291AC568 /* ProviderOverview.swift */; };
+		8560A27BB2F22422F65B1251 /* RedlinePlatform.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 025DD5A0E7F60DB53C11EA5A /* RedlinePlatform.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		85B47DCDD9A67C95AA0FAC73 /* Redline.icns in Resources */ = {isa = PBXBuildFile; fileRef = 988FB716748B26CD67278337 /* Redline.icns */; };
 		8767E8452B43CF2B2D1E14D5 /* SingleInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED513D0EA87D7E4737349F9 /* SingleInstance.swift */; };
 		8A37C1B9C476E667D3C7626E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594A59204E47A19AF9380F42 /* AppDelegate.swift */; };
 		8C2563A6AFA609A303856A8E /* FindingsDismissal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E6A1635E2B50F8522016FE /* FindingsDismissal.swift */; };
 		90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C70F9EB19961D2896832675D /* Trends.swift */; };
 		946B9D6449A2548826A4E638 /* ClaudeAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F803F78EF03A83B38E36C88 /* ClaudeAuth.swift */; };
+		956A9B97A5E38D715C965369 /* RedlinePlatform.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 025DD5A0E7F60DB53C11EA5A /* RedlinePlatform.framework */; };
 		98575FC0468EE2F4E87260DF /* ProviderIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1F788537B5D5D2CBAFC5D04F /* ProviderIcons.xcassets */; };
 		9BD597547539A0FF0DD27053 /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
 		9CD52EA04F1CDE8CD286AF39 /* ServiceStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */; };
@@ -58,6 +63,7 @@
 		B0B200DB01AF4E71CEE873C8 /* Ollama.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B28FA77D5BF771D09A8333 /* Ollama.swift */; };
 		B0C07761E587F08B6AE9CE9A /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
 		B1CD68EEBE3BAB5D79E7B792 /* RedlineHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3364DACF0254F15DD72B8C /* RedlineHome.swift */; };
+		B43EDC81370FECE3252B446A /* RedlineCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */; };
 		B60126738CA4B07C53ED7548 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AF4BF9E1F8FE7E67230776 /* Brand.swift */; };
 		B7F10B5D17960404187C323C /* TerminalFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 189B263A79FBCA8DC0F50A4A /* TerminalFocus.swift */; };
 		B8F5BC0B534826FD82FD8DDB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256BCA039C4F6C0212417A7A /* main.swift */; };
@@ -90,6 +96,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		0307854ACC48665C246559F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BDBA1FFFB56DFE185BB8A607 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F049CA8C42D3D4B9F30CB30;
+			remoteInfo = RedlineCore;
+		};
 		4AC7EA53E7D312E925352BC5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BDBA1FFFB56DFE185BB8A607 /* Project object */;
@@ -132,6 +145,13 @@
 			remoteGlobalIDString = C33C47D48CF5181BF537BEAB;
 			remoteInfo = RedlineUI;
 		};
+		FCE4668424476296A9D0DF9B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BDBA1FFFB56DFE185BB8A607 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CD92A1F8BD9B90009E73EF2A;
+			remoteInfo = RedlinePlatform;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -143,6 +163,7 @@
 			files = (
 				0877B5F2853087C4E76A3A54 /* RedlineCore.framework in Embed Frameworks */,
 				E4185ECBBDAA39CB5F11817B /* RedlineUI.framework in Embed Frameworks */,
+				8560A27BB2F22422F65B1251 /* RedlinePlatform.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -161,6 +182,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		025DD5A0E7F60DB53C11EA5A /* RedlinePlatform.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = RedlinePlatform.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidecar.swift; sourceTree = "<group>"; };
 		0CB13536CAA9E455E2773311 /* ProviderCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderCards.swift; sourceTree = "<group>"; };
 		0FF162160942F2D6D8978624 /* GitHubMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubMark.swift; sourceTree = "<group>"; };
@@ -179,6 +201,7 @@
 		32F42B9C62E394CFF7098FF6 /* Findings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Findings.swift; sourceTree = "<group>"; };
 		3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snapshot.swift; sourceTree = "<group>"; };
 		40B2994711ADFCA836371D67 /* CommandLineTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineTool.swift; sourceTree = "<group>"; };
+		416FA0591EE378363A4170F5 /* DirectoryWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryWatcher.swift; sourceTree = "<group>"; };
 		41A68FC1D13F91D4CD4152F9 /* FindingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsService.swift; sourceTree = "<group>"; };
 		447ED9DA10B4CBB9133689B5 /* Pace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pace.swift; sourceTree = "<group>"; };
 		46D95C1D61B6246B59EB1A9D /* Alerting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alerting.swift; sourceTree = "<group>"; };
@@ -200,6 +223,7 @@
 		8113FDF017A78BE87CDBBACF /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		84975E45680DCAD617F40832 /* Warehouse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Warehouse.swift; sourceTree = "<group>"; };
 		87D84AD92C821EDBC4ED14A7 /* Provenance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provenance.swift; sourceTree = "<group>"; };
+		892543FD1D3054EC7BC3AC20 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
 		89D2F6C6024C2CB9A31F9F7F /* ClaudeCredentialSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCredentialSource.swift; sourceTree = "<group>"; };
 		8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = RedlineCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8ACDA678A22CDEA25530A764 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
@@ -209,6 +233,7 @@
 		9D59182E56BE7254764382E5 /* RedlineTemplate@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "RedlineTemplate@2x.png"; sourceTree = "<group>"; };
 		9F803F78EF03A83B38E36C88 /* ClaudeAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAuth.swift; sourceTree = "<group>"; };
 		9FA07D3D6BF92948B549F7B3 /* RedlineWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RedlineWidget.entitlements; sourceTree = "<group>"; };
+		9FC0415DE092CA1B2B112DCB /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
 		A3459AC42335624CB7D0D2B9 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		A58AC339EE1A4BD137204A06 /* RedlineUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = RedlineUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA4715000A481576A5DCAE84 /* ClaudeLimitsChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsChoice.swift; sourceTree = "<group>"; };
@@ -247,6 +272,7 @@
 			files = (
 				9BD597547539A0FF0DD27053 /* RedlineCore.framework in Frameworks */,
 				1A1B2F755E5743D39AA18A88 /* RedlineUI.framework in Frameworks */,
+				956A9B97A5E38D715C965369 /* RedlinePlatform.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +282,14 @@
 			files = (
 				B0C07761E587F08B6AE9CE9A /* RedlineCore.framework in Frameworks */,
 				BFF8671ACB628E9D02AC0720 /* RedlineUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B03143FB585422576FD628EB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B43EDC81370FECE3252B446A /* RedlineCore.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -270,6 +304,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		24F22ED05CAA74E4E7A50ACE /* RedlinePlatform */ = {
+			isa = PBXGroup;
+			children = (
+				9FC0415DE092CA1B2B112DCB /* CredentialStore.swift */,
+				416FA0591EE378363A4170F5 /* DirectoryWatcher.swift */,
+			);
+			path = RedlinePlatform;
+			sourceTree = "<group>";
+		};
 		26C3DF98FEA114572DC196BC /* RedlineUI */ = {
 			isa = PBXGroup;
 			children = (
@@ -307,6 +350,7 @@
 			children = (
 				77E369CE6531396BD0644322 /* Redline.app */,
 				8A99E3761C3B3B3837CF0963 /* RedlineCore.framework */,
+				025DD5A0E7F60DB53C11EA5A /* RedlinePlatform.framework */,
 				A58AC339EE1A4BD137204A06 /* RedlineUI.framework */,
 				78FE2F26BDB6366C0D7C1974 /* RedlineWidget.appex */,
 			);
@@ -337,6 +381,7 @@
 			children = (
 				929F95464D066DBA36DA20A2 /* redline */,
 				EF63F5151055D3F432C21EEF /* RedlineCore */,
+				24F22ED05CAA74E4E7A50ACE /* RedlinePlatform */,
 				26C3DF98FEA114572DC196BC /* RedlineUI */,
 				5A03863A9D964D119767A485 /* RedlineWidget */,
 			);
@@ -416,6 +461,7 @@
 				C70F9EB19961D2896832675D /* Trends.swift */,
 				FC4D3B9D0F9D8C9F124020D6 /* Usage.swift */,
 				32B17D76D7A2F62CA3643183 /* UsageStore.swift */,
+				892543FD1D3054EC7BC3AC20 /* Version.swift */,
 				B629D202EE25A611B666669E /* VersionCompare.swift */,
 				84975E45680DCAD617F40832 /* Warehouse.swift */,
 			);
@@ -489,6 +535,7 @@
 			dependencies = (
 				A87CC5D0CA81F3FF747AD71B /* PBXTargetDependency */,
 				D2F678D4FAD158708B12E54D /* PBXTargetDependency */,
+				D4CE0FC23B6E6BDF58B8B6E1 /* PBXTargetDependency */,
 				CD36B5B1B9FA9BEA90DB7BD0 /* PBXTargetDependency */,
 			);
 			name = Redline;
@@ -517,6 +564,25 @@
 			productReference = A58AC339EE1A4BD137204A06 /* RedlineUI.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		CD92A1F8BD9B90009E73EF2A /* RedlinePlatform */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 578EE83E7BA5788E1ED036BE /* Build configuration list for PBXNativeTarget "RedlinePlatform" */;
+			buildPhases = (
+				F7B75027EC63E7682CB3D28A /* Sources */,
+				B03143FB585422576FD628EB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				60BCC306DA2E551A7A0375E6 /* PBXTargetDependency */,
+			);
+			name = RedlinePlatform;
+			packageProductDependencies = (
+			);
+			productName = RedlinePlatform;
+			productReference = 025DD5A0E7F60DB53C11EA5A /* RedlinePlatform.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -542,6 +608,10 @@
 						DevelopmentTeam = "${REDLINE_TEAM_ID}";
 						ProvisioningStyle = Automatic;
 					};
+					CD92A1F8BD9B90009E73EF2A = {
+						DevelopmentTeam = "${REDLINE_TEAM_ID}";
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 351C0B475CFFDDA670E8AD46 /* Build configuration list for PBXProject "Redline" */;
@@ -560,6 +630,7 @@
 			targets = (
 				78E2D3ED9A80CB97FFD0EA18 /* Redline */,
 				6F049CA8C42D3D4B9F30CB30 /* RedlineCore */,
+				CD92A1F8BD9B90009E73EF2A /* RedlinePlatform */,
 				C33C47D48CF5181BF537BEAB /* RedlineUI */,
 				299BF6CE55BF3236BABD32D4 /* RedlineWidget */,
 			);
@@ -668,6 +739,7 @@
 				90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */,
 				1649CE694ADE1CCFF1E9E6DF /* Usage.swift in Sources */,
 				C5FCD0C6BE931628CA7A443F /* UsageStore.swift in Sources */,
+				0B13AB568CED322CBAD183E0 /* Version.swift in Sources */,
 				2AB71CA3AA4E2A7761B61628 /* VersionCompare.swift in Sources */,
 				34E5A3DC377480F42995A4E0 /* Warehouse.swift in Sources */,
 			);
@@ -684,9 +756,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F7B75027EC63E7682CB3D28A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2044E58B5F45345FAF072297 /* CredentialStore.swift in Sources */,
+				233F0A121677C30B02115400 /* DirectoryWatcher.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		60BCC306DA2E551A7A0375E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6F049CA8C42D3D4B9F30CB30 /* RedlineCore */;
+			targetProxy = 0307854ACC48665C246559F3 /* PBXContainerItemProxy */;
+		};
 		791A23BC568AF4C40C898E63 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C33C47D48CF5181BF537BEAB /* RedlineUI */;
@@ -711,6 +797,11 @@
 			isa = PBXTargetDependency;
 			target = C33C47D48CF5181BF537BEAB /* RedlineUI */;
 			targetProxy = 52B23456C4602D08B6AF5B3B /* PBXContainerItemProxy */;
+		};
+		D4CE0FC23B6E6BDF58B8B6E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CD92A1F8BD9B90009E73EF2A /* RedlinePlatform */;
+			targetProxy = FCE4668424476296A9D0DF9B /* PBXContainerItemProxy */;
 		};
 		F9F450B9D82015994417B8A6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -800,6 +891,30 @@
 			};
 			name = Release;
 		};
+		81C1E9FC3C83ABE354A121AE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Resources/RedlinePlatform-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goriparthi.redline.platform;
+				PRODUCT_NAME = RedlinePlatform;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
 		8D47630DE585048DACB9393D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -817,6 +932,30 @@
 				SDKROOT = macosx;
 			};
 			name = Debug;
+		};
+		955FE83C672859B83F4CECC3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Resources/RedlinePlatform-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goriparthi.redline.platform;
+				PRODUCT_NAME = RedlinePlatform;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
 		};
 		9BBE450B812F1B15AB6E3302 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1043,6 +1182,15 @@
 			buildConfigurations = (
 				9BBE450B812F1B15AB6E3302 /* Debug */,
 				C39256AFF99C7CDE2A9CBFD3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		578EE83E7BA5788E1ED036BE /* Build configuration list for PBXNativeTarget "RedlinePlatform" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81C1E9FC3C83ABE354A121AE /* Debug */,
+				955FE83C672859B83F4CECC3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -38,6 +38,20 @@ targets:
         # host app's, so it is written explicitly rather than synthesized
         INFOPLIST_FILE: Resources/RedlineCore-Info.plist
 
+  RedlinePlatform:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/RedlinePlatform
+    dependencies:
+      - target: RedlineCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.goriparthi.redline.platform
+        PRODUCT_NAME: RedlinePlatform
+        DEFINES_MODULE: YES
+        INFOPLIST_FILE: Resources/RedlinePlatform-Info.plist
+
   RedlineUI:
     type: framework
     platform: macOS
@@ -87,6 +101,8 @@ targets:
       - target: RedlineCore
         embed: true
       - target: RedlineUI
+        embed: true
+      - target: RedlinePlatform
         embed: true
       - target: RedlineWidget
         embed: true

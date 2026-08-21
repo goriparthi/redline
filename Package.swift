@@ -29,6 +29,13 @@ targets += [
     // Every on-disk format it reads is undocumented, so tests pin the shapes.
     .target(name: "RedlineCore", dependencies: coreDependencies),
     .testTarget(name: "RedlineCoreTests", dependencies: ["RedlineCore"]),
+
+    // Services the operating system provides rather than a file: watching a directory,
+    // keeping a secret. One protocol each, three implementations, and the reason the core
+    // can stay answerable from files alone.
+    .target(name: "RedlinePlatform", dependencies: ["RedlineCore"]),
+    .testTarget(name: "RedlinePlatformTests",
+                dependencies: ["RedlinePlatform", "RedlineCore"]),
 ]
 
 #if os(macOS)
@@ -36,17 +43,18 @@ targets += [
     // The shared SwiftUI component set. Used by both the app and the widget, which is why it
     // is a library rather than part of the app target.
     .target(name: "RedlineUI", dependencies: ["RedlineCore"]),
-    .executableTarget(name: "redline", dependencies: ["RedlineCore", "RedlineUI"]),
+    .executableTarget(name: "redline",
+                      dependencies: ["RedlineCore", "RedlineUI", "RedlinePlatform"]),
     .testTarget(name: "RedlineUITests", dependencies: ["RedlineUI", "RedlineCore"]),
     // The app owns the name "redline" here, so the standalone tool is built under a second
     // name. It is built at all so the entry point cannot rot while only CI compiles it.
-    .executableTarget(name: "redline-cli", dependencies: ["RedlineCore"],
+    .executableTarget(name: "redline-cli", dependencies: ["RedlineCore", "RedlinePlatform"],
                       path: "Sources/RedlineCLI"),
 ]
 #else
 // Off macOS there is no app yet, so the command line tool is what "redline" means.
 targets.append(
-    .executableTarget(name: "redline", dependencies: ["RedlineCore"],
+    .executableTarget(name: "redline", dependencies: ["RedlineCore", "RedlinePlatform"],
                       path: "Sources/RedlineCLI")
 )
 #endif

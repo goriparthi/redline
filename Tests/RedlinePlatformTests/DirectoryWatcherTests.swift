@@ -2,7 +2,8 @@
 // is not to test inotify or ReadDirectoryChangesW, it is to pin the contract all three owe
 // the caller: a write in the directory wakes the callback, and cancelling stops it.
 import XCTest
-@testable import RedlineCore
+@testable import RedlinePlatform
+import RedlineCore
 
 final class DirectoryWatcherTests: XCTestCase {
     private var dir: URL!

@@ -3,6 +3,7 @@
 // The app needs this because Claude Code rewrites its sidecar and its session records while
 // RedLine is running, and a poll interval measured in minutes would make the menu bar lie.
 import Foundation
+import RedlineCore
 #if canImport(Darwin)
 import Darwin
 #elseif os(Linux)
