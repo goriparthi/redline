@@ -7,6 +7,12 @@ import RedlineCore
 import RedlinePlatform
 
 let arguments = Array(CommandLine.arguments.dropFirst())
+
+/// The value after a named flag, for the couple of options this entry point owns.
+func stringOption(_ args: [String], _ name: String) -> String? {
+    guard let index = args.firstIndex(of: name), index + 1 < args.count else { return nil }
+    return args[index + 1]
+}
 // Held for the life of the process; a released signal source stops delivering
 var signalSources: [DispatchSourceSignal] = []
 
@@ -53,6 +59,46 @@ if arguments.first == "watch" {
     exit(0)
 }
 
+// Starting at login is the platform's business, not the engine's, so it lives beside watch
+// rather than in RedlineCLI. Every shell can then ask for it the same way.
+if arguments.first == "autostart" {
+    let service = PlatformAutostart.service()
+    let action = arguments.dropFirst().first ?? "status"
+    // What it should start: this binary, watching. A GUI shell that wants itself started
+    // instead passes --program.
+    let program = stringOption(arguments, "--program")
+        .map { URL(fileURLWithPath: $0) }
+        ?? URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
+    let programArguments = stringOption(arguments, "--args").map { [$0] } ?? ["watch"]
+
+    switch action {
+    case "status":
+        print("\(service.name): \(service.isEnabled ? "on" : "off")")
+    case "on":
+        do {
+            try service.enable(program: program, arguments: programArguments)
+            print("\(service.name): on, starting \(program.path) "
+                  + programArguments.joined(separator: " "))
+        } catch {
+            FileHandle.standardError.write(Data("could not enable: \(error)\n".utf8))
+            exit(1)
+        }
+    case "off":
+        do {
+            try service.disable()
+            print("\(service.name): off")
+        } catch {
+            FileHandle.standardError.write(Data("could not disable: \(error)\n".utf8))
+            exit(1)
+        }
+    default:
+        FileHandle.standardError.write(Data(
+            "unknown autostart action: \(action)\n\nredline autostart [status|on|off]\n".utf8))
+        exit(2)
+    }
+    exit(0)
+}
+
 // No argument means status, matching what the bundled tool does on macOS
 let command = arguments.first ?? "status"
 guard command.hasPrefix("--") || RedlineCLI.commands.contains(command) else {
@@ -71,6 +117,9 @@ if command == "help" || command == "--help" || command == "-h" {
       watch               keep the local history current, until stopped
                           point a startup entry at this off macOS, where
                           there is no app doing it
+      autostart [on|off]  start RedLine when you sign in; no argument reports
+                          whether it is on. --program and --args say what to
+                          start, and default to this binary watching.
     """, code: result.code)
 }
 print(result.text)

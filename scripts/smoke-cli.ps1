@@ -47,6 +47,12 @@ try {
         throw "ingest was not incremental"
     }
 
+    Write-Host "autostart reports without changing anything"
+    # Status only: turning it on here would edit what the machine starts at login
+    if ((Invoke-Redline 0 @("autostart")) -notmatch ": (on|off)") {
+        throw "autostart did not report a state"
+    }
+
     Write-Host "history reads it back"
     if ((Invoke-Redline 0 @("history")) -notmatch "1.1K") {
         throw "history lost the 1100 tokens"
