@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -16,8 +15,6 @@ public sealed partial class MainWindow : Window
     private readonly SnapshotMonitor monitor = new();
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private TaskbarIcon? tray;
-
-    public ObservableCollection<WindowRow> Rows { get; } = [];
 
     public MainWindow()
     {
@@ -80,15 +77,13 @@ public sealed partial class MainWindow : Window
         // not just the number
         if (tray is not null) tray.ToolTipText = $"RedLine · {view.Title} · {view.Phrase}";
 
-        Rows.Clear();
-        foreach (var window in (snapshot?.Limits ?? []).OrderByDescending(w => w.Utilization))
-        {
-            Rows.Add(new WindowRow($"{window.Provider} · {window.DisplayName}",
-                                   $"{Math.Round(window.Utilization)}%"));
-        }
-        // Bound in code for the same reason the tray is: one less thing for the XAML compiler
-        // to have an opinion about
-        WindowsList.ItemsSource = Rows.Select(r => $"{r.Label}   {r.Reading}").ToList();
+        // Projected to plain strings rather than to a model type. Any public type reachable
+        // from XAML gets bindable type info generated for it, and the generator writes to
+        // properties, so an init-only record fails the build.
+        WindowsList.ItemsSource = (snapshot?.Limits ?? [])
+            .OrderByDescending(w => w.Utilization)
+            .Select(w => $"{w.Provider} · {w.DisplayName}   {Math.Round(w.Utilization)}%")
+            .ToList();
     }
 
     private void ShowWindow()
@@ -97,8 +92,6 @@ public sealed partial class MainWindow : Window
         Activate();
     }
 }
-
-public sealed record WindowRow(string Label, string Reading);
 
 /// <summary>The smallest ICommand that will do. A whole MVVM package for one click is not a
 /// trade worth making.</summary>
