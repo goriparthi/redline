@@ -38,7 +38,17 @@ targets += [
     .target(name: "RedlineUI", dependencies: ["RedlineCore"]),
     .executableTarget(name: "redline", dependencies: ["RedlineCore", "RedlineUI"]),
     .testTarget(name: "RedlineUITests", dependencies: ["RedlineUI", "RedlineCore"]),
+    // The app owns the name "redline" here, so the standalone tool is built under a second
+    // name. It is built at all so the entry point cannot rot while only CI compiles it.
+    .executableTarget(name: "redline-cli", dependencies: ["RedlineCore"],
+                      path: "Sources/RedlineCLI"),
 ]
+#else
+// Off macOS there is no app yet, so the command line tool is what "redline" means.
+targets.append(
+    .executableTarget(name: "redline", dependencies: ["RedlineCore"],
+                      path: "Sources/RedlineCLI")
+)
 #endif
 
 let package = Package(

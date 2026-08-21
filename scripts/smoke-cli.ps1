@@ -1,0 +1,59 @@
+# Proves a built command line binary actually works on Windows: it reads a Claude transcript,
+# writes the SQLite warehouse, and reads it back. Mirrors scripts/smoke-cli.sh.
+param([Parameter(Mandatory = $true)][string]$Bin)
+
+$ErrorActionPreference = "Stop"
+if (-not (Test-Path $Bin)) { throw "not found: $Bin" }
+
+$HomeDir = Join-Path $env:TEMP ("redline-smoke-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path (Join-Path $HomeDir ".claude\projects\demo") -Force | Out-Null
+$env:REDLINE_HOME = $HomeDir
+
+# Runs the binary and checks the exit code, since the codes are part of the contract
+function Invoke-Redline([int]$Want, [string[]]$RedlineArgs) {
+    $out = & $Bin @RedlineArgs 2>&1 | Out-String
+    if ($LASTEXITCODE -ne $Want) {
+        throw "'$($RedlineArgs -join ' ')' exited $LASTEXITCODE, wanted $Want`n$out"
+    }
+    return $out
+}
+
+try {
+    Write-Host "version"
+    if ((Invoke-Redline 0 @("--version")) -notmatch "redline ") {
+        throw "--version printed nothing recognisable"
+    }
+
+    Write-Host "help"
+    if ((Invoke-Redline 0 @("help")) -notmatch [regex]::Escape("redline <command>")) {
+        throw "help lost its usage line"
+    }
+
+    Write-Host "empty machine"
+    # 30 is "no data", and saying so beats inventing a zero
+    Invoke-Redline 30 @("status") | Out-Null
+
+    Write-Host "ingest"
+    $ts = (Get-Date).ToUniversalTime().AddMinutes(-30).ToString("yyyy-MM-ddTHH:mm:ss.000Z")
+    $line = '{"timestamp":"' + $ts + '","requestId":"req_a","message":{"id":"a","model":"claude-sonnet-5","usage":{"input_tokens":1000,"output_tokens":100,"cache_read_input_tokens":0}}}'
+    $session = Join-Path $HomeDir ".claude\projects\demo\session.jsonl"
+    [System.IO.File]::WriteAllText($session, $line + "`n")
+    if ((Invoke-Redline 0 @("ingest", "--json")) -notmatch '"added" : 1') {
+        throw "ingest did not record the transcript"
+    }
+
+    Write-Host "the same transcript twice adds nothing"
+    if ((Invoke-Redline 0 @("ingest", "--json")) -notmatch '"added" : 0') {
+        throw "ingest was not incremental"
+    }
+
+    Write-Host "history reads it back"
+    if ((Invoke-Redline 0 @("history")) -notmatch "1.1K") {
+        throw "history lost the 1100 tokens"
+    }
+
+    Write-Host "OK: $Bin"
+}
+finally {
+    Remove-Item -Recurse -Force $HomeDir -ErrorAction SilentlyContinue
+}

@@ -35,15 +35,24 @@ jobs:
   # RedlineCore is Foundation only and has to keep building where there is no Xcode. These
   # jobs are the gate: a macOS-only API landing in the core fails here, not in a port months
   # later. Neither runner builds the app, because the app is AppKit and always will be.
+  # Both publish the command line binary as an artifact, so "it builds" is something you can
+  # download and run rather than something a log claims.
   core-linux:
     runs-on: ubuntu-latest
     container: swift:6.0-jammy
     steps:
       - uses: actions/checkout@v4
-      - name: Build the core
-        run: swift build --target RedlineCore
       - name: Run the core tests
         run: swift test
+      - name: Build the command line tool
+        run: swift build -c release
+      - name: Prove the binary works
+        run: scripts/smoke-cli.sh .build/release/redline
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redline-linux-x64
+          path: .build/release/redline
+          if-no-files-found: error
 
   core-windows:
     runs-on: windows-latest
@@ -56,7 +65,15 @@ jobs:
         with:
           branch: swift-6.3.3-release
           tag: 6.3.3-RELEASE
-      - name: Build the core
-        run: swift build --target RedlineCore
       - name: Run the core tests
         run: swift test
+      - name: Build the command line tool
+        run: swift build -c release
+      - name: Prove the binary works
+        shell: pwsh
+        run: .\scripts\smoke-cli.ps1 .build\release\redline.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redline-windows-x64
+          path: .build/release/redline.exe
+          if-no-files-found: error
