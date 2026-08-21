@@ -106,3 +106,9 @@ jobs:
         # normal verbosity, because a quiet run reports that something failed without
         # reporting what, which costs a whole CI cycle to find out
         run: dotnet test windows/RedLine.Core.Tests/RedLine.Core.Tests.csproj --nologo -v n
+      # The app itself cannot be exercised headlessly, so the gate is that it compiles at all.
+      # Worth having: a WinUI project breaks on package and SDK drift far more often than on
+      # anything we wrote.
+      - name: Build the Windows app
+        shell: pwsh
+        run: dotnet build windows/RedLine.App/RedLine.App.csproj -c Release -p:Platform=x64 --nologo -v m
