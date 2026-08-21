@@ -3,19 +3,45 @@
 import XCTest
 @testable import RedlineCore
 
-// The feeder is a bash script, so this whole suite is POSIX only. Windows needs a PowerShell
-// equivalent before any of it can run there.
-#if !os(Windows)
-
 final class StatuslineFeederTests: XCTestCase {
     private var dir: URL!
     private var out: URL!
 
+    /// The two feeders are the same contract in two languages, so both are driven by these
+    /// tests rather than only the one that happens to run on the developer's machine.
     private static let script = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()   // RedlineCoreTests
         .deletingLastPathComponent()   // Tests
         .deletingLastPathComponent()   // repo root
+        #if os(Windows)
+        .appendingPathComponent("scripts/claude-statusline.ps1")
+        #else
         .appendingPathComponent("scripts/claude-statusline.sh")
+        #endif
+
+    /// The interpreter and its arguments. Resolved from PATH rather than a fixed location,
+    /// because pwsh does not live in one place.
+    private static func interpreter() throws -> (URL, [String]) {
+        #if os(Windows)
+        for name in ["pwsh.exe", "powershell.exe"] {
+            guard let exe = onPath(name) else { continue }
+            return (exe, ["-NoProfile", "-File", script.path])
+        }
+        throw XCTSkip("no PowerShell on PATH")
+        #else
+        return (URL(fileURLWithPath: "/bin/bash"), [script.path])
+        #endif
+    }
+
+    private static func onPath(_ name: String) -> URL? {
+        let sep: Character = ProcessInfo.processInfo.environment["PATH"]?.contains(";") == true
+            ? ";" : ":"
+        for dir in ProcessInfo.processInfo.environment["PATH"]?.split(separator: sep) ?? [] {
+            let candidate = URL(fileURLWithPath: String(dir)).appendingPathComponent(name)
+            if FileManager.default.isExecutableFile(atPath: candidate.path) { return candidate }
+        }
+        return nil
+    }
 
     override func setUpWithError() throws {
         dir = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -32,14 +58,18 @@ final class StatuslineFeederTests: XCTestCase {
     /// while no sidecar exists.
     @discardableResult
     private func draw(_ payload: String) throws -> String? {
+        let (exe, args) = try Self.interpreter()
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = [Self.script.path]
-        process.environment = [
-            "REDLINE_CLAUDE_USAGE": out.path,
-            "HOME": dir.path,
-            "PATH": ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin",
-        ]
+        process.executableURL = exe
+        process.arguments = args
+        // Overlaid rather than replaced: PowerShell needs SystemRoot and friends to start at
+        // all, and the sidecar path is what actually isolates the run.
+        var env = ProcessInfo.processInfo.environment
+        env["REDLINE_CLAUDE_USAGE"] = out.path
+        env["HOME"] = dir.path
+        env["REDLINE_HOME"] = dir.path
+        env.removeValue(forKey: "REDLINE_STATUSLINE_CHAIN")
+        process.environment = env
         let stdin = Pipe()
         process.standardInput = stdin
         process.standardOutput = FileHandle.nullDevice
@@ -113,4 +143,3 @@ final class StatuslineFeederTests: XCTestCase {
         XCTAssertEqual(try draw(""), good)
     }
 }
-#endif
