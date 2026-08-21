@@ -394,36 +394,23 @@ public enum RedlineCLI {
     /// end to end tests, which need to drive the real thing rather than a stand-in.
     static func ingest(json: Bool, now: Date) -> Result {
         let config = Config.load()
-        guard config.recordHistory else {
+        guard let outcome = Ingest.run(config: config, now: now) else {
             return Result(text: json ? "{\"error\":\"history is off\"}" :
                 "Keep Local History is off, so there is no store to read into.",
                           code: Code.noData)
         }
-        let warehouse = Warehouse()
-        var counts: [String: Int] = [:]
-        if config.wants(UsageStore.provider) {
-            counts[UsageStore.provider] = UsageStore().ingest(into: warehouse, now: now)
-        }
-        if config.wants(CodexStore.provider) {
-            let before = warehouse.entryCount
-            _ = CodexStore().ingest(into: warehouse, now: now)
-            counts[CodexStore.provider] = warehouse.entryCount - before
-        }
-        if config.wants(OllamaStore.provider) {
-            counts[OllamaStore.provider] = OllamaStore().ingest(into: warehouse, now: now)
-        }
-        warehouse.rollupPending(config: config)
-        let added = counts.values.reduce(0, +)
+        let counts = outcome.byProvider
+        let added = outcome.added
 
         if json {
             return Result(text: encode(["added": added, "by_provider": counts,
-                                        "records": warehouse.entryCount]),
+                                        "records": outcome.total]),
                           code: Code.ok)
         }
         let detail = counts.keys.sorted()
             .map { "\($0) \(counts[$0] ?? 0)" }.joined(separator: " · ")
         return Result(text: "\(added) new records · \(detail) · "
-            + "\(warehouse.entryCount) held", code: Code.ok)
+            + "\(outcome.total) held", code: Code.ok)
     }
 
     // MARK: - cadence
