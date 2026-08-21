@@ -177,10 +177,21 @@ publishes `redline-windows-app-x64`: a self-contained folder, about 113 MB compr
 `RedLine.App.exe`, the engine `redline.exe`, and the Windows App SDK. Nothing needs installing
 first.
 
-**It has never been launched.** CI compiles it and cannot run it, and there is no Windows
-machine here. So the tray icon appearing, the flyout opening, and the `ms-appx:///` URI
-resolving in an unpackaged app are all unverified. The first person to double-click it is
-doing the first real test.
+**It starts, and CI proves it.** `RedLine.App.exe --selftest` builds the window and the tray
+against a planted snapshot, reports what it saw, and exits. The Windows job asserts the
+report, so a startup crash fails the build rather than waiting for someone to double-click:
+
+    report: ok: tray=created title=42% windows=3
+
+That is XAML loading, the tray icon being created from a real HICON, the snapshot being read
+off disk, and three limit windows rendered. What is still unverified is everything a person
+would do next: clicking the icon, opening the flyout, whether any of it looks right.
+
+The self test paid for itself on its first run. The tray icon had been set from a `BitmapImage`
+through `IconSource`, which compiles perfectly and then throws
+`Argument 'picture' must be a picture that can be used as a Icon` at startup, because a
+BitmapImage decodes asynchronously and the conversion runs before it has finished. Nothing
+short of launching it would have caught that.
 
 Three things cost a CI cycle each and are worth not rediscovering:
 
@@ -192,8 +203,11 @@ Three things cost a CI cycle each and are worth not rediscovering:
 - The combination that agrees is net9.0-windows, Windows App SDK 1.8 and H.NotifyIcon.WinUI
   2.3.2. The 2.4 line is net10 only, and 1.6's XAML compiler does not understand net10 at all.
 
-`TaskbarIcon.IconSource` is an `ImageSource`, not a `System.Drawing.Icon`, so the tray uses a
-PNG while the executable carries `Resources/RedLine.ico` from `scripts/make-windows-icon.sh`.
+`TaskbarIcon` has both `IconSource` (an `ImageSource`) and `Icon` (a `System.Drawing.Icon`).
+Use `Icon`: it takes an HICON that is ready immediately. `scripts/make-windows-icon.sh` builds
+`Resources/RedLine.ico` from the appiconset, writing the small sizes as BMP frames rather than
+PNG, because a PNG-compressed frame is legal in an .ico and Explorer reads it but
+`System.Drawing.Icon` rejects it.
 
 ### Still to do
 
