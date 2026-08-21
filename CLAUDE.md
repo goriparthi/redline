@@ -3,6 +3,9 @@
 Personal project. Read `docs/ARCHITECTURE.md` before changing anything and
 `docs/EXTENDING.md` before adding anything.
 
+**Windows port in progress.** Read `notes/HANDOFF.md` first if you are picking that up. It
+lives on the `cross-platform-core` branch and is not to be merged until asked.
+
 ## Deploying is not optional
 
 **A DMG is not a release.** If you run `make dmg` on purpose, you have started a deploy and
