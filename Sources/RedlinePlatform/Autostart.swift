@@ -183,15 +183,19 @@ public struct RunKeyAutostart: Autostarting {
         self.valueName = valueName
     }
 
-    private func withKey<T>(create: Bool, _ body: (HKEY) throws -> T) throws -> T {
+    /// Deleting a value needs write access just as much as setting one does, which is the
+    /// whole reason `write` is a separate question from `create`.
+    private func withKey<T>(create: Bool, write: Bool,
+                            _ body: (HKEY) throws -> T) throws -> T {
         var key: HKEY?
+        let access = write ? Self.keyRead | Self.keyWrite : Self.keyRead
         let status = subkey.withCString(encodedAs: UTF16.self) { path -> LSTATUS in
             if create {
                 return RegCreateKeyExW(HKEY_CURRENT_USER, path, 0, nil,
                                        DWORD(REG_OPTION_NON_VOLATILE),
-                                       Self.keyRead | Self.keyWrite, nil, &key, nil)
+                                       access, nil, &key, nil)
             }
-            return RegOpenKeyExW(HKEY_CURRENT_USER, path, 0, Self.keyRead, &key)
+            return RegOpenKeyExW(HKEY_CURRENT_USER, path, 0, access, &key)
         }
         guard status == ERROR_SUCCESS, let key else {
             throw AutostartError.backend(name, detail: "opening \(subkey) failed (\(status))")
@@ -201,7 +205,7 @@ public struct RunKeyAutostart: Autostarting {
     }
 
     public var isEnabled: Bool {
-        (try? withKey(create: false) { key -> Bool in
+        (try? withKey(create: false, write: false) { key -> Bool in
             var size: DWORD = 0
             let status = valueName.withCString(encodedAs: UTF16.self) {
                 RegQueryValueExW(key, $0, nil, nil, nil, &size)
@@ -215,7 +219,7 @@ public struct RunKeyAutostart: Autostarting {
         // value is split on them
         let command = (["\"\(program.path)\""] + arguments).joined(separator: " ")
         var bytes = Array(command.utf16) + [0]
-        try withKey(create: true) { key in
+        try withKey(create: true, write: true) { key in
             let status = valueName.withCString(encodedAs: UTF16.self) { name -> LSTATUS in
                 bytes.withUnsafeBufferPointer { buffer in
                     buffer.baseAddress!.withMemoryRebound(
@@ -232,8 +236,12 @@ public struct RunKeyAutostart: Autostarting {
     }
 
     public func disable() throws {
-        _ = try? withKey(create: false) { key in
-            _ = valueName.withCString(encodedAs: UTF16.self) { RegDeleteValueW(key, $0) }
+        // A missing key means nothing was ever enabled, which is a success, not a failure
+        guard let status = try? withKey(create: false, write: true, { key -> LSTATUS in
+            valueName.withCString(encodedAs: UTF16.self) { RegDeleteValueW(key, $0) }
+        }) else { return }
+        guard status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND else {
+            throw AutostartError.backend(name, detail: "deleting the value failed (\(status))")
         }
     }
 }
