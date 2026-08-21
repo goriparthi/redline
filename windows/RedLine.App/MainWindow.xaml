@@ -5,18 +5,77 @@
     <!-- No third-party controls in here on purpose. The XAML compiler has to load a control
          library's own generated metadata, and a library built against a different Windows App
          SDK fails that with an internal error rather than a useful one. The tray icon is built
-         in code-behind instead, where only the C# API matters. -->
-    <Grid Padding="24" RowSpacing="6">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-        <TextBlock x:Name="TitleText" Grid.Row="0" FontSize="34" FontWeight="SemiBold" />
-        <TextBlock x:Name="PhraseText" Grid.Row="1" FontSize="16" Opacity="0.8" />
-        <TextBlock x:Name="DetailText" Grid.Row="2" FontSize="13" Opacity="0.6"
-                   TextWrapping="Wrap" />
-        <ItemsControl x:Name="WindowsList" Grid.Row="3" Margin="0,16,0,0" />
+         in code-behind instead, where only the C# API matters.
+
+         Colours are the brand tokens from Sources/RedlineCore/Brand.swift and RedlineUI's
+         design system, spelled out because there is no way to share them across languages. -->
+    <Grid x:Name="Root" Background="#0B0D10">
+        <Grid.Resources>
+            <SolidColorBrush x:Key="Chalk" Color="#F4F1EA" />
+            <SolidColorBrush x:Key="Steel" Color="#A8AEBA" />
+            <SolidColorBrush x:Key="Muted" Color="#848A96" />
+            <SolidColorBrush x:Key="Hairline" Color="#262A32" />
+            <SolidColorBrush x:Key="Raised" Color="#171A1F" />
+            <SolidColorBrush x:Key="RailTrack" Color="#262A32" />
+        </Grid.Resources>
+
+        <Grid Margin="20,18,20,18" RowSpacing="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Wordmark. Small on purpose: the reading is the thing being looked at. -->
+            <TextBlock Grid.Row="0" Text="REDLINE" FontSize="11" FontWeight="SemiBold"
+                       Foreground="{StaticResource Muted}" CharacterSpacing="220" />
+
+            <!-- The reading. Coloured by status, but never colour alone: the phrase under it
+                 carries the same meaning in words. -->
+            <StackPanel Grid.Row="1" Spacing="2">
+                <TextBlock x:Name="TitleText" FontSize="44" FontWeight="SemiBold"
+                           Foreground="{StaticResource Chalk}" LineHeight="50" />
+                <TextBlock x:Name="PhraseText" FontSize="14"
+                           Foreground="{StaticResource Steel}" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="2" x:Name="DetailText" FontSize="12"
+                       Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+
+            <!-- One rail per window, so a glance ranks them without reading a number -->
+            <ItemsControl Grid.Row="3" x:Name="WindowsList" VerticalAlignment="Top">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,12" RowSpacing="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="12"
+                                           Foreground="#A8AEBA" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="{Binding Reading}" FontSize="12"
+                                           FontWeight="SemiBold" Foreground="#F4F1EA" />
+                            </Grid>
+                            <ProgressBar Grid.Row="1" Minimum="0" Maximum="100"
+                                         Value="{Binding Value}" Height="4"
+                                         Foreground="{Binding Fill}"
+                                         Background="#262A32" CornerRadius="2" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Says where the numbers came from and when, because a stale reading presented
+                 as current is the failure worth avoiding -->
+            <TextBlock Grid.Row="4" x:Name="FooterText" FontSize="11"
+                       Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+        </Grid>
     </Grid>
 </Window>

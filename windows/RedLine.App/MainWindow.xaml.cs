@@ -1,8 +1,13 @@
 using H.NotifyIcon;
+using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using RedLine.Core;
+using Windows.Graphics;
+using Windows.UI;
 
 namespace RedLine.App;
 
@@ -18,6 +23,8 @@ public sealed partial class MainWindow : Window
     private readonly SnapshotMonitor monitor = new();
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private TaskbarIcon? tray;
+    /// The last icon drawn for the tray, kept so its GDI handle can be released when replaced
+    private System.Drawing.Icon? trayIcon;
 
     /// <summary>What the self test reports: enough to tell a real start from an empty one.</summary>
     public string SelfTestSummary =>
@@ -45,12 +52,15 @@ public sealed partial class MainWindow : Window
         monitor.Dispose();
         host.Dispose();
         tray?.Dispose();
+        TrayGlyph.Release(trayIcon);
+        trayIcon = null;
     }
 
     public MainWindow()
     {
         InitializeComponent();
         Title = "RedLine";
+        ShapeWindow();
         BuildTray();
 
         host.GaveUp += reason => dispatcher.TryEnqueue(() => EngineNote = reason);
@@ -92,9 +102,10 @@ public sealed partial class MainWindow : Window
             ContextFlyout = menu,
             NoLeftClickDelay = true,
         };
-        // An HICON from the .ico, not an ImageSource. IconSource takes an ImageSource, but a
-        // BitmapImage decodes asynchronously and the conversion to an icon runs before it has
-        // finished, which fails at startup with "must be a picture that can be used as a Icon".
+        // The mark, until there is a reading to draw instead. An HICON from the .ico, not an
+        // ImageSource: IconSource takes an ImageSource, but a BitmapImage decodes
+        // asynchronously and the conversion runs before it has finished, which fails at
+        // startup with "must be a picture that can be used as a Icon".
         var ico = Path.Combine(AppContext.BaseDirectory, "Assets", "RedLine.ico");
         if (File.Exists(ico))
         {
@@ -106,26 +117,120 @@ public sealed partial class MainWindow : Window
         tray.ForceCreate();
     }
 
+    /// <summary>
+    /// A status readout, not a document. Sized and placed like the thing it is: small, near
+    /// the tray it belongs to, and without a resize grip inviting someone to stretch it.
+    /// </summary>
+    private void ShapeWindow()
+    {
+        var window = AppWindow;
+        if (window is null) return;
+
+        window.Title = "RedLine";
+        if (window.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.IsResizable = false;
+            presenter.IsMaximizable = false;
+            presenter.IsMinimizable = false;
+        }
+
+        const int width = 400;
+        const int height = 520;
+        window.Resize(new SizeInt32(width, height));
+
+        // Bottom right, above the taskbar, which is where the icon that opens it lives
+        var area = DisplayArea.GetFromWindowId(window.Id, DisplayAreaFallback.Primary);
+        if (area is not null)
+        {
+            var work = area.WorkArea;
+            window.Move(new PointInt32(work.X + work.Width - width - 16,
+                                       work.Y + work.Height - height - 16));
+        }
+    }
+
+    private static SolidColorBrush Fill(TrayLevel level) => new(level switch
+    {
+        TrayLevel.AtLimit => Color.FromArgb(255, 0xFF, 0x3B, 0x30),      // signal
+        TrayLevel.Approaching => Color.FromArgb(255, 0xFF, 0x9F, 0x0A), // amber
+        TrayLevel.Healthy => Color.FromArgb(255, 0x32, 0xD7, 0x4B),     // clear
+        _ => Color.FromArgb(255, 0x84, 0x8A, 0x96),                     // muted, for unknown
+    });
+
     private void Render(Snapshot? snapshot)
     {
-        var view = TrayPresenter.From(snapshot, DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
+        var view = TrayPresenter.From(snapshot, now);
         TitleText.Text = view.Title;
+        TitleText.Foreground = Fill(view.Level);
         PhraseText.Text = view.Phrase;
         DetailText.Text = view.Detail;
-        // The tooltip is the only thing most people ever read, so it carries the phrase and
-        // not just the number
-        if (tray is not null) tray.ToolTipText = $"RedLine · {view.Title} · {view.Phrase}";
+        FooterText.Text = Footer(snapshot, now);
+        UpdateTray(view);
 
-        // Projected to plain strings rather than to a model type. Any public type reachable
-        // from XAML gets bindable type info generated for it, and the generator writes to
-        // properties, so an init-only record fails the build.
+        // A settable class, not a record: any public type reachable from XAML gets bindable
+        // type info generated for it, and the generator assigns to properties, so init-only
+        // members fail the build.
         WindowsList.ItemsSource = (snapshot?.Limits ?? [])
             .OrderByDescending(w => w.Utilization)
-            .Select(w => $"{w.Provider} · {w.DisplayName}   {Math.Round(w.Utilization)}%")
+            .Select(w => new LimitRow
+            {
+                Label = $"{w.Provider} · {w.DisplayName}",
+                Reading = $"{Math.Round(w.Utilization)}%",
+                Value = Math.Clamp(w.Utilization, 0, 100),
+                Fill = Fill(TrayPresenter.Classify(w.Utilization,
+                                                   TrayPresenter.ApproachingPercent,
+                                                   TrayPresenter.AtLimitPercent)),
+            })
             .ToList();
 
         renderSummary = $"title={view.Title} windows={(snapshot?.Limits.Count ?? 0)}";
         if (snapshot?.Limits.Count > 0 || (snapshot?.Today?.Io ?? 0) > 0) HasRenderedData = true;
+    }
+
+    /// <summary>
+    /// Where the numbers came from and how old they are. A reading presented as current when
+    /// it is hours old is worse than no reading.
+    /// </summary>
+    private string Footer(Snapshot? snapshot, DateTimeOffset now)
+    {
+        if (EngineNote.Length > 0) return EngineNote;
+        if (snapshot is null) return "Waiting for the first reading";
+        var age = snapshot.AgeAt(now);
+        var when = age < TimeSpan.FromMinutes(1) ? "just now"
+            : age < TimeSpan.FromHours(1) ? $"{(int)age.TotalMinutes} min ago"
+            : $"{(int)age.TotalHours} h ago";
+        return $"Read {when}" + (snapshot.ClaudeLimitsAsOf is null ? "" : " · limits from Claude Code");
+    }
+
+    /// <summary>
+    /// Puts the reading in the notification area itself. Windows offers no menu-bar text the
+    /// way macOS does, so the number is drawn into the icon, which is what every other meter
+    /// on the taskbar does.
+    /// </summary>
+    private void UpdateTray(TrayView view)
+    {
+        if (tray is null) return;
+
+        // The phrase, not just the number: the icon carries colour, and colour alone says
+        // nothing to someone who cannot separate these three
+        tray.ToolTipText = $"RedLine · {view.Title} · {view.Phrase}\n{view.Detail}";
+
+        // Only a percentage is worth drawing. A token count does not fit in sixteen pixels.
+        var label = view.Title.EndsWith('%') ? view.Title.TrimEnd('%') : null;
+        if (label is null) return;
+
+        var colour = view.Level switch
+        {
+            TrayLevel.AtLimit => System.Drawing.Color.FromArgb(0xFF, 0x3B, 0x30),
+            TrayLevel.Approaching => System.Drawing.Color.FromArgb(0xFF, 0x9F, 0x0A),
+            TrayLevel.Healthy => System.Drawing.Color.FromArgb(0x32, 0xD7, 0x4B),
+            _ => System.Drawing.Color.FromArgb(0x84, 0x8A, 0x96),
+        };
+
+        var previous = trayIcon;
+        trayIcon = TrayGlyph.Render(label, colour);
+        tray.Icon = trayIcon;
+        TrayGlyph.Release(previous);
     }
 
     private void ShowWindow()
@@ -144,4 +249,17 @@ internal sealed class RelayCommand(Action action) : System.Windows.Input.IComman
     public bool CanExecute(object? parameter) => true;
 
     public void Execute(object? parameter) => action();
+}
+
+/// <summary>
+/// One limit window as the template wants it. A class with settable properties rather than a
+/// record, because XAML's generated type info assigns to properties and init-only members
+/// fail the build.
+/// </summary>
+public sealed class LimitRow
+{
+    public string Label { get; set; } = "";
+    public string Reading { get; set; } = "";
+    public double Value { get; set; }
+    public Microsoft.UI.Xaml.Media.Brush? Fill { get; set; }
 }
