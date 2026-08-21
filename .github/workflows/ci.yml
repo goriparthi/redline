@@ -112,3 +112,22 @@ jobs:
       - name: Build the Windows app
         shell: pwsh
         run: dotnet build windows/RedLine.App/RedLine.App.csproj -c Release -p:Platform=x64 --nologo -v m
+
+      # Self-contained, and with the engine dropped in beside it, so what comes out of here is
+      # a folder someone can download and run rather than a build that needs three installers
+      # first. RedLine.Core finds the engine next to the app before it looks at PATH.
+      - name: Publish the Windows app with the engine beside it
+        shell: pwsh
+        run: |
+          dotnet publish windows/RedLine.App/RedLine.App.csproj -c Release -p:Platform=x64 `
+            -r win-x64 -p:SelfContained=true -p:WindowsAppSDKSelfContained=true `
+            -o dist/app --nologo -v m
+          Copy-Item dist/windows/* dist/app -Force
+          Write-Host "published:"
+          Get-ChildItem dist/app | Measure-Object -Property Length -Sum |
+            ForEach-Object { "  {0} files, {1:N0} bytes" -f $_.Count, $_.Sum }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redline-windows-app-x64
+          path: dist/app/
+          if-no-files-found: error
