@@ -19,31 +19,13 @@ final class StatuslineFeederTests: XCTestCase {
         .appendingPathComponent("scripts/claude-statusline.sh")
         #endif
 
-    /// The interpreter and its arguments. Resolved from PATH rather than a fixed location,
-    /// because pwsh does not live in one place.
-    private static func interpreter() throws -> (URL, [String]) {
-        #if os(Windows)
-        for name in ["pwsh.exe", "powershell.exe"] {
-            guard let exe = onPath(name) else { continue }
-            return (exe, ["-NoProfile", "-File", script.path])
-        }
-        throw XCTSkip("no PowerShell on PATH")
-        #else
-        return (URL(fileURLWithPath: "/bin/bash"), [script.path])
-        #endif
-    }
-
-    private static func onPath(_ name: String) -> URL? {
-        let sep: Character = ProcessInfo.processInfo.environment["PATH"]?.contains(";") == true
-            ? ";" : ":"
-        for dir in ProcessInfo.processInfo.environment["PATH"]?.split(separator: sep) ?? [] {
-            let candidate = URL(fileURLWithPath: String(dir)).appendingPathComponent(name)
-            if FileManager.default.isExecutableFile(atPath: candidate.path) { return candidate }
-        }
-        return nil
-    }
+    /// Resolved once, so a machine with no PowerShell skips cleanly instead of failing every
+    /// case with an unwrapped XCTSkip.
+    private var shell: (executable: URL, leadingArguments: [String])!
 
     override func setUpWithError() throws {
+        shell = try XCTUnwrap(TestShell.interpreter(forScript: Self.script),
+                              "no interpreter for \(Self.script.lastPathComponent)")
         dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("redline-feeder-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -58,10 +40,9 @@ final class StatuslineFeederTests: XCTestCase {
     /// while no sidecar exists.
     @discardableResult
     private func draw(_ payload: String) throws -> String? {
-        let (exe, args) = try Self.interpreter()
         let process = Process()
-        process.executableURL = exe
-        process.arguments = args
+        process.executableURL = shell.executable
+        process.arguments = shell.leadingArguments
         // Overlaid rather than replaced: PowerShell needs SystemRoot and friends to start at
         // all, and the sidecar path is what actually isolates the run.
         var env = ProcessInfo.processInfo.environment
