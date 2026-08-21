@@ -3,6 +3,10 @@
 import XCTest
 @testable import RedlineCore
 
+// The feeder is a bash script, so this whole suite is POSIX only. Windows needs a PowerShell
+// equivalent before any of it can run there.
+#if !os(Windows)
+
 final class StatuslineFeederTests: XCTestCase {
     private var dir: URL!
     private var out: URL!
@@ -109,3 +113,4 @@ final class StatuslineFeederTests: XCTestCase {
         XCTAssertEqual(try draw(""), good)
     }
 }
+#endif

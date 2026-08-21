@@ -161,7 +161,7 @@ public enum Sidecar {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let expanded = (trimmed as NSString).expandingTildeInPath
-        guard expanded.hasPrefix("/"), expanded.lowercased().hasSuffix(".json") else {
+        guard AppPaths.isAbsolute(expanded), expanded.lowercased().hasSuffix(".json") else {
             return nil
         }
         return URL(fileURLWithPath: expanded)

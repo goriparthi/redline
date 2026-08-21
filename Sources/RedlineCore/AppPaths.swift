@@ -37,6 +37,20 @@ public enum AppPaths {
         config(in: home).appendingPathComponent(name)
     }
 
+    /// True for a path the platform treats as absolute.
+    ///
+    /// Windows counts a drive-qualified path and a UNC share, neither of which starts with a
+    /// slash, so a bare `hasPrefix("/")` rejects every real Windows path.
+    public static func isAbsolute(_ path: String) -> Bool {
+        #if os(Windows)
+        if path.hasPrefix(#"\\"#) || path.hasPrefix("//") { return true }
+        let c = Array(path)
+        return c.count >= 3 && c[0].isLetter && c[1] == ":" && (c[2] == #"\"# || c[2] == "/")
+        #else
+        return path.hasPrefix("/")
+        #endif
+    }
+
     /// A run pointed at a test home ignores XDG and LocalAppData entirely, so a test can never
     /// reach the real directories however the environment is set.
     private static func resolve(xdg: String, underHome: String, windows: String) -> URL {

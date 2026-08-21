@@ -15,7 +15,7 @@ public enum RedlineHome {
 
     public static var url: URL {
         if let raw = ProcessInfo.processInfo.environment[variable],
-           raw.hasPrefix("/"),
+           AppPaths.isAbsolute(raw),
            FileManager.default.fileExists(atPath: raw) {
             return URL(fileURLWithPath: raw, isDirectory: true)
         }

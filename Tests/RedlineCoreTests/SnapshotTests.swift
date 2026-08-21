@@ -104,7 +104,12 @@ final class SnapshotTests: XCTestCase {
 
     func testFallsBackToUserPathWithoutAnAppGroup() {
         let url = SnapshotStore.url(appGroup: nil)
+        XCTAssertEqual(url, SnapshotStore.userURL)
+        // The directory itself is the platform's, so only the file name is universal
+        XCTAssertEqual(url.lastPathComponent, "snapshot.json")
+        #if !os(Windows)
         XCTAssertTrue(url.path.hasSuffix(".local/share/redline/snapshot.json"))
+        #endif
     }
 }
 
