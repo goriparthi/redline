@@ -1,54 +1,22 @@
 <Window
     x:Class="RedLine.App.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:tb="using:H.NotifyIcon">
-    <Grid>
-        <!-- The tray icon lives with the window because it has to outlive every flyout, and
-             the window is the only thing that does. -->
-        <tb:TaskbarIcon
-            x:Name="Tray"
-            ToolTipText="RedLine"
-            LeftClickCommand="{x:Bind ShowFlyoutCommand}"
-            NoLeftClickDelay="True">
-            <tb:TaskbarIcon.ContextFlyout>
-                <MenuFlyout>
-                    <MenuFlyoutItem x:Name="OpenItem" Text="Open RedLine"
-                                    Click="OnOpen" />
-                    <MenuFlyoutItem x:Name="RefreshItem" Text="Refresh now"
-                                    Click="OnRefresh" />
-                    <MenuFlyoutSeparator />
-                    <MenuFlyoutItem x:Name="QuitItem" Text="Quit" Click="OnQuit" />
-                </MenuFlyout>
-            </tb:TaskbarIcon.ContextFlyout>
-        </tb:TaskbarIcon>
-
-        <Grid Padding="24" RowSpacing="6">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <TextBlock x:Name="TitleText" Grid.Row="0" FontSize="34" FontWeight="SemiBold" />
-            <TextBlock x:Name="PhraseText" Grid.Row="1" FontSize="16" Opacity="0.8" />
-            <TextBlock x:Name="DetailText" Grid.Row="2" FontSize="13" Opacity="0.6"
-                       TextWrapping="Wrap" />
-            <ItemsControl x:Name="WindowsList" Grid.Row="3" Margin="0,16,0,0">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Grid ColumnSpacing="12" Margin="0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding Label}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Reading}"
-                                       FontWeight="SemiBold" />
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </Grid>
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- No third-party controls in here on purpose. The XAML compiler has to load a control
+         library's own generated metadata, and a library built against a different Windows App
+         SDK fails that with an internal error rather than a useful one. The tray icon is built
+         in code-behind instead, where only the C# API matters. -->
+    <Grid Padding="24" RowSpacing="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="TitleText" Grid.Row="0" FontSize="34" FontWeight="SemiBold" />
+        <TextBlock x:Name="PhraseText" Grid.Row="1" FontSize="16" Opacity="0.8" />
+        <TextBlock x:Name="DetailText" Grid.Row="2" FontSize="13" Opacity="0.6"
+                   TextWrapping="Wrap" />
+        <ItemsControl x:Name="WindowsList" Grid.Row="3" Margin="0,16,0,0" />
     </Grid>
 </Window>

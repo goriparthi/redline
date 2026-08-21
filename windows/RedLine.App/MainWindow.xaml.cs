@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using RedLine.Core;
 
 namespace RedLine.App;
@@ -13,6 +15,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly SnapshotMonitor monitor = new();
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
+    private TaskbarIcon? tray;
 
     public ObservableCollection<WindowRow> Rows { get; } = [];
 
@@ -20,14 +23,51 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = "RedLine";
-        WindowsList.ItemsSource = Rows;
+        BuildTray();
 
         // The monitor raises on a background thread, and touching XAML from one is a crash
         monitor.Updated += snapshot => dispatcher.TryEnqueue(() => Render(snapshot));
         monitor.Start();
         Render(monitor.Current);
 
-        Closed += (_, _) => monitor.Dispose();
+        Closed += (_, _) =>
+        {
+            monitor.Dispose();
+            tray?.Dispose();
+        };
+    }
+
+    private void BuildTray()
+    {
+        var menu = new MenuFlyout();
+
+        var open = new MenuFlyoutItem { Text = "Open RedLine" };
+        open.Click += (_, _) => ShowWindow();
+        menu.Items.Add(open);
+
+        var refresh = new MenuFlyoutItem { Text = "Refresh now" };
+        refresh.Click += (_, _) => monitor.Reread();
+        menu.Items.Add(refresh);
+
+        menu.Items.Add(new MenuFlyoutSeparator());
+
+        var quit = new MenuFlyoutItem { Text = "Quit" };
+        quit.Click += (_, _) =>
+        {
+            monitor.Dispose();
+            tray?.Dispose();
+            Application.Current.Exit();
+        };
+        menu.Items.Add(quit);
+
+        tray = new TaskbarIcon
+        {
+            ToolTipText = "RedLine",
+            ContextFlyout = menu,
+            NoLeftClickDelay = true,
+        };
+        tray.LeftClickCommand = new RelayCommand(ShowWindow);
+        tray.ForceCreate();
     }
 
     private void Render(Snapshot? snapshot)
@@ -38,7 +78,7 @@ public sealed partial class MainWindow : Window
         DetailText.Text = view.Detail;
         // The tooltip is the only thing most people ever read, so it carries the phrase and
         // not just the number
-        Tray.ToolTipText = $"RedLine · {view.Title} · {view.Phrase}";
+        if (tray is not null) tray.ToolTipText = $"RedLine · {view.Title} · {view.Phrase}";
 
         Rows.Clear();
         foreach (var window in (snapshot?.Limits ?? []).OrderByDescending(w => w.Utilization))
@@ -46,16 +86,9 @@ public sealed partial class MainWindow : Window
             Rows.Add(new WindowRow($"{window.Provider} · {window.DisplayName}",
                                    $"{Math.Round(window.Utilization)}%"));
         }
-    }
-
-    private void OnOpen(object sender, RoutedEventArgs e) => ShowWindow();
-
-    private void OnRefresh(object sender, RoutedEventArgs e) => monitor.Reread();
-
-    private void OnQuit(object sender, RoutedEventArgs e)
-    {
-        monitor.Dispose();
-        Application.Current.Exit();
+        // Bound in code for the same reason the tray is: one less thing for the XAML compiler
+        // to have an opinion about
+        WindowsList.ItemsSource = Rows.Select(r => $"{r.Label}   {r.Reading}").ToList();
     }
 
     private void ShowWindow()
@@ -66,3 +99,14 @@ public sealed partial class MainWindow : Window
 }
 
 public sealed record WindowRow(string Label, string Reading);
+
+/// <summary>The smallest ICommand that will do. A whole MVVM package for one click is not a
+/// trade worth making.</summary>
+internal sealed class RelayCommand(Action action) : System.Windows.Input.ICommand
+{
+    public event EventHandler? CanExecuteChanged;
+
+    public bool CanExecute(object? parameter) => true;
+
+    public void Execute(object? parameter) => action();
+}
