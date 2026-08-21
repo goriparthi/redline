@@ -243,10 +243,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: "RedLine")
-        appMenu.addItem(NSMenuItem(
-            title: "About RedLine",
-            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
-            keyEquivalent: ""))
+        let about = NSMenuItem(title: "About RedLine", action: #selector(showAbout(_:)),
+                               keyEquivalent: "")
+        about.target = self
+        appMenu.addItem(about)
         appMenu.addItem(.separator())
         // The conventional place and shortcut, so settings can be found without opening the
         // status item menu first
@@ -301,18 +301,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         return true
     }
 
+    // The standard panel, with the repository under it. Someone holding the app should not
+    // have to ask where the source lives.
+    @objc private func showAbout(_ sender: Any?) {
+        let credits = NSAttributedString(
+            string: "github.com/goriparthi/redline",
+            attributes: [.link: Updates.repoURL,
+                         .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)])
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+    }
+
     @objc private func wokeUp() { refresh() }
 
     // The icon is a preference: with it off, the readout is just the numbers
     private func applyMenuBarIcon() {
-        guard config.showMenuIcon, let mark = NSImage(named: "RedlineTemplate") else {
+        guard config.showMenuIcon, let base = NSImage(named: "RedlineTemplate") else {
             statusItem.button?.image = nil
             return
         }
-        mark.isTemplate = true
-        mark.size = NSSize(width: 18, height: 18)
+        let size = NSSize(width: 18, height: 18)
+        let tint = menuBarMarkTint()
+        // Drawn through a handler so a dynamic colour resolves against whatever appearance
+        // the menu bar is in at draw time rather than being baked in here.
+        let mark = NSImage(size: size, flipped: false) { rect in
+            guard let (color, alpha) = tint else {
+                base.draw(in: rect)
+                return true
+            }
+            base.draw(in: rect, from: .zero, operation: .sourceOver, fraction: alpha)
+            color.set()
+            rect.fill(using: .sourceAtop)
+            return true
+        }
+        mark.isTemplate = tint == nil
         statusItem.button?.image = mark
         statusItem.button?.imagePosition = .imageLeading
+    }
+
+    /// The mark carries the readout's state so the block stays findable when the digits
+    /// drain: colour survives a stale reading, faded, while the numbers go steel.
+    private func menuBarMarkTint() -> (NSColor, CGFloat)? {
+        let shown: [LimitWindow]
+        switch config.menuBarDisplay {
+        case "limits":
+            shown = [wantsSessionWindow ? worst(in: ["five_hour"]) : nil,
+                     wantsWeekWindow ? worst(in: ["seven_day"]) : nil].compactMap { $0 }
+        case "session":
+            shown = [worst(in: ["five_hour"])].compactMap { $0 }
+        default:
+            return nil
+        }
+        guard let lead = shown.max(by: { $0.utilization < $1.utilization }) else { return nil }
+        return (limitColor(lead.utilization), isStale(lead) ? 0.55 : 1)
     }
 
     // MARK: - Service status
@@ -1875,6 +1916,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     private func updateTitle() {
         renderTitle()
+        // The mark reports the same state the readout does, so it is refreshed alongside it
+        applyMenuBarIcon()
         // After the readout, never inside it: every branch below returns early, and a badge
         // wired into one of them would have been invisible in the ordinary case
         applyFleetBadge()

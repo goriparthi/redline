@@ -8,6 +8,9 @@ import Foundation
 import RedlineCore
 
 enum Updates {
+    /// The public repository. Shown in About so the source is reachable from the app
+    /// itself rather than only from wherever someone happened to find the download.
+    static let repoURL = URL(string: "https://github.com/goriparthi/redline")!
     static let releasesURL = URL(string:
         "https://api.github.com/repos/goriparthi/redline/releases/latest")!
     // Beta channel: the list endpoint is the only one that includes prereleases

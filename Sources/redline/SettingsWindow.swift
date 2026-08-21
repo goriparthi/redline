@@ -881,6 +881,12 @@ private struct AboutSettings: View {
                                 .font(RL.Typography.monoSmall)
                                 .foregroundStyle(RL.Ink.secondary)
                         }
+                        Link("github.com/goriparthi/redline",
+                             destination: Updates.repoURL)
+                            .font(RL.Typography.monoSmall)
+                            .foregroundStyle(RL.Accent.codex)
+                            .help("Source, releases and issues. Opens in your browser.")
+                            .padding(.top, RL.Space.xxs)
                     }
                     Spacer(minLength: 0)
                 }
