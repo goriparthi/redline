@@ -68,3 +68,4 @@ dist/
 # .NET build output for the Windows shell
 windows/**/bin/
 windows/**/obj/
+windows/redline-test-engine

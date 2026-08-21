@@ -83,6 +83,9 @@ public sealed class Engine
             CreateNoWindow = true,
         };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        // The child has to be pointed at the same home this object resolves paths against,
+        // or the two read different directories and only one of them is wrong out loud.
+        foreach (var (name, value) in paths.Overrides) info.Environment[name] = value;
 
         try
         {

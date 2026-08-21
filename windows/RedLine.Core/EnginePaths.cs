@@ -24,6 +24,26 @@ public sealed class EnginePaths
         return map;
     }
 
+    /// <summary>
+    /// The variables the engine itself honours, so a caller pointing this at one home does not
+    /// end up reading that home in C# while the engine reads the real one.
+    /// </summary>
+    public static readonly string[] Honoured = ["REDLINE_HOME"];
+
+    /// <summary>Whichever of <see cref="Honoured"/> are set, for handing to the engine.</summary>
+    public IReadOnlyDictionary<string, string> Overrides
+    {
+        get
+        {
+            var map = new Dictionary<string, string>();
+            foreach (var name in Honoured)
+            {
+                if (Get(name) is { } value) map[name] = value;
+            }
+            return map;
+        }
+    }
+
     private string? Get(string name) =>
         environment.TryGetValue(name, out var value) && value.Length > 0 ? value : null;
 

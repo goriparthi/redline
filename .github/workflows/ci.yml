@@ -103,4 +103,6 @@ jobs:
         shell: pwsh
         env:
           REDLINE_TEST_BIN: ${{ github.workspace }}\dist\windows\redline.exe
-        run: dotnet test windows/RedLine.Core.Tests/RedLine.Core.Tests.csproj --nologo -v q
+        # normal verbosity, because a quiet run reports that something failed without
+        # reporting what, which costs a whole CI cycle to find out
+        run: dotnet test windows/RedLine.Core.Tests/RedLine.Core.Tests.csproj --nologo -v n
