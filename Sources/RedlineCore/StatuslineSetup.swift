@@ -122,15 +122,50 @@ public enum StatuslineSetup {
     }
 
     /// The command we wrapped, recovered from our own environment prefix.
+    ///
+    /// Two shapes, because the two shells disagree about where the quotes go:
+    ///   POSIX    REDLINE_STATUSLINE_CHAIN='cmd' /path/to/feeder
+    ///   Windows  set "REDLINE_STATUSLINE_CHAIN=cmd" && powershell ...
+    /// Both are parsed on every platform, so a settings.json written on one machine still
+    /// reads correctly on another.
     public static func chainedCommand(in command: String) -> String? {
         let key = "REDLINE_STATUSLINE_CHAIN="
         guard let start = command.range(of: key) else { return nil }
         let rest = command[start.upperBound...]
-        guard rest.first == "'" || rest.first == "\"" else { return nil }
-        let quoteMark = rest.first!
-        guard let end = rest.dropFirst().firstIndex(of: quoteMark) else { return nil }
-        return String(rest[rest.index(after: rest.startIndex)..<end])
-            .replacingOccurrences(of: "'\\''", with: "'")
+        guard let first = rest.first else { return nil }
+
+        if first == "'" || first == "\"" {
+            // Quoted immediately after the equals: the POSIX form
+            return unquotePosix(rest.dropFirst(), terminator: first)
+        }
+        // The quote opened before the key, so the value runs to the next one: cmd's set
+        guard let end = rest.firstIndex(of: "\"") else { return nil }
+        return String(rest[rest.startIndex..<end])
+    }
+
+    /// Reads a shell-quoted value up to its closing quote.
+    ///
+    /// Scanned rather than split, because a quote inside the value is written '\'' : the
+    /// quote is closed, an escaped one emitted, and the quote reopened. Splitting on the
+    /// first inner quote truncates the value at exactly the point someone embedded one.
+    private static func unquotePosix(_ body: Substring, terminator: Character) -> String? {
+        var out = ""
+        var i = body.startIndex
+        while i < body.endIndex {
+            if body[i] == terminator {
+                let rest = body[i...]
+                if terminator == "'", rest.hasPrefix("'\\''") {
+                    out.append("'")
+                    i = body.index(i, offsetBy: 4)
+                    continue
+                }
+                return out
+            }
+            out.append(body[i])
+            i = body.index(after: i)
+        }
+        // No closing quote at all, which is not something we ever wrote
+        return nil
     }
 
     private static func environmentPrefix(_ chained: String) -> String {

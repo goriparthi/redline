@@ -104,6 +104,25 @@ final class StatuslineSetupTests: XCTestCase {
         XCTAssertTrue(text.contains("REDLINE_CLAUDE_USAGE"))
     }
 
+    /// Both shells' shapes are parsed everywhere, so a settings.json written on one machine
+    /// still reads correctly on another. Windows is what found this: its own form came back
+    /// nil, so uninstall deleted the statusline it was supposed to restore.
+    func testTheChainIsRecoveredFromEitherShellsShape() {
+        XCTAssertEqual(
+            StatuslineSetup.chainedCommand(
+                in: "REDLINE_STATUSLINE_CHAIN='~/bin/mine.sh' '/x/claude-statusline.sh'"),
+            "~/bin/mine.sh")
+
+        let windows = #"set "REDLINE_STATUSLINE_CHAIN=~/bin/mine.sh" && powershell -File "C:\x.ps1""#
+        XCTAssertEqual(StatuslineSetup.chainedCommand(in: windows), "~/bin/mine.sh")
+
+        // A command carrying quotes of its own survives the POSIX escaping
+        let escaped = #"REDLINE_STATUSLINE_CHAIN='echo '\''hi'\''' '/x/f.sh'"#
+        XCTAssertEqual(StatuslineSetup.chainedCommand(in: escaped), "echo 'hi'")
+
+        XCTAssertNil(StatuslineSetup.chainedCommand(in: "/x/claude-statusline.sh"))
+    }
+
     // MARK: - Removing
 
     func testUninstallPutsTheOriginalStatuslineBack() throws {
