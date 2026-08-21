@@ -2,6 +2,7 @@ using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
 using RedLine.Core;
 
 namespace RedLine.App;
@@ -62,6 +63,9 @@ public sealed partial class MainWindow : Window
             ToolTipText = "RedLine",
             ContextFlyout = menu,
             NoLeftClickDelay = true,
+            // IconSource is an ImageSource here, not a System.Drawing.Icon, so this is a PNG
+            // rather than the .ico the executable itself carries
+            IconSource = new BitmapImage(new Uri("ms-appx:///Assets/tray.png")),
         };
         tray.LeftClickCommand = new RelayCommand(ShowWindow);
         tray.ForceCreate();
