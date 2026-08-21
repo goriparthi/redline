@@ -18,5 +18,8 @@
     <!-- Written by the Swift engine and committed, so this suite fails if the wire format
          moves underneath it. See SnapshotContractTests. -->
     <Content Include="fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The formatting table lives with the Swift tests because both suites assert it -->
+    <Content Include="../../Tests/Fixtures/formatting.json" Link="fixtures/formatting.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
