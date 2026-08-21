@@ -177,15 +177,21 @@ publishes `redline-windows-app-x64`: a self-contained folder, about 113 MB compr
 `RedLine.App.exe`, the engine `redline.exe`, and the Windows App SDK. Nothing needs installing
 first.
 
-**It starts, and CI proves it.** `RedLine.App.exe --selftest` builds the window and the tray
-against a planted snapshot, reports what it saw, and exits. The Windows job asserts the
-report, so a startup crash fails the build rather than waiting for someone to double-click:
+**It runs, and CI proves the whole chain.** `RedLine.App.exe --selftest` starts the app for
+real, waits until something has actually been drawn, reports what it saw, and exits. The
+Windows job asserts the report:
 
-    report: ok: tray=created title=42% windows=3
+    report: ok: tray=created engine=running title=42% windows=1
 
-That is XAML loading, the tray icon being created from a real HICON, the snapshot being read
-off disk, and three limit windows rendered. What is still unverified is everything a person
-would do next: clicking the icon, opening the flyout, whether any of it looks right.
+Read that backwards and it is the entire product: a Claude transcript and a live feed on disk,
+the app starting its own engine watcher, the watcher ingesting and publishing a snapshot, the
+monitor noticing, and the window drawing 42%. Nothing in it is planted except the transcript.
+
+An earlier version of this test planted a finished snapshot instead, which proved nothing once
+the app started its own watcher: the watcher immediately republished over it.
+
+What is still unverified is everything a person would do next: clicking the icon, opening the
+flyout, whether any of it looks right.
 
 The self test paid for itself on its first run. The tray icon had been set from a `BitmapImage`
 through `IconSource`, which compiles perfectly and then throws
@@ -209,16 +215,34 @@ Use `Icon`: it takes an HICON that is ready immediately. `scripts/make-windows-i
 PNG, because a PNG-compressed frame is legal in an .ico and Explorer reads it but
 `System.Drawing.Icon` rejects it.
 
+### The app keeps its own data current
+
+On macOS the app is the watcher, so history stays current because RedLine is open. On Windows
+the engine is a separate process, so `EngineHost` runs `redline watch` for as long as the app
+is up. Without it the app would show whatever was last published and quietly go stale, which
+is worse than showing nothing.
+
+That makes two watchers possible, because someone may also have a startup entry pointing at
+one. `watch` now claims a lock and a second copy bows out with exit zero, and the host treats
+a clean exit as a decision rather than a crash, so it does not restart it into a loop.
+
+`redlined` and a named pipe are not needed and will not be built: the app reads `snapshot.json`
+and shells out to `redline.exe`, which is all `RedLine.Core` ever did.
+
 ### Still to do
 
 The dashboard and its charts, settings, first run, toasts, MSIX packaging, the widget
-provider, Authenticode, winget. Whether the app needs `redlined` and a named pipe at all is
-now doubtful: it reads `snapshot.json` and shells out to `redline.exe`, which is what
-`RedLine.Core` already does.
+provider, Authenticode, winget.
 
-## Phase 3
+## Linux
 
-The Linux shell. Nothing has started.
+Dropped, on 2026-08-21. There is no Linux shell and there will not be one.
+
+What stays is the engine: `RedlineCore` builds and tests on Linux, `redline` runs there, and
+`core-linux` is still in CI. Keeping it is not sentiment. It is the cheap canary that catches
+a macOS-only API landing in the core, in about two minutes, where the Windows job takes seven.
+The Windows build only works because the core is portable, so the thing that guards that is
+worth its runtime.
 
 ## Deliberately not in the core
 
