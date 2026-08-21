@@ -8,9 +8,9 @@ import WinSDK
 
 public final class SingleInstance {
     #if os(Windows)
-    // HANDLE is already an optional pointer, so it is not wrapped again here
-    private let handle: HANDLE
-    private init(handle: HANDLE) { self.handle = handle }
+    // HANDLE itself is not optional; CreateMutexW is what returns one
+    private let handle: HANDLE?
+    private init(handle: HANDLE?) { self.handle = handle }
     #else
     private let fd: Int32
     private init(fd: Int32) { self.fd = fd }
@@ -31,14 +31,13 @@ public final class SingleInstance {
         #if os(Windows)
         // A named mutex rather than a lock file: Windows has no flock, and an abandoned mutex
         // is handed to the next waiter automatically, which is the behaviour we want after a
-        // crash. UNVERIFIED: no Windows CI runner yet, see notes/cross-platform.
-        // BOOL is Int32 here, not Bool, so ownership is requested with 1 rather than true
+        // crash.
         let handle = mutexName.withCString(encodedAs: UTF16.self) {
-            CreateMutexW(nil, 1, $0)
+            CreateMutexW(nil, true, $0)
         }
         // A mutex that will not open must not stop the app from starting, same as the
         // unopenable lock file below
-        guard handle != nil else { return SingleInstance(handle: nil) }
+        guard let handle else { return SingleInstance(handle: nil) }
         if GetLastError() == DWORD(ERROR_ALREADY_EXISTS) {
             CloseHandle(handle)
             return nil
@@ -61,7 +60,7 @@ public final class SingleInstance {
 
     deinit {
         #if os(Windows)
-        guard handle != nil else { return }
+        guard let handle else { return }
         ReleaseMutex(handle)
         CloseHandle(handle)
         #else

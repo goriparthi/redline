@@ -46,33 +46,16 @@ jobs:
         run: swift test
 
   core-windows:
-    # TEMPORARY MATRIX. Swift 6.0's Windows SDK module maps predate Visual Studio 18, so
-    # ucrt cycles through _visualc_intrinsics on the current runner image. Probing which
-    # toolchain and image agree, then this collapses back to one combination.
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: windows-latest
-            branch: swift-6.3.3-release
-            tag: 6.3.3-RELEASE
-          - image: windows-latest
-            branch: swift-6.2.4-release
-            tag: 6.2.4-RELEASE
-          - image: windows-2022
-            branch: swift-6.0-release
-            tag: 6.0-RELEASE
-    runs-on: ${{ matrix.image }}
-    continue-on-error: true
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # Swift 6.3, not 6.0: the 6.0 Windows SDK module maps predate the runner's Visual
+      # Studio and send ucrt into a cycle through _visualc_intrinsics. Pinning the image to
+      # windows-2022 does not help, because its MSVC is too new for 6.0 as well.
       - uses: compnerd/gha-setup-swift@v0.4.0
         with:
-          branch: ${{ matrix.branch }}
-          tag: ${{ matrix.tag }}
-      - name: Versions
-        run: |
-          swift --version
+          branch: swift-6.3.3-release
+          tag: 6.3.3-RELEASE
       - name: Build the core
         run: swift build --target RedlineCore
       - name: Run the core tests

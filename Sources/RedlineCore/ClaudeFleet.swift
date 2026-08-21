@@ -193,16 +193,14 @@ public struct ProcessProbe {
 
 #elseif os(Windows)
 
-    // UNVERIFIED: written from the documentation, never compiled. See notes/cross-platform.md.
     public static func kernelStartTime(pid: Int32) -> Date? {
-        // BOOL is Int32 here, not Bool: 0 for bInheritHandle, and the result compared to 0
         guard pid > 0,
-              let handle = OpenProcess(DWORD(PROCESS_QUERY_LIMITED_INFORMATION), 0,
+              let handle = OpenProcess(DWORD(PROCESS_QUERY_LIMITED_INFORMATION), false,
                                        DWORD(pid)) else { return nil }
         defer { CloseHandle(handle) }
         var created = FILETIME(), exited = FILETIME()
         var kernel = FILETIME(), user = FILETIME()
-        guard GetProcessTimes(handle, &created, &exited, &kernel, &user) != 0 else { return nil }
+        guard GetProcessTimes(handle, &created, &exited, &kernel, &user) else { return nil }
         // FILETIME counts 100ns intervals from 1601, which is 11644473600 seconds before 1970
         let ticks = (UInt64(created.dwHighDateTime) << 32) | UInt64(created.dwLowDateTime)
         guard ticks > 0 else { return nil }
