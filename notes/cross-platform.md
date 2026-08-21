@@ -142,9 +142,43 @@ Two things worth knowing about the watch loop, because both were bugs before the
 - `redlined` and its IPC, if the WinUI app cannot simply read `snapshot.json` and shell out
   to `redline.exe`. Start by assuming it can.
 
-## Phase 2 and 3
+## Phase 2: the Windows shell
 
-The native shells. Nothing has started.
+Split so that most of it can be tested without a Windows machine.
+
+- **`windows/RedLine.Core`** targets plain `net9.0`, not a Windows TFM, on purpose: it finds
+  the engine, reads what the engine publishes, formats it, and decides what a tray shows. All
+  of that runs under `dotnet test` on any machine, and in CI against the real `redline.exe`
+  the same job just built.
+- **`windows/RedLine.App`** is the WinUI 3 app. It cannot be exercised headlessly, so CI's
+  gate is that it compiles, which is worth having: a WinUI project breaks on package and SDK
+  drift far more often than on anything we wrote.
+
+Nothing in C# parses a transcript. That would be a second implementation of a format nobody
+documents, and the two would eventually report different numbers for the same day.
+
+### Two contracts across the language boundary
+
+Neither can be caught by a compiler, so both are files that each side asserts against.
+
+- `windows/RedLine.Core.Tests/fixtures/snapshot-headless.json` is real engine output.
+  `SnapshotContractTests` exists in both languages and reads the same file. This is what
+  turned up the missing Codex window: an incremental pass reports a limit once and then never
+  again, so `Ingest` now records what it reads and the next pass reads it back.
+- `Tests/Fixtures/formatting.json` pins every figure a person reads. The C# port formats in
+  invariant culture, because a German locale would otherwise render `$1,234,567.89` as
+  `$1.234.567,89` on one platform and not the other.
+
+### Still to do
+
+The tray icon and flyout, the dashboard, settings, first run, toasts, MSIX packaging, the
+widget provider, Authenticode, winget. Whether the app needs `redlined` and a named pipe at
+all is now doubtful: it can read `snapshot.json` and shell out to `redline.exe`, which is what
+`RedLine.Core` already does.
+
+## Phase 3
+
+The Linux shell. Nothing has started.
 
 ## Deliberately not in the core
 
