@@ -46,11 +46,22 @@ public sealed class Engine
     /// </summary>
     public Snapshot? ReadSnapshot()
     {
+        var text = ReadSnapshotText();
+        return text is null ? null : SnapshotJson.Parse(text);
+    }
+
+    /// <summary>
+    /// The snapshot as written, or null when there is none. Exposed because the bytes are the
+    /// only cheap way to tell "unchanged" from "changed": Snapshot is a record whose synthesised
+    /// equality compares its collections by reference, so two identical readings never match.
+    /// </summary>
+    public string? ReadSnapshotText()
+    {
         try
         {
             var path = paths.SnapshotPath;
             if (!File.Exists(path)) return null;
-            return SnapshotJson.Parse(File.ReadAllText(path));
+            return File.ReadAllText(path);
         }
         catch (IOException)
         {

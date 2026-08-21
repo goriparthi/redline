@@ -98,7 +98,10 @@ jobs:
       # can invoke the real binary instead of a stub.
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
+          # 9 for the model layer, 10 for the app: the tray library targets net10.0
+          dotnet-version: |
+            9.0.x
+            10.0.x
       - name: Test the Windows shell
         shell: pwsh
         env:
