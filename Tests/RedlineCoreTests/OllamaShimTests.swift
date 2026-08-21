@@ -32,10 +32,13 @@ final class OllamaShimTests: XCTestCase {
         // A stand-in for the real ollama that records the argv and stdin it was handed
         #if os(Windows)
         stub = dir.appendingPathComponent("fake-ollama.ps1")
+        // Reads the prompt from either route. PowerShell hands a piped string to a .ps1 as
+        // $input rather than as console stdin, and only a real .exe sees the latter, so a
+        // stub that checked one would miss the forwarding it exists to observe.
         try """
         $argv = $args -join ' '
-        $stdin = ''
-        if ([Console]::IsInputRedirected) { $stdin = [Console]::In.ReadToEnd() }
+        $stdin = (@($input) -join "`n")
+        if (-not $stdin -and [Console]::IsInputRedirected) { $stdin = [Console]::In.ReadToEnd() }
         Add-Content -LiteralPath '\(seen.path)' -Value "argv=$argv"
         Add-Content -LiteralPath '\(seen.path)' -Value "stdin=$stdin"
         """.write(to: stub, atomically: true, encoding: .utf8)
