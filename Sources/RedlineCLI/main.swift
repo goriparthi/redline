@@ -69,6 +69,73 @@ if arguments.first == "watch" {
     exit(0)
 }
 
+// Settings, so a shell never has to learn this schema for itself. The engine's own validation
+// decides what is legal; whatever it would refuse to load is refused here too.
+if arguments.first == "config" {
+    let rest = Array(arguments.dropFirst()).filter { $0 != "--json" }
+    let asJSON = arguments.contains("--json")
+
+    // No key: everything, with what a control needs to render itself
+    if rest.isEmpty {
+        if asJSON {
+            let rows: [[String: Any]] = ConfigEditor.current().map { setting, value in
+                var row: [String: Any] = ["key": setting.key, "value": value,
+                                          "summary": setting.summary]
+                switch setting.kind {
+                case .bool:
+                    row["kind"] = "bool"
+                case let .number(min, max):
+                    row["kind"] = "number"; row["min"] = min; row["max"] = max
+                case let .choice(allowed):
+                    row["kind"] = "choice"; row["allowed"] = allowed
+                case let .list(allowed):
+                    row["kind"] = "list"; row["allowed"] = allowed
+                }
+                return row
+            }
+            let data = try? JSONSerialization.data(withJSONObject: ["settings": rows],
+                                                   options: [.prettyPrinted, .sortedKeys])
+            print(String(data: data ?? Data(), encoding: .utf8) ?? "{}")
+        } else {
+            let width = ConfigEditor.settings.map(\.key.count).max() ?? 0
+            for (setting, value) in ConfigEditor.current() {
+                print("\(setting.key.padding(toLength: width, withPad: " ", startingAt: 0))  "
+                      + "\(value)")
+            }
+            print("\nredline config <key> <value> to change one; "
+                  + "redline config <key> to read one")
+        }
+        exit(0)
+    }
+
+    // One key: read it
+    if rest.count == 1 {
+        guard let value = ConfigEditor.value(of: rest[0]) else {
+            FileHandle.standardError.write(Data("no such setting: \(rest[0])\n".utf8))
+            exit(2)
+        }
+        print(value)
+        exit(0)
+    }
+
+    switch ConfigEditor.set(rest[0], to: rest[1...].joined(separator: " ")) {
+    case let .changed(key, from, to):
+        print("\(key): \(from) -> \(to)")
+    case let .unchanged(key, value):
+        print("\(key): already \(value)")
+    case let .rejected(key, reason):
+        FileHandle.standardError.write(Data("\(key) needs \(reason)\n".utf8))
+        exit(2)
+    case let .unknownKey(key):
+        FileHandle.standardError.write(Data("no such setting: \(key)\n".utf8))
+        exit(2)
+    case let .failed(why):
+        FileHandle.standardError.write(Data("\(why)\n".utf8))
+        exit(1)
+    }
+    exit(0)
+}
+
 // Wiring the Claude usage feed. Without it there are no live limits at all off macOS, and
 // there is no menu there to offer the same thing.
 if arguments.first == "setup" {
@@ -171,6 +238,8 @@ if command == "help" || command == "--help" || command == "-h" {
       autostart [on|off]  start RedLine when you sign in; no argument reports
                           whether it is on. --program and --args say what to
                           start, and default to this binary watching.
+      config [key value]  read or change a setting. No argument lists them all,
+                          --json adds what each one accepts.
       setup claude        wire Claude Code's statusline to report your limits,
                           carrying forward any statusline you already have.
                           "setup" alone reports, "setup off" undoes it.

@@ -56,6 +56,13 @@ AUTOSTART="$(run 0 autostart)"
 [[ "$AUTOSTART" == *": on"* || "$AUTOSTART" == *": off"* ]] \
     || fail "autostart did not report a state: $AUTOSTART"
 
+echo "settings can be read and changed, and nonsense refused"
+contains "$(run 0 config)" "limitRedPct" "config did not list the settings"
+contains "$(run 0 config limitRedPct 90)" "-> 90" "config did not change the value"
+contains "$(run 0 config limitRedPct)" "90" "the change did not stick"
+# 2 is the refusal, and it has to refuse: the engine would not load this either
+run 2 config limitRedPct 500 >/dev/null
+
 echo "the usage feed can be wired and unwired"
 # A scratch home, so this never touches the real ~/.claude
 contains "$(run 20 setup)" "off" "setup did not report a state"

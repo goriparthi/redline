@@ -53,6 +53,13 @@ try {
         throw "autostart did not report a state"
     }
 
+    Write-Host "settings can be read and changed, and nonsense refused"
+    if ((Invoke-Redline 0 @("config")) -notmatch "limitRedPct") { throw "config did not list the settings" }
+    if ((Invoke-Redline 0 @("config", "limitRedPct", "90")) -notmatch "90") { throw "config did not change the value" }
+    if ((Invoke-Redline 0 @("config", "limitRedPct")) -notmatch "90") { throw "the change did not stick" }
+    # 2 is the refusal, and it has to refuse: the engine would not load this either
+    Invoke-Redline 2 @("config", "limitRedPct", "500") | Out-Null
+
     Write-Host "the usage feed can be wired and unwired"
     if ((Invoke-Redline 20 @("setup")) -notmatch "off") { throw "setup did not report a state" }
     if ((Invoke-Redline 0 @("setup", "claude")) -notmatch "on") { throw "setup claude did not wire the feed" }
