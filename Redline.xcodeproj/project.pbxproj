@@ -74,6 +74,7 @@
 		E08625FE5F9B7B966D965307 /* StatuslineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC12E0335BA36753D581E3A /* StatuslineInstaller.swift */; };
 		E2B6918D104649BDA000DD73 /* DelegatedRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95D59B24DE8A443953B9222 /* DelegatedRefresh.swift */; };
 		E4613FB72AC2B6209EBE236E /* Alerts.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC24B392242E04B8F16C34B5 /* Alerts.swift */; };
+		EAD8F9688D1262C97995F4CC /* GitHubMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF162160942F2D6D8978624 /* GitHubMark.swift */; };
 		F8E4378AA294C4F6A5FBD381 /* CredentialScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F86294B8C331F3CA4A5DD4F /* CredentialScan.swift */; };
 		F9EAC8B554F26BD517962B1A /* LICENSE-bootstrap-icons.txt in Resources */ = {isa = PBXBuildFile; fileRef = 509546FB400F6B4FB10B79AF /* LICENSE-bootstrap-icons.txt */; };
 		FF43854EF3B1451EFD855320 /* CodexSessions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF2D39E506526264BDC08DB4 /* CodexSessions.swift */; };
@@ -131,6 +132,7 @@
 /* Begin PBXFileReference section */
 		0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidecar.swift; sourceTree = "<group>"; };
 		0CB13536CAA9E455E2773311 /* ProviderCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderCards.swift; sourceTree = "<group>"; };
+		0FF162160942F2D6D8978624 /* GitHubMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubMark.swift; sourceTree = "<group>"; };
 		123B39085985A12AC4A883B1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		14EF4F63030F2362796BB6E3 /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
 		18079D6CA1E6CAB72A75E7E3 /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
@@ -291,6 +293,7 @@
 				C95D59B24DE8A443953B9222 /* DelegatedRefresh.swift */,
 				41A68FC1D13F91D4CD4152F9 /* FindingsService.swift */,
 				6CB28E0B0D7A29BB559A18C5 /* FirstRun.swift */,
+				0FF162160942F2D6D8978624 /* GitHubMark.swift */,
 				256BCA039C4F6C0212417A7A /* main.swift */,
 				750D227E31167B98C4F99ABF /* MenuRowView.swift */,
 				BCFB67C592C32CEC96CB61C6 /* OAuth.swift */,
@@ -515,6 +518,7 @@
 				E2B6918D104649BDA000DD73 /* DelegatedRefresh.swift in Sources */,
 				094AEC9F51AB095AEF705127 /* FindingsService.swift in Sources */,
 				59BCA283605365D30DEB0099 /* FirstRun.swift in Sources */,
+				EAD8F9688D1262C97995F4CC /* GitHubMark.swift in Sources */,
 				3449476BD8EA798D28593265 /* MenuRowView.swift in Sources */,
 				63C9EEC4C3CD9715FD4AAECA /* OAuth.swift in Sources */,
 				3463145D1F433B054394DE98 /* OllamaService.swift in Sources */,
@@ -735,7 +739,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.8.2;
+				CURRENT_PROJECT_VERSION = 0.8.3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "${REDLINE_TEAM_ID}";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -749,7 +753,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.8.2;
+				MARKETING_VERSION = "0.8.3-beta.1";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -819,7 +823,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.8.2;
+				CURRENT_PROJECT_VERSION = 0.8.3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "${REDLINE_TEAM_ID}";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -839,7 +843,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.8.2;
+				MARKETING_VERSION = "0.8.3-beta.1";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

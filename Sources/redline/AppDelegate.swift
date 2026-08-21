@@ -312,6 +312,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
     }
 
+    @objc private func openRepo(_ sender: Any?) {
+        NSWorkspace.shared.open(Updates.repoURL)
+    }
+
     @objc private func wokeUp() { refresh() }
 
     // The icon is a preference: with it off, the readout is just the numbers
@@ -2306,8 +2310,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(settingsItem)
         menu.addItem(.separator())
 
+        // The update line doubles as the way to the repository: it is the one row that is
+        // already about where this build came from, and nothing else in the app links out.
         if let updateStatus {
-            addInfo(menu, "    \(updateStatus)", secondary: true)
+            let s = NSMenuItem(title: "", action: #selector(openRepo(_:)), keyEquivalent: "")
+            s.target = self
+            s.attributedTitle = monoTitle([(updateStatus, Brandkit.menuSecondary)], mono: false)
+            s.image = GitHubMark.image(size: 13)
+            s.indentationLevel = 1
+            s.toolTip = "Open the RedLine repository on GitHub"
+            menu.addItem(s)
         }
         if updateDMG != nil, let updateVersion {
             let i = NSMenuItem(title: "Install Update to \(updateVersion)…",
