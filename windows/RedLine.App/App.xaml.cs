@@ -57,6 +57,9 @@ public partial class App : Application
         timer.Tick += (_, _) =>
         {
             var summary = window is MainWindow main ? main.SelfTestSummary : "no window";
+            // Stopped explicitly: Environment.Exit runs no finalizers, and a watcher left
+            // behind by a test run would hold the lock against the next one.
+            (window as MainWindow)?.ShutDown();
             Report("ok: " + summary);
             Environment.Exit(0);
         };

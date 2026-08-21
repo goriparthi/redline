@@ -135,6 +135,7 @@ jobs:
         run: |
           $home_dir = Join-Path $env:RUNNER_TEMP "selftest-home"
           New-Item -ItemType Directory -Force -Path (Join-Path $home_dir ".local\share\redline") | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $home_dir ".claude\projects\demo") | Out-Null
           Copy-Item windows/RedLine.Core.Tests/fixtures/snapshot-headless.json `
             (Join-Path $home_dir ".local\share\redline\snapshot.json")
           $env:REDLINE_HOME = $home_dir
@@ -157,6 +158,8 @@ jobs:
           if ($report -notmatch "windows=3") { throw "the app did not render the snapshot: $report" }
           # A tray app whose icon failed to load is not a tray app
           if ($report -notmatch "tray=created") { throw "the tray icon was never created: $report" }
+          # The app has to keep its own data current, not wait for someone to run the watcher
+          if ($report -notmatch "engine=running") { throw "the app did not start the engine: $report" }
 
       - uses: actions/upload-artifact@v4
         with:

@@ -24,6 +24,16 @@ if arguments.first == "--version" {
 // Watching is the standalone tool's own command. On macOS the app is the watcher, so this
 // has no counterpart inside the bundle and is deliberately not in RedlineCLI.commands.
 if arguments.first == "watch" {
+    // One watcher per machine. The Windows app starts one of its own, and someone may also
+    // have a startup entry pointing at this, so a second copy has to bow out rather than have
+    // two processes ingesting into one database.
+    guard let watchLock = SingleInstance.claim(at: AppPaths.data("watch.lock")) else {
+        print("another watcher is already running")
+        // Zero on purpose: nothing is wrong, there is simply nothing to do. Whoever started
+        // this needs to be able to tell that apart from a failure.
+        exit(0)
+    }
+
     // A UI has to read the numbers from somewhere, and off macOS nothing else writes them
     let options = WatchLoop.Options(publishSnapshot: true)
     let loop = WatchLoop(options: options) { event in
@@ -55,7 +65,7 @@ if arguments.first == "watch" {
         source.resume()
         signalSources.append(source)
     }
-    loop.run()
+    withExtendedLifetime(watchLock) { loop.run() }
     exit(0)
 }
 

@@ -20,9 +20,12 @@ public final class SingleInstance {
         AppPaths.data("instance.lock")
     }
 
-    /// The name a second copy collides with on Windows. Session-local rather than global, so
-    /// two people signed into the same machine each get their own RedLine.
-    static let mutexName = "Local\\com.goriparthi.redline.instance"
+    /// The name a second copy collides with on Windows, derived from the lock file's own name
+    /// so one argument picks both. Session-local rather than global, so two people signed into
+    /// the same machine each get their own RedLine.
+    static func mutexName(for url: URL) -> String {
+        "Local\\com.goriparthi.redline." + url.deletingPathExtension().lastPathComponent
+    }
 
     /// nil when another process already holds the lock. The lock lives exactly as long as the
     /// returned object, so the caller must hold it for the life of the process; the kernel
@@ -32,7 +35,7 @@ public final class SingleInstance {
         // A named mutex rather than a lock file: Windows has no flock, and an abandoned mutex
         // is handed to the next waiter automatically, which is the behaviour we want after a
         // crash.
-        let handle = mutexName.withCString(encodedAs: UTF16.self) {
+        let handle = mutexName(for: url).withCString(encodedAs: UTF16.self) {
             CreateMutexW(nil, true, $0)
         }
         // A mutex that will not open must not stop the app from starting, same as the

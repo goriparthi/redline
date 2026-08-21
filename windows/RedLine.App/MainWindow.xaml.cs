@@ -12,12 +12,35 @@ namespace RedLine.App;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    // The app keeps its own data current, the way the macOS app does by being the watcher.
+    // Without this it would show whatever was last published and quietly go stale.
+    private readonly EngineHost host = new();
     private readonly SnapshotMonitor monitor = new();
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private TaskbarIcon? tray;
 
     /// <summary>What the self test reports: enough to tell a real start from an empty one.</summary>
-    public string SelfTestSummary { get; private set; } = "not rendered";
+    public string SelfTestSummary =>
+        $"tray={(tray?.IsCreated == true ? "created" : "missing")} "
+        + $"engine={(host.IsRunning ? "running" : "stopped")} {renderSummary}"
+        + (EngineNote.Length > 0 ? $" note=\"{EngineNote}\"" : "");
+
+    private string renderSummary = "not rendered";
+
+    /// <summary>Set when the engine will not run, so the reason can reach a person instead of
+    /// leaving them with an empty window.</summary>
+    public string EngineNote { get; private set; } = "";
+
+    public bool EngineRunning { get; private set; }
+
+    /// <summary>Stops everything this window started. Called on close, and by the self test,
+    /// which exits the process outright and so runs no finalizers.</summary>
+    public void ShutDown()
+    {
+        monitor.Dispose();
+        host.Dispose();
+        tray?.Dispose();
+    }
 
     public MainWindow()
     {
@@ -25,16 +48,15 @@ public sealed partial class MainWindow : Window
         Title = "RedLine";
         BuildTray();
 
+        host.GaveUp += reason => dispatcher.TryEnqueue(() => EngineNote = reason);
+        EngineRunning = host.Start();
+
         // The monitor raises on a background thread, and touching XAML from one is a crash
         monitor.Updated += snapshot => dispatcher.TryEnqueue(() => Render(snapshot));
         monitor.Start();
         Render(monitor.Current);
 
-        Closed += (_, _) =>
-        {
-            monitor.Dispose();
-            tray?.Dispose();
-        };
+        Closed += (_, _) => ShutDown();
     }
 
     private void BuildTray()
@@ -54,8 +76,7 @@ public sealed partial class MainWindow : Window
         var quit = new MenuFlyoutItem { Text = "Quit" };
         quit.Click += (_, _) =>
         {
-            monitor.Dispose();
-            tray?.Dispose();
+            ShutDown();
             Application.Current.Exit();
         };
         menu.Items.Add(quit);
@@ -98,8 +119,7 @@ public sealed partial class MainWindow : Window
             .Select(w => $"{w.Provider} · {w.DisplayName}   {Math.Round(w.Utilization)}%")
             .ToList();
 
-        SelfTestSummary = $"tray={(tray?.IsCreated == true ? "created" : "missing")} "
-            + $"title={view.Title} windows={(snapshot?.Limits.Count ?? 0)}";
+        renderSummary = $"title={view.Title} windows={(snapshot?.Limits.Count ?? 0)}";
     }
 
     private void ShowWindow()
