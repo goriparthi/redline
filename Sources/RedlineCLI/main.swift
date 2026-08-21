@@ -69,6 +69,47 @@ if arguments.first == "watch" {
     exit(0)
 }
 
+// Wiring the Claude usage feed. Without it there are no live limits at all off macOS, and
+// there is no menu there to offer the same thing.
+if arguments.first == "setup" {
+    let action = arguments.dropFirst().first ?? "status"
+    switch action {
+    case "status":
+        let wanted = StatuslineSetup.isWanted()
+        let wired = StatuslineSetup.isInstalled()
+        print("claude usage feed: \(wired ? "on" : wanted ? "script present but not wired" : "off")")
+        print("  script:   \(StatuslineSetup.scriptURL().path)")
+        print("  settings: \(StatuslineSetup.settingsURL().path)")
+        exit(wired ? 0 : Int32(RedlineCLI.Code.indeterminate))
+    case "claude", "on":
+        switch StatuslineSetup.install() {
+        case let .installed(script, chained):
+            print("claude usage feed: on")
+            print("  script: \(script.path)")
+            if let chained { print("  your existing statusline still runs: \(chained)") }
+            print("\nStart a new Claude Code session for it to take effect.")
+        case let .alreadyInstalled(script):
+            print("claude usage feed: already on (\(script.path))")
+        case let .failed(why):
+            FileHandle.standardError.write(Data("\(why)\n".utf8)); exit(1)
+        default: break
+        }
+    case "off":
+        switch StatuslineSetup.uninstall() {
+        case .removed:      print("claude usage feed: off")
+        case .notInstalled: print("claude usage feed: was not on")
+        case let .failed(why):
+            FileHandle.standardError.write(Data("\(why)\n".utf8)); exit(1)
+        default: break
+        }
+    default:
+        FileHandle.standardError.write(Data(
+            "unknown setup action: \(action)\n\nredline setup [status|claude|off]\n".utf8))
+        exit(2)
+    }
+    exit(0)
+}
+
 // Starting at login is the platform's business, not the engine's, so it lives beside watch
 // rather than in RedlineCLI. Every shell can then ask for it the same way.
 if arguments.first == "autostart" {
@@ -130,6 +171,9 @@ if command == "help" || command == "--help" || command == "-h" {
       autostart [on|off]  start RedLine when you sign in; no argument reports
                           whether it is on. --program and --args say what to
                           start, and default to this binary watching.
+      setup claude        wire Claude Code's statusline to report your limits,
+                          carrying forward any statusline you already have.
+                          "setup" alone reports, "setup off" undoes it.
     """, code: result.code)
 }
 print(result.text)

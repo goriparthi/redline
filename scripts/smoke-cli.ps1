@@ -53,6 +53,12 @@ try {
         throw "autostart did not report a state"
     }
 
+    Write-Host "the usage feed can be wired and unwired"
+    if ((Invoke-Redline 20 @("setup")) -notmatch "off") { throw "setup did not report a state" }
+    if ((Invoke-Redline 0 @("setup", "claude")) -notmatch "on") { throw "setup claude did not wire the feed" }
+    if ((Invoke-Redline 0 @("setup")) -notmatch "on") { throw "setup did not stay wired" }
+    if ((Invoke-Redline 0 @("setup", "off")) -notmatch "off") { throw "setup off did not unwire" }
+
     Write-Host "history reads it back"
     if ((Invoke-Redline 0 @("history")) -notmatch "1.1K") {
         throw "history lost the 1100 tokens"

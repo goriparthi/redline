@@ -56,6 +56,13 @@ AUTOSTART="$(run 0 autostart)"
 [[ "$AUTOSTART" == *": on"* || "$AUTOSTART" == *": off"* ]] \
     || fail "autostart did not report a state: $AUTOSTART"
 
+echo "the usage feed can be wired and unwired"
+# A scratch home, so this never touches the real ~/.claude
+contains "$(run 20 setup)" "off" "setup did not report a state"
+contains "$(run 0 setup claude)" "on" "setup claude did not wire the feed"
+contains "$(run 0 setup)" "on" "setup did not stay wired"
+contains "$(run 0 setup off)" "off" "setup off did not unwire"
+
 echo "history reads it back"
 contains "$(run 0 history)" "1.1K" "history lost the 1100 tokens"
 
