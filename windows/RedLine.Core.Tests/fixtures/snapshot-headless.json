@@ -1,0 +1,57 @@
+{
+    "week": {
+        "cost": 0.04962,
+        "io": 13740,
+        "hasUnpriced": true
+    },
+    "updatedAt": "2026-08-21T14:39:04Z",
+    "todayByProvider": {
+        "Codex": {
+            "cost": 0,
+            "io": 840,
+            "hasUnpriced": true
+        },
+        "Claude": {
+            "cost": 0.04962,
+            "io": 12900,
+            "hasUnpriced": true
+        }
+    },
+    "weekByProvider": {
+        "Claude": {
+            "cost": 0.04962,
+            "io": 12900,
+            "hasUnpriced": true
+        },
+        "Codex": {
+            "cost": 0,
+            "io": 840,
+            "hasUnpriced": true
+        }
+    },
+    "claudeLimitsAsOf": "2026-08-21T14:39:03Z",
+    "limits": [
+        {
+            "key": "five_hour",
+            "provider": "Codex",
+            "utilization": 31
+        },
+        {
+            "resetsAt": "2100-01-01T00:00:00Z",
+            "key": "five_hour",
+            "provider": "Claude",
+            "utilization": 42
+        },
+        {
+            "resetsAt": "2100-01-01T00:00:00Z",
+            "utilization": 18,
+            "key": "seven_day",
+            "provider": "Claude"
+        }
+    ],
+    "today": {
+        "cost": 0.04962,
+        "io": 13740,
+        "hasUnpriced": true
+    }
+}

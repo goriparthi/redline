@@ -92,3 +92,15 @@ jobs:
           name: redline-windows-x64
           path: dist/windows/
           if-no-files-found: error
+
+      # The Windows shell's model layer, against the engine this job just built. Kept in this
+      # job rather than its own so the two are always the same commit, and so the .NET tests
+      # can invoke the real binary instead of a stub.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+      - name: Test the Windows shell
+        shell: pwsh
+        env:
+          REDLINE_TEST_BIN: ${{ github.workspace }}\dist\windows\redline.exe
+        run: dotnet test windows/RedLine.Core.Tests/RedLine.Core.Tests.csproj --nologo -v q

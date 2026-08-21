@@ -18,7 +18,14 @@ public enum SnapshotBuilder {
     /// history on, each transcript is read from where the last pass stopped.
     public static func fromDisk(config: Config, warehouse: Warehouse? = nil,
                                 home: URL? = nil, now: Date = Date()) -> Snapshot {
-        let inputs = gather(config: config, warehouse: warehouse, home: home, now: now)
+        let store = warehouse ?? (config.recordHistory ? Warehouse() : nil)
+        let inputs = gather(config: config, warehouse: store, home: home, now: now)
+        // Recorded so the next pass still has them. An incremental read reports only what it
+        // newly parsed, so without this a limit window is published once and then vanishes
+        // while it is still perfectly true.
+        if let store, config.recordHistory, !inputs.limits.isEmpty {
+            store.recordLimits(inputs.limits.filter { !$0.isUninformative }, at: now)
+        }
         let today = aggregate(inputs.entries, since: startOfDay(now), config: config)
         let week = aggregate(inputs.entries, since: now.addingTimeInterval(-7 * 86_400),
                              config: config)
