@@ -169,11 +169,37 @@ Neither can be caught by a compiler, so both are files that each side asserts ag
   invariant culture, because a German locale would otherwise render `$1,234,567.89` as
   `$1.234.567,89` on one platform and not the other.
 
+### What the app is now
+
+A tray icon with a context menu (open, refresh, quit), a window listing every limit window,
+and a `SnapshotMonitor` that watches the published file and redraws when it moves. CI
+publishes `redline-windows-app-x64`: a self-contained folder, about 113 MB compressed, holding
+`RedLine.App.exe`, the engine `redline.exe`, and the Windows App SDK. Nothing needs installing
+first.
+
+**It has never been launched.** CI compiles it and cannot run it, and there is no Windows
+machine here. So the tray icon appearing, the flyout opening, and the `ms-appx:///` URI
+resolving in an unpackaged app are all unverified. The first person to double-click it is
+doing the first real test.
+
+Three things cost a CI cycle each and are worth not rediscovering:
+
+- A control library built against a different Windows App SDK fails the XAML compiler with
+  `WMC9999` and no useful message. Keeping third-party controls out of XAML and building them
+  in code-behind avoids it entirely.
+- Any public type reachable from XAML gets bindable type info generated for it, and the
+  generator assigns to properties, so an init-only record fails the build with `CS8852`.
+- The combination that agrees is net9.0-windows, Windows App SDK 1.8 and H.NotifyIcon.WinUI
+  2.3.2. The 2.4 line is net10 only, and 1.6's XAML compiler does not understand net10 at all.
+
+`TaskbarIcon.IconSource` is an `ImageSource`, not a `System.Drawing.Icon`, so the tray uses a
+PNG while the executable carries `Resources/RedLine.ico` from `scripts/make-windows-icon.sh`.
+
 ### Still to do
 
-The tray icon and flyout, the dashboard, settings, first run, toasts, MSIX packaging, the
-widget provider, Authenticode, winget. Whether the app needs `redlined` and a named pipe at
-all is now doubtful: it can read `snapshot.json` and shell out to `redline.exe`, which is what
+The dashboard and its charts, settings, first run, toasts, MSIX packaging, the widget
+provider, Authenticode, winget. Whether the app needs `redlined` and a named pipe at all is
+now doubtful: it reads `snapshot.json` and shells out to `redline.exe`, which is what
 `RedLine.Core` already does.
 
 ## Phase 3
