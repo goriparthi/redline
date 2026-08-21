@@ -7,6 +7,7 @@
 // once delegation proves ineffective on this machine.
 import Foundation
 import RedlineCore
+import RedlineUI
 
 enum DelegatedRefresh {
     enum Outcome: Equatable {

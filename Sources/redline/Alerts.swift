@@ -6,6 +6,7 @@
 // app people say no to.
 import Foundation
 import RedlineCore
+import RedlineUI
 import UserNotifications
 
 final class AlertCenter {

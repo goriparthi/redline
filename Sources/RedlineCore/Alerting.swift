@@ -193,8 +193,7 @@ public enum Alerting {
 /// of what happened, not something anyone should hand-edit.
 public enum AlertStore {
     public static func url(home: URL? = nil) -> URL {
-        (home ?? RedlineHome.url)
-            .appendingPathComponent(".local/share/redline/alerts.json")
+        AppPaths.data("alerts.json", in: home)
     }
 
     public static func load(from url: URL? = nil) -> AlertState {

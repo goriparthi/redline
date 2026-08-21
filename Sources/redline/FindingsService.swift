@@ -5,6 +5,7 @@
 // changes at the speed of someone editing a config file, not at the speed of a token counter.
 import Foundation
 import RedlineCore
+import RedlineUI
 
 final class FindingsService {
     /// How long a report stands before another scan is worth the disk. Setup does not

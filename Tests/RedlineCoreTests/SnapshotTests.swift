@@ -109,6 +109,7 @@ final class SnapshotTests: XCTestCase {
 }
 
 final class SnapshotLocationTests: XCTestCase {
+#if os(macOS)
     func testWidgetContainerPathIsInsideTheWidgetsOwnSandbox() {
         let p = SnapshotStore.widgetContainerURL.path
         XCTAssertTrue(p.contains("Library/Containers/\(SnapshotStore.widgetBundleID)/Data"),
@@ -123,6 +124,16 @@ final class SnapshotLocationTests: XCTestCase {
         XCTAssertEqual(first, SnapshotStore.localAppSupportURL,
                        "a sandboxed widget can only rely on its own container")
     }
+#else
+    /// There is no sandbox container off macOS, so the one user path has to be the whole
+    /// answer in both directions rather than a fallback behind something else.
+    func testTheUserPathIsTheOnlyLocation() {
+        XCTAssertNil(SnapshotStore.localAppSupportURL)
+        XCTAssertNil(SnapshotStore.groupURL())
+        XCTAssertEqual(SnapshotStore.readCandidates, [SnapshotStore.userURL])
+        XCTAssertEqual(SnapshotStore.writeTargets, [SnapshotStore.userURL])
+    }
+#endif
 
     func testUserPathIsAlwaysAWriteTarget() {
         XCTAssertTrue(SnapshotStore.writeTargets.contains(SnapshotStore.userURL))

@@ -269,8 +269,7 @@ public enum CadenceRules {
 /// what happened, not something anyone should hand-edit.
 public enum CadenceStore {
     public static func url(home: URL? = nil) -> URL {
-        (home ?? RedlineHome.url)
-            .appendingPathComponent(".local/share/redline/cadence.json")
+        AppPaths.data("cadence.json", in: home)
     }
 
     public static func load(from url: URL? = nil) -> CadenceState {

@@ -2,6 +2,7 @@
 // host in OLLAMA_HOST so nothing here can reach off the machine by accident.
 import Foundation
 import RedlineCore
+import RedlineUI
 
 struct OllamaState {
     var reachable = false

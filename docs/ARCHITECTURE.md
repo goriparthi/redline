@@ -3,7 +3,8 @@
 ## Layout
 
 ```
-Sources/RedlineCore/     Pure parsing and aggregation. No AppKit, no network, no Keychain.
+Sources/RedlineCore/     Pure parsing and aggregation. Foundation only: no AppKit, no SwiftUI,
+                         no network, no Keychain. Builds on macOS, Linux and Windows.
   Config.swift           Config load/validate, pricing lookup, provider selection
   Usage.swift            Entry, Agg, aggregate(), token/cost formatting
   Limits.swift           LimitWindow plus per-provider limit parsers
@@ -21,12 +22,21 @@ Sources/RedlineCore/     Pure parsing and aggregation. No AppKit, no network, no
   StatuslineFeed.swift   Claude's limit windows as Claude Code itself reports them
   CredentialScan.swift   Finds a credential in an undocumented JSON blob, plus hex decoding
   ClaudeAuth.swift       What a failed credential read means, plus the usage-endpoint backoff
-  Brand.swift/BrandUI    Fixed brand tones, the RedLine mark, and the widget's rail
-  DesignSystem.swift     Every colour, space, radius and text style the UI may use
-  Components.swift       The shared cards, badges, tiles, rails, status marks and states
-  ProviderGlyph.swift    The provider marks as vector data, plus the template loader
+  Brand.swift            Fixed brand tones as plain RGB, and the utilization thresholds
+  AppPaths.swift         The two directories RedLine owns, resolved per platform
+  ProviderMark.swift     The provider marks as vector data
+  ProviderIdentity.swift Which mark and name belong to a provider
+  Status.swift           The status vocabulary as data, with no colour and no symbol name
   ProviderOverview.swift What a provider's overview card says, and which warnings earn a place
   ClaudeLimitsChoice     Where Claude's percentages come from, and which route is current
+
+Sources/CSQLite/         The SQLite amalgamation, compiled only off macOS. See its README.
+
+Sources/RedlineUI/       The shared SwiftUI component set. macOS only.
+  DesignSystem.swift     Every colour, space, radius and text style the UI may use
+  Components.swift       The shared cards, badges, tiles, rails, status marks and states
+  BrandUI.swift          The RedLine mark, the limit rail and the track badges
+  ProviderGlyph.swift    Draws a ProviderMark: the template loader and the view
 
 Sources/redline/         The app. AppKit, network and Keychain live here only.
   main.swift             Entry point, instance guard, and the LaunchAgent CLI flags
@@ -47,16 +57,26 @@ Sources/redline/         The app. AppKit, network and Keychain live here only.
 
 Sources/RedlineWidget/   The WidgetKit extension. Renders the snapshot, parses nothing.
 
-Tests/RedlineCoreTests/  332 tests over the core
+Tests/RedlineCoreTests/  The core suite
+Tests/RedlineUITests/    The three tests that need AppKit to answer
 scripts/                 Build, test, bundle, install, DMG, release, Ollama shim,
                          Claude usage feed
 Casks/redline.rb         Homebrew cask
 ```
 
-The split exists for one reason: **SwiftPM cannot share a source file between targets**, so
-anything that needs a unit test has to live in a library. The rule that follows is worth
-keeping: if logic can be tested, it belongs in `RedlineCore`; if it touches AppKit, the
-network, or the Keychain, it belongs in `redline`.
+Two splits, two reasons.
+
+`RedlineCore` exists because **SwiftPM cannot share a source file between targets**, so
+anything that needs a unit test has to live in a library. If logic can be tested it belongs
+there; if it touches the network or the Keychain it belongs in `redline`.
+
+`RedlineUI` exists because the core has to compile where there is no AppKit. It holds the
+components the app and the widget share, which is why they are not simply part of the app.
+The boundary is drawn by symbol rather than by file: `ProviderMark`, `ProviderIdentity` and
+`RLStatus` are data the CLI needs, so they stay in the core, while their colours, SF Symbol
+names and views live in `RedlineUI` as extensions. `Package.swift` adds the macOS-only
+targets under `#if os(macOS)`, so a Linux build cannot pull AppKit in by accident.
+See `notes/cross-platform.md`.
 
 ## Why the core is pure
 

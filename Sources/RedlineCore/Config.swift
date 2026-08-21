@@ -109,8 +109,7 @@ public struct Config {
     public static let menuBarModes = ["limits", "cost", "tokens", "both", "session"]
 
     public static var configURL: URL {
-        RedlineHome.url
-            .appendingPathComponent(".config/redline/config.json")
+        AppPaths.config("config.json")
     }
 
     /// True before the first launch has written a config. Used to offer the setup screen

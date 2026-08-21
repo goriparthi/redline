@@ -3,6 +3,7 @@
 // budget, and staying offline means it needs no network entitlement.
 import AppIntents
 import RedlineCore
+import RedlineUI
 import SwiftUI
 import WidgetKit
 

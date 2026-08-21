@@ -2,6 +2,7 @@
 // the main thread because a 30 day range can touch a lot of transcript files.
 import Charts
 import RedlineCore
+import RedlineUI
 import SwiftUI
 
 /// The dashboard's bridge to the design system.

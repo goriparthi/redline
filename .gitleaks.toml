@@ -1,0 +1,18 @@
+# Secret scanning config. The default ruleset, plus one narrow exemption.
+title = "RedLine"
+
+[extend]
+useDefault = true
+
+# Sources/CSQLite is the SQLite amalgamation, copied unmodified from sqlite.org and public
+# domain. Its extension-API macros read as key assignments ("sqlite3_bind_blob
+# sqlite3_api->bind_blob") and its assertions contain "iKey==", so the generic-api-key rule
+# fires on upstream C. Matched by line rather than by path because the pre-commit hook scans
+# the diff over stdin, where gitleaks cannot see which file a line came from.
+[[allowlists]]
+description = "Vendored SQLite amalgamation, unmodified public domain upstream"
+regexTarget = "line"
+regexes = [
+  '''sqlite3_api->''',
+  '''iKey==''',
+]

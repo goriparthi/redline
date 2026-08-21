@@ -3,6 +3,7 @@
 // rather than resetting them. Nothing here reaches the network; a browser sign-in the user
 // asks for is started by the caller after Start.
 import RedlineCore
+import RedlineUI
 import SwiftUI
 
 struct FirstRunView: View {

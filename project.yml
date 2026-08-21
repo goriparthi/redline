@@ -1,8 +1,9 @@
 # XcodeGen manifest. Generates Redline.xcodeproj, which builds the app plus the widget
 # extension. SwiftPM cannot build app extensions, which is why this project exists.
 #
-# RedlineCore is a framework target here, compiled from the SAME files as the SwiftPM
-# target. A local package at the repo root confuses Xcode ("Missing package product"), and
+# RedlineCore and RedlineUI are framework targets here, compiled from the SAME files as the
+# SwiftPM
+# targets. A local package at the repo root confuses Xcode ("Missing package product"), and
 # duplicating the source list would let the two build systems drift. Package.swift stays
 # the source of truth for `make test`.
 name: Redline
@@ -36,6 +37,20 @@ targets:
         # An embedded framework must carry an Info.plist with a bundle id prefixed by the
         # host app's, so it is written explicitly rather than synthesized
         INFOPLIST_FILE: Resources/RedlineCore-Info.plist
+
+  RedlineUI:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/RedlineUI
+    dependencies:
+      - target: RedlineCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.goriparthi.redline.ui
+        PRODUCT_NAME: RedlineUI
+        DEFINES_MODULE: YES
+        INFOPLIST_FILE: Resources/RedlineUI-Info.plist
 
   Redline:
     type: application
@@ -71,6 +86,8 @@ targets:
     dependencies:
       - target: RedlineCore
         embed: true
+      - target: RedlineUI
+        embed: true
       - target: RedlineWidget
         embed: true
     settings:
@@ -95,6 +112,7 @@ targets:
         buildPhase: resources
     dependencies:
       - target: RedlineCore
+      - target: RedlineUI
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.goriparthi.redline.widget

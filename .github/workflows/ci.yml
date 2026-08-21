@@ -31,3 +31,29 @@ jobs:
       # than about the build. Notes are required to release and only warned about here.
       - name: Release notes
         run: scripts/check-notes.sh --allow-missing
+
+  # RedlineCore is Foundation only and has to keep building where there is no Xcode. These
+  # jobs are the gate: a macOS-only API landing in the core fails here, not in a port months
+  # later. Neither runner builds the app, because the app is AppKit and always will be.
+  core-linux:
+    runs-on: ubuntu-latest
+    container: swift:6.0-jammy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the core
+        run: swift build --target RedlineCore
+      - name: Run the core tests
+        run: swift test
+
+  core-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: compnerd/gha-setup-swift@v0.3.0
+        with:
+          branch: swift-6.0-release
+          tag: 6.0-RELEASE
+      - name: Build the core
+        run: swift build --target RedlineCore
+      - name: Run the core tests
+        run: swift test

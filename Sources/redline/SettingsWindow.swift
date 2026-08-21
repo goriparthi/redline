@@ -2,6 +2,7 @@
 // than in one long menu. Every control writes straight through to config.json, which is still
 // the single source of truth; nothing here holds unsaved state.
 import RedlineCore
+import RedlineUI
 import SwiftUI
 
 /// The things settings can ask the app to do.

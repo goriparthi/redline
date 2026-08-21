@@ -1,5 +1,6 @@
 // Menu bar UI: status item title plus a dropdown with per-provider usage and rate limits.
 import RedlineCore
+import RedlineUI
 import AppKit
 import SwiftUI
 #if canImport(WidgetKit)

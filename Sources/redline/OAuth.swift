@@ -1,6 +1,7 @@
 // Claude rate-limit access. Prefers borrowing the CLI's Keychain token, which the CLI
 // keeps refreshed, and falls back to this app's own optional OAuth + PKCE sign-in.
 import RedlineCore
+import RedlineUI
 import AppKit
 import CryptoKit
 import Foundation

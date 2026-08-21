@@ -1,6 +1,9 @@
 // Reads Claude Code's live session registry (~/.claude/sessions/<PID>.json), one file per
 // running session, so RedLine can say which sessions are working and which are blocked.
 import Foundation
+#if os(Windows)
+import WinSDK
+#endif
 
 /// Where a session is, as far as its own record admits. Kept as a closed set only for
 /// ordering; the raw string survives on the session so an upstream addition still displays.
@@ -97,11 +100,15 @@ public struct ProcessProbe {
 
     public init(startTime: @escaping (Int32) -> Date?) { self.startTime = startTime }
 
-    public static let live = ProcessProbe(startTime: ProcessProbe.sysctlStartTime)
+    public static let live = ProcessProbe(startTime: ProcessProbe.kernelStartTime)
 
-    /// Start time from the kernel's process table. Absent means the process is gone, which
-    /// is also the liveness answer, so one call covers both questions.
-    public static func sysctlStartTime(pid: Int32) -> Date? {
+    // Three kernels, one pair of questions: when did this process start, and what terminal
+    // is it attached to. Absent start time means the process is gone, which is also the
+    // liveness answer, so one call covers both questions.
+
+#if canImport(Darwin)
+
+    public static func kernelStartTime(pid: Int32) -> Date? {
         guard let info = procInfo(pid: pid) else { return nil }
         let tv = info.kp_proc.p_un.__p_starttime
         return Date(timeIntervalSince1970: Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000)
@@ -130,6 +137,83 @@ public struct ProcessProbe {
         guard ok, size > 0, info.kp_proc.p_pid == pid else { return nil }
         return info
     }
+
+#elseif os(Linux)
+
+    /// /proc counts a start in clock ticks since boot rather than in seconds since the epoch,
+    /// so the boot instant has to be added back before it means anything.
+    public static func kernelStartTime(pid: Int32) -> Date? {
+        guard let fields = statFields(pid: pid), fields.count > 19,
+              let ticks = Double(fields[19]), let boot = bootTime else { return nil }
+        return Date(timeIntervalSince1970: boot + ticks / Double(clockTicks))
+    }
+
+    public static func ttyPath(pid: Int32) -> String? {
+        guard let fields = statFields(pid: pid), fields.count > 4,
+              let raw = Int32(fields[4]), raw != 0 else { return nil }
+        // The kernel packs the device the new way, with the minor split either side of the
+        // major, so it cannot simply be masked off in one go.
+        let major = (Int(raw) >> 8) & 0xfff
+        let minor = (Int(raw) & 0xff) | ((Int(raw) >> 12) & 0xfff00)
+        let path: String
+        switch major {
+        case 136...143: path = "/dev/pts/\((major - 136) * 256 + minor)"   // UNIX98 pseudo-tty
+        case 4:         path = "/dev/tty\(minor)"                          // virtual console
+        default:        return nil
+        }
+        return FileManager.default.fileExists(atPath: path) ? path : nil
+    }
+
+    private static let clockTicks: Int = {
+        let hz = sysconf(Int32(_SC_CLK_TCK))
+        return hz > 0 ? hz : 100
+    }()
+
+    /// Seconds since the epoch at boot, from /proc/stat. Read once: it does not move.
+    private static let bootTime: Double? = {
+        guard let text = try? String(contentsOfFile: "/proc/stat", encoding: .utf8) else {
+            return nil
+        }
+        for line in text.split(separator: "\n") where line.hasPrefix("btime ") {
+            return Double(line.dropFirst("btime ".count).trimmingCharacters(in: .whitespaces))
+        }
+        return nil
+    }()
+
+    /// The fields of /proc/<pid>/stat after the command name, so index 0 is the state.
+    ///
+    /// Split from the last close paren rather than the first, because the command name is
+    /// parenthesised and is allowed to contain both spaces and parens of its own.
+    private static func statFields(pid: Int32) -> [String]? {
+        guard let text = try? String(contentsOfFile: "/proc/\(pid)/stat", encoding: .utf8),
+              let close = text.lastIndex(of: ")") else { return nil }
+        return text[text.index(after: close)...]
+            .split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+    }
+
+#elseif os(Windows)
+
+    // UNVERIFIED: written from the documentation, never compiled. See notes/cross-platform.md.
+    public static func kernelStartTime(pid: Int32) -> Date? {
+        // BOOL is Int32 here, not Bool: 0 for bInheritHandle, and the result compared to 0
+        guard pid > 0,
+              let handle = OpenProcess(DWORD(PROCESS_QUERY_LIMITED_INFORMATION), 0,
+                                       DWORD(pid)) else { return nil }
+        defer { CloseHandle(handle) }
+        var created = FILETIME(), exited = FILETIME()
+        var kernel = FILETIME(), user = FILETIME()
+        guard GetProcessTimes(handle, &created, &exited, &kernel, &user) != 0 else { return nil }
+        // FILETIME counts 100ns intervals from 1601, which is 11644473600 seconds before 1970
+        let ticks = (UInt64(created.dwHighDateTime) << 32) | UInt64(created.dwLowDateTime)
+        guard ticks > 0 else { return nil }
+        return Date(timeIntervalSince1970: Double(ticks) / 10_000_000 - 11_644_473_600)
+    }
+
+    /// Windows has no controlling terminal to name, so a session is never joined to a tab
+    /// this way. The shell falls back to focusing the window.
+    public static func ttyPath(pid: Int32) -> String? { nil }
+
+#endif
 }
 
 /// Scans the live session registry.
