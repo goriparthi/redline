@@ -85,6 +85,29 @@ The routes that work:
   widget need an interactive desktop that no CI runner can give. Swift ships an ARM64 Windows
   toolchain. ARM64 rather than x64, so x64-specific packaging still wants CI or a cloud VM.
 
+## The binaries
+
+Both CI runners publish a command line binary that runs on a machine with no Swift toolchain,
+because "it compiles" is not the same claim as "it runs".
+
+| Artifact | Shape | Size | Needs |
+|---|---|---|---|
+| `redline-linux-x64` | ELF x86-64, static Swift stdlib, stripped | 59 MB | `libcurl.so.4` only |
+| `redline-windows-x64` | PE32+ x86-64 plus the Swift runtime DLLs | 71 MB | nothing, the VC runtime is in the folder |
+
+Linux links the Swift stdlib statically, so only ordinary system libraries remain. Windows
+cannot do that, so `scripts/package-windows.ps1` copies the runtime DLLs next to the exe and
+lets Windows resolve them from the binary's own directory. CI proves it by running the
+packaged copy with the toolchain taken off PATH entirely, which is the only version of that
+claim worth making.
+
+Both are verified by `scripts/smoke-cli.sh` and its PowerShell twin, which are not
+version-print checks: they write a Claude transcript into a scratch home, ingest it, assert the
+second ingest adds nothing, and read 1.1K tokens back out of the SQLite warehouse.
+
+The Windows folder is heavy mostly because `_FoundationICU.dll` is 37 MB. Trimming to the real
+import closure is possible later; over-copying is the safe default.
+
 ## Phase 0 is done
 
 Next is Phase 1: lift the refresh loop into `RedlineService`, and add the credential store,
