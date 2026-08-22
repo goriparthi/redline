@@ -67,7 +67,12 @@ would not be.
 
 ## Not done
 
-First run, MSIX packaging, the Windows 11 widget, Authenticode, winget. The dashboard
+First run, the Windows 11 widget, Authenticode, winget.
+
+MSIX is built, signed with a throwaway certificate, installed, self tested from the installed
+copy and uninstalled, all in CI. What is missing is a real certificate: the uploaded artifact
+is unsigned on purpose, and `Publisher` in `Package.appxmanifest` has to be changed to match
+whatever subject the real one carries. The dashboard
 has its daily chart and model mix; the hourly chart, cadence and findings panels are on the
 macOS one only. `redlined` and named-pipe IPC were **cancelled**: the app reads `snapshot.json` and
 shells out to `redline.exe`, which is all it ever needed.
@@ -162,6 +167,8 @@ WinUI:
 - JSONSerialization prints a double differently per platform: Linux writes `0.045` where macOS
   writes `0.044999999999999998`. Compare a JSON fixture after parsing it, never as text.
 - `Rest` is a disallowed tuple element name, at any position.
+- Turning MSIX write virtualization off needs the `unvirtualizedResources` restricted
+  capability. MakeAppx says so in the one useful line of an otherwise opaque 0x80080204.
 - The `FontWeight` struct is `Windows.UI.Text.FontWeight`, while the constants are
   `Microsoft.UI.Text.FontWeights`. Importing the first namespace makes the second ambiguous
   with its UWP twin, so name the struct in full instead.
@@ -240,8 +247,13 @@ role and bucket with it.
 ## Next
 
 First run, which is small: what RedLine is, and offers of the two things it can wire for you,
-both of which already have a store and a switch on the settings page. Then MSIX, which is
-where the certificate question has to be answered. MSIX rather than MSI because it is the only packaging that can carry the widget.
+both of which already have a store and a switch on the settings page.
+
+Then the certificate, which is a decision rather than a task. Authenticode is the equivalent
+of notarization, and the difference that matters is that a fresh certificate carries no
+reputation: SmartScreen warns anyway until installs accumulate. EV skips the wait but needs
+hardware token or cloud HSM key storage. Azure Trusted Signing is the cheapest current route
+if the eligibility rules fit. Nothing can ship as an installer until that is answered. MSIX rather than MSI because it is the only packaging that can carry the widget.
 
 Signing is Authenticode, and unlike notarization a fresh certificate carries no reputation, so
 SmartScreen warns anyway until installs accumulate. EV skips the wait. Azure Trusted Signing is

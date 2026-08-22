@@ -371,7 +371,7 @@ Toasts themselves are `Microsoft.Windows.AppNotifications`, which an unpackaged 
 arriving twice replaces the notification instead of stacking. The self test posts one rather
 than only reporting that registration worked: `Show` throwing is the failure worth catching.
 
-### Distribution: exe or MSI
+### Distribution: the folder and the MSIX
 
 Ship **both**, for different audiences.
 
@@ -382,6 +382,34 @@ Ship **both**, for different audiences.
   only packaging that can carry a Windows 11 widget. MSI is the older story and buys nothing
   here.
 
+Both are built by CI. The MSIX is 118 MB, most of it the Swift runtime DLLs the engine needs,
+and `_FoundationICU.dll` alone is 37 MB of that; trimming to the real import closure is still
+possible and still not urgent.
+
+CI does not stop at producing the file. It signs the package with a certificate generated and
+destroyed inside the same job, installs it, runs the self test from the **installed** copy and
+uninstalls it again, because a package nobody can install is not a package and the manifest is
+where that goes wrong. The artifact it uploads is deliberately unsigned: the CI certificate is
+a throwaway, and shipping something signed with it would hand out a package that trusts a key
+nobody has.
+
+Three things the manifest decides:
+
+- **Write virtualization is off**, both file system and registry. Left on, the packaged app's
+  writes to AppData land in a private per package copy, so the packaged RedLine and a
+  `redline.exe` run from a terminal would keep two separate histories and each would look like
+  the other had lost data. Autostart writing a real Run key needs the registry half.
+- That costs the **`unvirtualizedResources`** restricted capability, which MakeAppx demands
+  and which sideloading and winget allow. The Store would want it justified; RedLine is not
+  going to the Store.
+- **MinVersion is 10.0.19041**, above the app's own 17763 floor, because opting out of
+  virtualization needs it. Anything older is served by the folder build, which needs no
+  installer at all.
+
+`Publisher` in the manifest has to match the subject of whatever certificate signs the
+package, so it changes when a real one arrives. The version is a fourth place to bump on a
+release, and `scripts/ci.sh` fails when it has drifted from `Info.plist`.
+
 Signing is not optional at that point. The macOS equivalent of notarization is
 **Authenticode**, and the important difference is that a fresh certificate carries no
 reputation: SmartScreen warns anyway until enough installs accumulate. An **EV** certificate
@@ -391,7 +419,7 @@ eligibility rules fit.
 
 ### Still to do
 
-First run, MSIX packaging, the widget provider, Authenticode, winget. The dashboard
+First run, the widget provider, Authenticode, winget. The dashboard
 has the daily chart and the model mix; the hourly chart, the cadence panel and findings are
 on the macOS one and not here.
 

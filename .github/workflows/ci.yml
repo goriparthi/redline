@@ -258,6 +258,9 @@ jobs:
           [System.IO.File]::WriteAllText(
             (Join-Path $home_dir ".local\share\redline\claude-usage.json"), $feed)
 
+          # A feed and no transcript, so this run reports dashboard=0 where the unpackaged one
+          # above reports 14. That is the honest answer for a home with no history in it, not
+          # a difference between the two builds.
           $env:REDLINE_HOME = $home_dir
           $log = Join-Path $env:RUNNER_TEMP "msix-selftest.log"
           $env:REDLINE_SELFTEST_LOG = $log
