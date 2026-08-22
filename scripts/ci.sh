@@ -38,6 +38,16 @@ fi
 step "Release notes"
 "$REPO_ROOT/scripts/check-notes.sh" --allow-missing
 
+# The Windows package carries its own version, and an installer that claims a different one
+# from the app inside it is the kind of thing nobody notices until an update refuses.
+step "Windows package version"
+MANIFEST="$REPO_ROOT/windows/RedLine.App/Package.appxmanifest"
+MSIX_VERSION="$(sed -n 's/.*Version="\([0-9.]*\)".*/\1/p' "$MANIFEST" | head -1)"
+[[ -n "$MSIX_VERSION" ]] || die "no Version in $MANIFEST"
+[[ "$MSIX_VERSION" == "$VERSION.0" ]] \
+    || die "Package.appxmanifest is $MSIX_VERSION but Info.plist is $VERSION; MSIX wants four parts"
+info "MSIX $MSIX_VERSION matches Info.plist $VERSION"
+
 step "Build"
 "$REPO_ROOT/scripts/build.sh"
 

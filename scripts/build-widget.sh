@@ -56,7 +56,12 @@ else
     warn "Ad-hoc signed: runs here, but not distributable to other machines"
 fi
 
-codesign "${SIGN_ARGS[@]}" "$BUILT/Contents/Frameworks/RedlineCore.framework"
+# Every embedded framework, not a named list: a new one must never ship unsigned because
+# somebody forgot to add a line here.
+for fw in "$BUILT"/Contents/Frameworks/*.framework; do
+    [[ -d "$fw" ]] || continue
+    codesign "${SIGN_ARGS[@]}" "$fw"
+done
 codesign "${SIGN_ARGS[@]}" \
     --entitlements Sources/RedlineWidget/RedlineWidget.entitlements \
     --identifier com.goriparthi.redline.widget \

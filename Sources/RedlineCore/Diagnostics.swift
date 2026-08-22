@@ -66,8 +66,7 @@ public final class DiagnosticsLog: @unchecked Sendable {
     }
 
     public static func defaultURL(home: URL? = nil) -> URL {
-        (home ?? RedlineHome.url)
-            .appendingPathComponent(".local/share/redline/diagnostics.ndjson")
+        AppPaths.data("diagnostics.ndjson", in: home)
     }
 
     public func log(_ level: DiagLevel, _ code: String, _ message: String,

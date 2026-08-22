@@ -28,8 +28,7 @@ public final class OllamaStore {
     private let isoPlain = ISO8601DateFormatter()
 
     public init(log: URL? = nil) {
-        self.log = log ?? RedlineHome.url
-            .appendingPathComponent(".local/share/redline/ollama.jsonl")
+        self.log = log ?? AppPaths.data("ollama.jsonl")
     }
 
     public var isConfigured: Bool { FileManager.default.fileExists(atPath: log.path) }

@@ -41,7 +41,9 @@ public struct ProviderAvailability: Equatable {
             found.append("Claude")
         }
         if exists(".codex/sessions") || exists(".codex") { found.append("Codex") }
-        if ollamaReachable || exists(".ollama") || exists(".local/share/redline/ollama.jsonl") {
+        // The shim log goes through AppPaths, because off macOS it is not under the home
+        let shimLog = AppPaths.data("ollama.jsonl", in: home)
+        if ollamaReachable || exists(".ollama") || fm.fileExists(atPath: shimLog.path) {
             found.append("Ollama")
         }
         return ProviderAvailability(installed: found)

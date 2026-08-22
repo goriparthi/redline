@@ -2,6 +2,7 @@
 // the app can say which tab that is. Falls back to raising the app when it cannot.
 import AppKit
 import RedlineCore
+import RedlineUI
 
 enum TerminalFocus {
     /// How precisely a focus request landed, so the caller can say so rather than claiming

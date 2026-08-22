@@ -1,11 +1,15 @@
-// A thin wrapper over the SQLite that macOS already ships. No package dependency: `import
-// SQLite3` resolves against the SDK's module map, which links libsqlite3 for us.
+// A thin wrapper over SQLite: the one macOS ships, and the vendored amalgamation elsewhere.
+// Either way no package dependency; see Sources/CSQLite/README.md.
 //
 // Deliberately small. This is a statement runner and a migration ledger, not an ORM: every
 // query in this app is written as SQL where it is used, so the shape of the question stays
 // visible next to the answer.
 import Foundation
+#if canImport(SQLite3)
 import SQLite3
+#else
+import CSQLite
+#endif
 
 /// SQLite copies bound text and blobs only when told to. Without this, a Swift String that
 /// goes out of scope before the step leaves the statement pointing at freed memory.

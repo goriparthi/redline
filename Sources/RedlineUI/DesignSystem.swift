@@ -2,6 +2,7 @@
 // Values are validated by claude_scripts/redline_palette_check.py for contrast, lightness
 // band, hue separation and colour-vision separation in both appearances.
 import SwiftUI
+import RedlineCore
 
 /// Namespace for the tokens. Short on purpose, because it is read at every call site.
 public enum RL {}
@@ -210,17 +211,12 @@ public extension RL {
     }
 }
 
-/// Everything RedLine knows about how to present one provider, in one place: which mark
-/// identifies it, which accent surrounds it, and what it is called.
-public struct ProviderIdentity: Equatable, Sendable {
-    public let name: String
-    public let mark: ProviderMark
-    /// What the provider reads on this Mac, in one line, for a card subtitle or a tooltip.
-    public let blurb: String
-    /// Whether usage runs on this machine or against a hosted endpoint.
-    public let isLocal: Bool
+// MARK: - Provider accents
 
-    public var accent: Color {
+/// The accent colours for a provider identity. Kept out of RedlineCore so the core carries
+/// no colour type; each platform shell attaches its own.
+public extension ProviderIdentity {
+    var accent: Color {
         switch mark {
         case .codex:                return RL.Accent.codex
         case .anthropic, .claude:   return RL.Accent.anthropic
@@ -228,7 +224,7 @@ public struct ProviderIdentity: Equatable, Sendable {
         }
     }
 
-    public var nsAccent: NSColor {
+    var nsAccent: NSColor {
         switch mark {
         case .codex:                return RL.Accent.nsCodex
         case .anthropic, .claude:   return RL.Accent.nsAnthropic
@@ -236,38 +232,13 @@ public struct ProviderIdentity: Equatable, Sendable {
         }
     }
 
-    /// Provider identity for a provider name, or nil when no provider is named. The mapping
-    /// is deliberate: "Claude" is a provider track in RedLine's data, and the provider-level
-    /// mark is Anthropic's, so the Claude sparkle is reserved for naming the product itself.
-    public static func of(_ provider: String?) -> ProviderIdentity? {
-        guard let provider else { return nil }
-        switch provider.lowercased() {
-        case "claude", "anthropic":
-            return ProviderIdentity(
-                name: provider.lowercased() == "anthropic" ? "Anthropic" : "Claude",
-                mark: .anthropic,
-                blurb: "Tokens and cost from transcripts on disk, plus rate-limit windows",
-                isLocal: false)
-        case "codex", "openai":
-            return ProviderIdentity(name: "Codex", mark: .codex,
-                                    blurb: "Limits and tokens, read entirely from disk",
-                                    isLocal: false)
-        case "ollama":
-            return ProviderIdentity(name: "Ollama", mark: .ollama,
-                                    blurb: "Local models, counted once tracking is set up",
-                                    isLocal: true)
-        default:
-            return nil
-        }
-    }
-
     /// The accent for a provider name, falling back to the product's neutral. Kept as a
     /// function so a caller with only a string does not have to unwrap an identity.
-    public static func accent(for provider: String?) -> Color {
+    static func accent(for provider: String?) -> Color {
         of(provider)?.accent ?? RL.Accent.neutral
     }
 
-    public static func nsAccent(for provider: String?) -> NSColor {
+    static func nsAccent(for provider: String?) -> NSColor {
         of(provider)?.nsAccent ?? RL.Accent.nsNeutral
     }
 }

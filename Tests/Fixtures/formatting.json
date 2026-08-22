@@ -1,0 +1,30 @@
+{
+  "_note": "One table, two languages. Every figure a person reads is formatted from the same rules, and both implementations assert against this file so neither can drift alone. See Tests/RedlineCoreTests/FormattingContractTests.swift and windows/RedLine.Core.Tests/FormattingContractTests.cs.",
+  "tokens": [
+    { "value": 0, "expect": "0" },
+    { "value": 1, "expect": "1" },
+    { "value": 999, "expect": "999" },
+    { "value": 1000, "expect": "1.0K" },
+    { "value": 1100, "expect": "1.1K" },
+    { "value": 13740, "expect": "13.7K" },
+    { "value": 999999, "expect": "1000.0K" },
+    { "value": 1000000, "expect": "1.0M" },
+    { "value": 2500000, "expect": "2.5M" },
+    { "value": 1000000000, "expect": "1.0B" },
+    { "value": 3200000000, "expect": "3.2B" }
+  ],
+  "cost": [
+    { "value": 0, "expect": "$0.00" },
+    { "value": 0.004, "expect": "$0.00" },
+    { "value": 0.005, "expect": "$0.01" },
+    { "value": 0.04962, "expect": "$0.05" },
+    { "value": 1.5, "expect": "$1.50" },
+    { "value": 12.274, "expect": "$12.27" },
+    { "value": 999.999, "expect": "$1,000.00" },
+    { "value": 1000, "expect": "$1,000.00" },
+    { "value": 6734.061, "expect": "$6,734.06" },
+    { "value": 24320.906, "expect": "$24,320.91" },
+    { "value": 1234567.89, "expect": "$1,234,567.89" },
+    { "value": -5.25, "expect": "-$5.25" }
+  ]
+}

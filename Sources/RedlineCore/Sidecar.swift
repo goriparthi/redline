@@ -15,8 +15,7 @@ public enum Sidecar {
     /// reading our own output back would be a loop, and the feeder's file is Claude Code's
     /// word rather than ours.
     public static func publishURL(home: URL? = nil) -> URL {
-        let root = home ?? RedlineHome.url
-        return root.appendingPathComponent(".local/share/redline/usage-snapshot.json")
+        return AppPaths.data("usage-snapshot.json", in: home)
     }
 
     /// How old an external sidecar may be before it is ignored. Same tolerance RedLine
@@ -162,7 +161,7 @@ public enum Sidecar {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let expanded = (trimmed as NSString).expandingTildeInPath
-        guard expanded.hasPrefix("/"), expanded.lowercased().hasSuffix(".json") else {
+        guard AppPaths.isAbsolute(expanded), expanded.lowercased().hasSuffix(".json") else {
             return nil
         }
         return URL(fileURLWithPath: expanded)

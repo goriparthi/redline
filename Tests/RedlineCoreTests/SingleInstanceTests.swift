@@ -35,8 +35,12 @@ final class SingleInstanceTests: XCTestCase {
         XCTAssertNotNil(SingleInstance.claim(at: lock))
     }
 
+    #if !os(Windows)
+    /// Windows guards with a named mutex instead, so it has no lock file to place and this
+    /// says nothing there.
     func testMissingDirectoryIsCreated() {
         XCTAssertNotNil(SingleInstance.claim(at: lock))
         XCTAssertTrue(FileManager.default.fileExists(atPath: lock.path))
     }
+    #endif
 }

@@ -1,0 +1,6 @@
+# Keep checkouts byte-identical across platforms. ProviderGlyphTests compares the embedded
+# vectors against these files exactly, so a CRLF conversion on Windows fails the drift check.
+* text=auto eol=lf
+*.png binary
+*.icns binary
+*.dmg binary

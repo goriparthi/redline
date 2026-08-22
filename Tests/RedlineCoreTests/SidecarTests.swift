@@ -77,9 +77,18 @@ final class SidecarTests: XCTestCase {
 
     func testExternalPathMustBeAbsoluteJSON() {
         XCTAssertNil(Sidecar.validExternalPath("usage.json"))
-        XCTAssertNil(Sidecar.validExternalPath("/tmp/usage.txt"))
         XCTAssertNil(Sidecar.validExternalPath(""))
+        #if os(Windows)
+        // Absolute means drive-qualified or UNC here. A bare leading slash is rooted on
+        // whichever drive happens to be current, which is not a path worth trusting.
+        XCTAssertNil(Sidecar.validExternalPath(#"C:\tmp\usage.txt"#))
+        XCTAssertNil(Sidecar.validExternalPath("/tmp/usage.json"))
+        XCTAssertNotNil(Sidecar.validExternalPath(#"C:\tmp\usage.json"#))
+        XCTAssertNotNil(Sidecar.validExternalPath(#"\\host\share\usage.json"#))
+        #else
+        XCTAssertNil(Sidecar.validExternalPath("/tmp/usage.txt"))
         XCTAssertNotNil(Sidecar.validExternalPath("/tmp/usage.json"))
+        #endif
     }
 
     func testStaleExternalSidecarIsIgnored() throws {

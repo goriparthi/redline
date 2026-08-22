@@ -80,6 +80,25 @@ public enum Alerting {
     /// than this and a projection is a forecast, not a warning.
     public static let projectionHorizon: TimeInterval = 3600
 
+    /// Whether Claude's windows still describe now.
+    ///
+    /// The feed only writes while Claude Code is running, so it goes quiet between sessions.
+    /// Two polls or ten minutes, whichever is longer, is where a reading stops being current.
+    /// Here rather than in a shell because both the app and the headless watcher ask it, and
+    /// two answers would mean one of them alerting on a number nobody can vouch for.
+    public static func claudeIsStale(asOf: Date?, config: Config, now: Date = Date()) -> Bool {
+        guard let asOf else { return false }
+        return now.timeIntervalSince(asOf) > max(config.pollIntervalSeconds * 2, 600)
+    }
+
+    /// The per window judgement `evaluate` asks for. Only Claude's windows come from a feed
+    /// that can go quiet; the rest are rewritten from disk on every poll.
+    public static func staleness(claudeLimitsAsOf: Date?, config: Config,
+                                 now: Date = Date()) -> (LimitWindow) -> Bool {
+        let stale = claudeIsStale(asOf: claudeLimitsAsOf, config: config, now: now)
+        return { $0.provider == UsageStore.provider && stale }
+    }
+
     public static func thresholds(for config: Config) -> [Int] {
         var out = Set<Int>([Int(config.limitYellowPct), Int(config.limitRedPct), 95])
         out = out.filter { $0 > 0 && $0 < 100 }
@@ -193,8 +212,7 @@ public enum Alerting {
 /// of what happened, not something anyone should hand-edit.
 public enum AlertStore {
     public static func url(home: URL? = nil) -> URL {
-        (home ?? RedlineHome.url)
-            .appendingPathComponent(".local/share/redline/alerts.json")
+        AppPaths.data("alerts.json", in: home)
     }
 
     public static func load(from url: URL? = nil) -> AlertState {

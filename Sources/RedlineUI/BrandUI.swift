@@ -2,6 +2,7 @@
 // because the app and the widget are separate binaries and must not draw different marks.
 // Still no network and no Keychain here.
 import SwiftUI
+import RedlineCore
 
 public extension Color {
     init(brand c: BrandColor) { self.init(red: c.red, green: c.green, blue: c.blue) }

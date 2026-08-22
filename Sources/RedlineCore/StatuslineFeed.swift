@@ -35,8 +35,7 @@ public enum StatuslineFeed {
     /// Default sidecar location. Kept under the app's own directory rather than ~/.claude so
     /// RedLine never writes into a tree another tool owns.
     public static func defaultPath(home: URL? = nil) -> URL {
-        let root = home ?? RedlineHome.url
-        return root.appendingPathComponent(".local/share/redline/claude-usage.json")
+        return AppPaths.data("claude-usage.json", in: home)
     }
 
     /// Reads and parses the sidecar. A missing file is not an error: it means the feeder is

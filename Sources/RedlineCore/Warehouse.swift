@@ -131,8 +131,7 @@ public final class Warehouse {
     private var pendingDays = Set<String>()
 
     public init(root: URL? = nil) {
-        self.root = root ?? RedlineHome.url
-            .appendingPathComponent(".local/share/redline/history")
+        self.root = root ?? AppPaths.data("history")
     }
 
     public var databaseURL: URL { root.appendingPathComponent("redline.db") }

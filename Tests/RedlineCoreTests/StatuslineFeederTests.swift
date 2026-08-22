@@ -7,13 +7,25 @@ final class StatuslineFeederTests: XCTestCase {
     private var dir: URL!
     private var out: URL!
 
+    /// The two feeders are the same contract in two languages, so both are driven by these
+    /// tests rather than only the one that happens to run on the developer's machine.
     private static let script = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()   // RedlineCoreTests
         .deletingLastPathComponent()   // Tests
         .deletingLastPathComponent()   // repo root
+        #if os(Windows)
+        .appendingPathComponent("scripts/claude-statusline.ps1")
+        #else
         .appendingPathComponent("scripts/claude-statusline.sh")
+        #endif
+
+    /// Resolved once, so a machine with no PowerShell skips cleanly instead of failing every
+    /// case with an unwrapped XCTSkip.
+    private var shell: (executable: URL, leadingArguments: [String])!
 
     override func setUpWithError() throws {
+        shell = try XCTUnwrap(TestShell.interpreter(forScript: Self.script),
+                              "no interpreter for \(Self.script.lastPathComponent)")
         dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("redline-feeder-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -29,13 +41,16 @@ final class StatuslineFeederTests: XCTestCase {
     @discardableResult
     private func draw(_ payload: String) throws -> String? {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = [Self.script.path]
-        process.environment = [
-            "REDLINE_CLAUDE_USAGE": out.path,
-            "HOME": dir.path,
-            "PATH": ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin",
-        ]
+        process.executableURL = shell.executable
+        process.arguments = shell.leadingArguments
+        // Overlaid rather than replaced: PowerShell needs SystemRoot and friends to start at
+        // all, and the sidecar path is what actually isolates the run.
+        var env = ProcessInfo.processInfo.environment
+        env["REDLINE_CLAUDE_USAGE"] = out.path
+        env["HOME"] = dir.path
+        env["REDLINE_HOME"] = dir.path
+        env.removeValue(forKey: "REDLINE_STATUSLINE_CHAIN")
+        process.environment = env
         let stdin = Pipe()
         process.standardInput = stdin
         process.standardOutput = FileHandle.nullDevice

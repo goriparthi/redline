@@ -104,11 +104,17 @@ final class SnapshotTests: XCTestCase {
 
     func testFallsBackToUserPathWithoutAnAppGroup() {
         let url = SnapshotStore.url(appGroup: nil)
+        XCTAssertEqual(url, SnapshotStore.userURL)
+        // The directory itself is the platform's, so only the file name is universal
+        XCTAssertEqual(url.lastPathComponent, "snapshot.json")
+        #if !os(Windows)
         XCTAssertTrue(url.path.hasSuffix(".local/share/redline/snapshot.json"))
+        #endif
     }
 }
 
 final class SnapshotLocationTests: XCTestCase {
+#if os(macOS)
     func testWidgetContainerPathIsInsideTheWidgetsOwnSandbox() {
         let p = SnapshotStore.widgetContainerURL.path
         XCTAssertTrue(p.contains("Library/Containers/\(SnapshotStore.widgetBundleID)/Data"),
@@ -123,6 +129,16 @@ final class SnapshotLocationTests: XCTestCase {
         XCTAssertEqual(first, SnapshotStore.localAppSupportURL,
                        "a sandboxed widget can only rely on its own container")
     }
+#else
+    /// There is no sandbox container off macOS, so the one user path has to be the whole
+    /// answer in both directions rather than a fallback behind something else.
+    func testTheUserPathIsTheOnlyLocation() {
+        XCTAssertNil(SnapshotStore.localAppSupportURL)
+        XCTAssertNil(SnapshotStore.groupURL())
+        XCTAssertEqual(SnapshotStore.readCandidates, [SnapshotStore.userURL])
+        XCTAssertEqual(SnapshotStore.writeTargets, [SnapshotStore.userURL])
+    }
+#endif
 
     func testUserPathIsAlwaysAWriteTarget() {
         XCTAssertTrue(SnapshotStore.writeTargets.contains(SnapshotStore.userURL))

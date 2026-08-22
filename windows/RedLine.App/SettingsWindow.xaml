@@ -1,0 +1,36 @@
+<Window
+    x:Class="RedLine.App.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Deliberately almost empty. Every row is built in code-behind from what the engine
+         publishes, because the controls depend on kinds this file cannot know, and because a
+         DataTemplate would need bindable types and the XAML generator assigns to properties.
+
+         Dark on the root rather than per control: the ground is carbon, so the stock controls
+         have to be the dark ones or the text on them disappears. -->
+    <Grid x:Name="Root" Background="#0B0D10" RequestedTheme="Dark">
+        <Grid Margin="22,18,22,18" RowSpacing="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Spacing="2">
+                <TextBlock Text="REDLINE" FontSize="11" FontWeight="SemiBold"
+                           Foreground="#848A96" CharacterSpacing="220" />
+                <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold"
+                           Foreground="#F4F1EA" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="Rows" Spacing="18" Padding="0,4,14,4" />
+            </ScrollViewer>
+
+            <!-- What the engine said about the last change, including when it refused one -->
+            <TextBlock Grid.Row="2" x:Name="FooterText" FontSize="12" Foreground="#848A96"
+                       TextWrapping="Wrap" />
+        </Grid>
+    </Grid>
+</Window>

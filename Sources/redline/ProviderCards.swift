@@ -1,6 +1,7 @@
 // The overview: what every provider is doing, as one card each, plus the warnings worth
 // reading before the cards. Card content is derived in RedlineCore; this file draws it.
 import RedlineCore
+import RedlineUI
 import SwiftUI
 
 /// A trend as bars, small enough to sit inside a card. Charts answer shape questions, so this

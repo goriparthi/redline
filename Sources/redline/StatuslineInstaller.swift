@@ -3,6 +3,7 @@
 // is already there; an existing statusline command is carried forward and still draws the line.
 import Foundation
 import RedlineCore
+import RedlineUI
 
 enum StatuslineInstaller {
     static let marker = "RedLine Claude usage feed"

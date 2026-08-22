@@ -2,6 +2,10 @@
 // Ollama local is probed directly against the local server and needs no network; Ollama
 // Cloud publishes no status feed or usage API yet, so it has nothing to read.
 import Foundation
+// URLSession lives in a separate module off Apple platforms
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// One vocabulary for provider health wherever it is drawn. The dropdown, the dashboard and
 /// the widgets read the glyph and the tone from here and pick their own colour token for the

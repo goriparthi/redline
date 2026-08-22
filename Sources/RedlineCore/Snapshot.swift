@@ -208,36 +208,46 @@ public enum SnapshotStore {
     /// than from any environment: without this, a run pointed at a test home would still
     /// find, and report, the real machine's last reading.
     public static var localAppSupportURL: URL? {
+        #if os(macOS)
         if RedlineHome.isOverridden {
             return RedlineHome.path("Library/Application Support/redline/\(fileName)")
         }
         return FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("redline/\(fileName)")
+        #else
+        // No sandbox container off macOS, so the user path is the only location there is.
+        return nil
+        #endif
     }
 
     /// The widget's container, addressed absolutely so the app can write into it. This is the
     /// only route that works for an ad-hoc signed sandboxed widget: App Group containers need
     /// a real Team ID, and a path exception outside the container is not granted.
+    #if os(macOS)
     public static var widgetContainerURL: URL {
         RedlineHome.url
             .appendingPathComponent(
                 "Library/Containers/\(widgetBundleID)/Data/Library/Application Support/redline/\(fileName)")
     }
+    #endif
 
     // Always available, and readable by any non-sandboxed process of this user
     public static var userURL: URL {
-        RedlineHome.url
-            .appendingPathComponent(".local/share/redline/\(fileName)")
+        AppPaths.data(fileName)
     }
 
     // Only resolves for code signed with a real Team ID. An ad-hoc signed sandboxed
     // extension gets nil here, which is why the user path exists as the primary.
     public static func groupURL(appGroup group: String? = appGroup) -> URL? {
+        #if !os(macOS)
+        return nil
+        #else
         guard let group,
               let container = FileManager.default
                 .containerURL(forSecurityApplicationGroupIdentifier: group) else { return nil }
         return container.appendingPathComponent(fileName)
+        #endif
     }
 
     public static func url(appGroup group: String? = appGroup) -> URL {
@@ -253,12 +263,14 @@ public enum SnapshotStore {
     // something outside the profile.
     public static var writeTargets: [URL] {
         var out = [userURL]
+        #if os(macOS)
         let container = widgetContainerURL
         if FileManager.default.fileExists(
             atPath: container.deletingLastPathComponent()
                 .deletingLastPathComponent().path) {
             out.append(container)
         }
+        #endif
         if !RedlineHome.isOverridden, let g = groupURL() { out.append(g) }
         return out
     }

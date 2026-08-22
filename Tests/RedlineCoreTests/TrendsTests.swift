@@ -133,4 +133,64 @@ final class DailyAxisTests: XCTestCase {
             last = stride
         }
     }
+
+    // MARK: - what another language reads
+
+    private var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+
+    /// Built by hand rather than with a DateFormatter, which is where the cost formatting
+    /// went wrong on Linux, so the digits are worth asserting.
+    func testTheDayKeyAndLabelArePaddedAndUnambiguous() {
+        let day = Date(timeIntervalSince1970: 1_787_184_000)   // 2026-08-20T00:00:00Z
+        XCTAssertEqual(DailyAxis.key(for: day, calendar: utc), "2026-08-20")
+        XCTAssertEqual(DailyAxis.label(for: day, calendar: utc), "Aug 20")
+
+        let january = Date(timeIntervalSince1970: 1_767_225_600)   // 2026-01-01T00:00:00Z
+        XCTAssertEqual(DailyAxis.key(for: january, calendar: utc), "2026-01-01")
+        XCTAssertEqual(DailyAxis.label(for: january, calendar: utc), "Jan 1")
+    }
+
+    func testCombiningAddsTheSameBucketAcrossProviders() {
+        let start = Date(timeIntervalSince1970: 1_787_184_000)
+        let next = start.addingTimeInterval(86400)
+        let one = ProviderTrend(provider: "Claude", points: [
+            UsagePoint(start: start, io: 100, cost: 0.5, cacheRead: 1, cacheWrite: 2),
+            UsagePoint(start: next, io: 0, cost: 0, cacheRead: 0, cacheWrite: 0),
+        ])
+        let two = ProviderTrend(provider: "Codex", points: [
+            UsagePoint(start: start, io: 40, cost: 0.25, cacheRead: 3, cacheWrite: 4),
+            UsagePoint(start: next, io: 7, cost: 0, cacheRead: 0, cacheWrite: 0),
+        ])
+        let combined = Trends.combine([one, two])
+        XCTAssertEqual(combined.map(\.io), [140, 7])
+        XCTAssertEqual(combined.map(\.start), [start, next])
+        XCTAssertEqual(combined.first?.cost ?? 0, 0.75, accuracy: 0.000001)
+        XCTAssertEqual(combined.first?.cacheRead, 4)
+        XCTAssertEqual(combined.first?.cacheWrite, 6)
+    }
+
+    func testCombiningNothingIsNothingRatherThanACrash() {
+        XCTAssertTrue(Trends.combine([]).isEmpty)
+    }
+
+    /// A quiet day has to reach the chart as a zero. Dropping it would slide every later day
+    /// left and draw a week that never happened.
+    func testAQuietDaySurvivesAsAZero() {
+        let start = Date(timeIntervalSince1970: 1_787_184_000)
+        let trend = ProviderTrend(provider: "Claude", points: [
+            UsagePoint(start: start, io: 0, cost: 0, cacheRead: 0, cacheWrite: 0),
+            UsagePoint(start: start.addingTimeInterval(86400), io: 5, cost: 0,
+                       cacheRead: 0, cacheWrite: 0),
+        ])
+        let report = Trends.report(days: 2, series: Trends.combine([trend]),
+                                   providers: [trend], models: [], calendar: utc)
+        let series = report["series"] as? [[String: Any]]
+        XCTAssertEqual(series?.count, 2)
+        XCTAssertEqual(series?.first?["tokens"] as? Int, 0)
+        XCTAssertEqual(series?.first?["day"] as? String, "2026-08-20")
+    }
 }
