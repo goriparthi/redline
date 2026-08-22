@@ -310,8 +310,12 @@ public sealed partial class DashboardWindow : Window
     private static TextBlock Heading(string text) =>
         Line(text.ToUpperInvariant(), 11, Muted, weight: FontWeights.SemiBold, spacing: 180);
 
+    // Fully qualified: the struct is Windows.UI.Text.FontWeight while the constants are
+    // Microsoft.UI.Text.FontWeights, and importing the first namespace makes the second
+    // ambiguous with its UWP twin.
     private static TextBlock Line(string text, double size, Brush colour,
-                                  FontWeight? weight = null, int spacing = 0) => new()
+                                  Windows.UI.Text.FontWeight? weight = null,
+                                  int spacing = 0) => new()
     {
         Text = text,
         FontSize = size,

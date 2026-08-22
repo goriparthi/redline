@@ -101,6 +101,18 @@ docker run --rm -v "$PWD":/repo -w /repo/windows mcr.microsoft.com/dotnet/sdk:9.
 Static on purpose: a dynamically linked build wants the Swift runtime, which the .NET image has
 no reason to carry. Delete `windows/redline-test-engine` afterwards; it is gitignored.
 
+The WinUI code-behind, against the real Windows App SDK, in about ten seconds:
+
+```sh
+scripts/check-winui.sh
+```
+
+It stands in for what the XAML compiler generates, `InitializeComponent` and a field per
+`x:Name`, and compiles everything else against the actual SDK reference assemblies in a Linux
+container. It does **not** run the XAML compiler, so markup errors are still CI's to find, but
+it catches every wrong type and member name, which is most of what goes wrong here. Compile
+only: the full Build target then runs `MakePri.exe`, which is a Windows binary.
+
 **CI, about seven minutes.** The only way to compile or run anything Windows from this Mac.
 
 ```sh
@@ -149,6 +161,12 @@ WinUI:
 - JSONSerialization prints a double differently per platform: Linux writes `0.045` where macOS
   writes `0.044999999999999998`. Compare a JSON fixture after parsing it, never as text.
 - `Rest` is a disallowed tuple element name, at any position.
+- The `FontWeight` struct is `Windows.UI.Text.FontWeight`, while the constants are
+  `Microsoft.UI.Text.FontWeights`. Importing the first namespace makes the second ambiguous
+  with its UWP twin, so name the struct in full instead.
+- **`WMC9999` can be a cascade.** A CS error in the code-behind makes the XAML compiler's
+  first pass throw with no usable message, so fix the C# before suspecting the markup.
+  `scripts/check-winui.sh` finds that class of error without a CI cycle.
 
 Cross-language:
 
