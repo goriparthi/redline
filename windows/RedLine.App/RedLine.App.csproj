@@ -8,9 +8,10 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>RedLine.App</RootNamespace>
     <UseWinUI>true</UseWinUI>
-    <!-- Unpackaged for now. MSIX arrives with the widget, which is the only thing that
-         actually requires it. -->
-    <WindowsPackageType>None</WindowsPackageType>
+    <!-- Unpackaged by default: that is the zip a beta tester unpacks, runs and deletes.
+         Build with -p:WindowsPackageType=MSIX for the installer, which is the only packaging
+         that can carry the Windows 11 widget. -->
+    <WindowsPackageType Condition="'$(WindowsPackageType)' == ''">None</WindowsPackageType>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
@@ -36,6 +37,21 @@
     <!-- The same icon the executable carries, next to the app so the tray can load an HICON
          from it at runtime -->
     <Content Include="../../Resources/RedLine.ico" Link="Assets/RedLine.ico"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- Only for the packaged build. An unpackaged app has no manifest to honour, and the
+       tiles would be four files copied next to the exe for nothing. -->
+  <ItemGroup Condition="'$(WindowsPackageType)' == 'MSIX'">
+    <AppxManifest Include="Package.appxmanifest">
+      <SubType>Designer</SubType>
+    </AppxManifest>
+    <Content Include="Images\**" />
+  </ItemGroup>
+  <!-- The engine, flattened next to the app. RedLine.Core looks beside the executable before
+       it looks at PATH, and inside a package there is nowhere else for it to be. Pass
+       -p:RedlineEngine=<folder> from the build that already produced it. -->
+  <ItemGroup Condition="'$(RedlineEngine)' != ''">
+    <Content Include="$(RedlineEngine)\**" Link="%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

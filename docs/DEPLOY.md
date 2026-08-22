@@ -17,7 +17,7 @@ and not before.
 
 | # | Artifact | Where it lives | Set by |
 |---|---|---|---|
-| 1 | Version | `Resources/Info.plist`, `project.yml` | you, by hand |
+| 1 | Version | `Resources/Info.plist`, `project.yml`, `windows/RedLine.App/Package.appxmanifest` | you, by hand |
 | 2 | Release notes | `notes/releases/<version>.md` | you, by hand |
 | 3 | Git tag and commit | `origin/main`, tag `v<version>` | `git push`, then `scripts/release.sh` |
 | 4 | GitHub release plus DMG | the releases page | `scripts/release.sh` |
@@ -33,14 +33,17 @@ Miss 3 and the tag points at the wrong commit. Miss 4 and nobody gets it. Miss 5
 Semver, and the suffix decides the channel. `0.7.0-beta.2` is a prerelease and reaches only
 the beta channel; `0.7.0` is stable and reaches everyone.
 
-Bump both of these, and keep them in step:
+Bump all three of these, and keep them in step:
 
 - `Resources/Info.plist`: `CFBundleShortVersionString` is the full version including any
   suffix, `CFBundleVersion` is the bare core version.
 - `project.yml`: `MARKETING_VERSION` matches `CFBundleShortVersionString`.
+- `windows/RedLine.App/Package.appxmanifest`: `Version` is the same number with a fourth
+  part, so `0.9.0` becomes `0.9.0.0`. MSIX wants four parts and no suffix.
 
 `Resources/Info.plist` is the single source of truth. Every script reads the version from it,
-and `scripts/release.sh` refuses a version argument that disagrees with it.
+`scripts/release.sh` refuses a version argument that disagrees with it, and `scripts/ci.sh`
+fails when the Windows manifest has drifted from it.
 
 ### 2. Write the release notes
 

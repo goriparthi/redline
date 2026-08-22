@@ -14,7 +14,8 @@ in `dist/` is a build nobody can install, and it is stale by the next commit.
 
 `docs/DEPLOY.md` is the full procedure. The short version:
 
-1. Bump `Resources/Info.plist` and `project.yml` to the same version.
+1. Bump `Resources/Info.plist`, `project.yml` and `windows/RedLine.App/Package.appxmanifest`
+   to the same version; the manifest takes a fourth part, so `0.9.0` is `0.9.0.0`.
 2. Write `notes/releases/<version>.md`.
 3. `make xcodeproj` if you added a source file, and commit it.
 4. Commit, then **push**, because `gh release create` tags the remote's HEAD and not yours.

@@ -190,8 +190,118 @@ jobs:
           if ($report -notmatch "toasts=registered") { throw "toasts did not register: $report" }
           if ($report -notmatch "posted=[1-9]") { throw "no toast was delivered: $report" }
 
+      # MSIX is the only packaging that gives a real install and uninstall, and the only one
+      # that can carry the Windows 11 widget. Signed here with a throwaway certificate purely
+      # so this job can install it: a package nobody can install is not a package, and the
+      # manifest is where that goes wrong.
+      - name: Build the MSIX
+        shell: pwsh
+        run: |
+          dotnet publish windows/RedLine.App/RedLine.App.csproj -c Release -p:Platform=x64 `
+            -r win-x64 -p:SelfContained=true -p:WindowsAppSDKSelfContained=true `
+            -p:WindowsPackageType=MSIX -p:GenerateAppxPackageOnBuild=true `
+            -p:AppxPackageSigningEnabled=false -p:AppxBundle=Never `
+            -p:UapAppxPackageBuildMode=SideloadOnly `
+            -p:AppxPackageDir="$env:GITHUB_WORKSPACE\dist\msix\" `
+            -p:RedlineEngine="$env:GITHUB_WORKSPACE\dist\windows" `
+            --nologo -v m
+          $package = Get-ChildItem -Recurse -Filter *.msix "$env:GITHUB_WORKSPACE\dist" |
+                     Select-Object -First 1
+          if (-not $package) {
+            Write-Host "nothing matching *.msix; here is what the build produced:"
+            Get-ChildItem -Recurse "$env:GITHUB_WORKSPACE\dist\msix" -ErrorAction SilentlyContinue |
+              ForEach-Object { "  " + $_.FullName }
+            throw "the packaged build produced no .msix"
+          }
+          "  {0} ({1:N0} bytes)" -f $package.Name, $package.Length
+          "MSIX=$($package.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # The certificate is generated here and thrown away with the runner. Its subject has to
+      # match the manifest's Publisher exactly or the package will not install.
+      - name: Sign and install it
+        shell: pwsh
+        run: |
+          $subject = "CN=Prashanth Goriparthi"
+          $cert = New-SelfSignedCertificate -Type Custom -Subject $subject `
+                    -KeyUsage DigitalSignature -CertStoreLocation "Cert:\CurrentUser\My" `
+                    -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+          $password = ConvertTo-SecureString -String "redline-ci" -Force -AsPlainText
+          $pfx = Join-Path $env:RUNNER_TEMP "redline-ci.pfx"
+          Export-PfxCertificate -Cert $cert -FilePath $pfx -Password $password | Out-Null
+          # Trusted, or Windows refuses a package it cannot chain to anything
+          Import-PfxCertificate -FilePath $pfx -Password $password `
+            -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+                      Sort-Object FullName | Select-Object -Last 1
+          if (-not $signtool) { throw "no signtool on this runner" }
+          & $signtool.FullName sign /fd SHA256 /f $pfx /p "redline-ci" $env:MSIX
+          if ($LASTEXITCODE -ne 0) { throw "signing failed" }
+
+          Add-AppxPackage -Path $env:MSIX
+          $installed = Get-AppxPackage Goriparthi.RedLine
+          if (-not $installed) { throw "the package did not install" }
+          Write-Host ("installed " + $installed.PackageFullName)
+          "PACKAGE_ROOT=$($installed.InstallLocation)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PACKAGE_FULL=$($installed.PackageFullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # The same self test, from the installed copy. Proves the manifest, the payload and the
+      # engine beside it, not just that a file was produced.
+      - name: Prove the installed app starts
+        shell: pwsh
+        run: |
+          $home_dir = Join-Path $env:RUNNER_TEMP "msix-home"
+          New-Item -ItemType Directory -Force -Path (Join-Path $home_dir ".local\share\redline") | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $home_dir ".claude\projects\demo") | Out-Null
+          $feed = '{"updated_at":"' + (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") +
+                  '","five_hour":{"used_percentage":42,"resets_at":4102444800}}'
+          [System.IO.File]::WriteAllText(
+            (Join-Path $home_dir ".local\share\redline\claude-usage.json"), $feed)
+
+          $env:REDLINE_HOME = $home_dir
+          $log = Join-Path $env:RUNNER_TEMP "msix-selftest.log"
+          $env:REDLINE_SELFTEST_LOG = $log
+          Remove-Item $log -ErrorAction SilentlyContinue
+
+          $exe = Join-Path $env:PACKAGE_ROOT "RedLine.App.exe"
+          if (-not (Test-Path $exe)) {
+            Get-ChildItem $env:PACKAGE_ROOT | ForEach-Object { "  " + $_.Name }
+            throw "no RedLine.App.exe in the installed package"
+          }
+          $p = Start-Process -FilePath $exe -ArgumentList "--selftest" -PassThru
+          if (-not $p.WaitForExit(60000)) {
+            $p.Kill($true)
+            throw "the installed app never exited"
+          }
+          if (Test-Path $log) { Write-Host ("report: " + (Get-Content $log -Raw)) }
+          else { throw "the installed app wrote no report" }
+          $report = Get-Content $log -Raw
+          if ($report -notmatch "^ok:") { throw "the installed app did not report ok: $report" }
+          # The engine has to be inside the package, or the app is an empty window
+          if ($report -notmatch "engine=running") { throw "no engine inside the package: $report" }
+          if ($report -notmatch "title=42%") { throw "the installed app read nothing: $report" }
+
+      - name: Uninstall it again
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:PACKAGE_FULL) {
+            Remove-AppxPackage -Package $env:PACKAGE_FULL
+            if (Get-AppxPackage Goriparthi.RedLine) { throw "the package would not uninstall" }
+            Write-Host "uninstalled cleanly"
+          }
+
       - uses: actions/upload-artifact@v4
         with:
           name: redline-windows-app-x64
           path: dist/app/
+          if-no-files-found: error
+
+      # Unsigned on purpose: the CI certificate is a throwaway and signing it with one would
+      # hand out a package that only trusts a key nobody has. It is here to be inspected, and
+      # to be signed for real once there is a certificate.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redline-windows-msix-x64-unsigned
+          path: dist/msix/
           if-no-files-found: error
