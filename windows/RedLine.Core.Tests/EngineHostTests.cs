@@ -27,9 +27,16 @@ public class EngineHostTests : IDisposable
         ["REDLINE_BIN"] = bin,
     });
 
+    /// <summary>
+    /// A record from earlier today. "Twenty minutes ago" is yesterday for the first twenty
+    /// minutes of a UTC day, and days are UTC, so today's total would then be zero.
+    /// </summary>
     private void WriteTranscript()
     {
-        var stamp = DateTimeOffset.UtcNow.AddMinutes(-20).ToString("yyyy-MM-ddTHH:mm:ss.000Z");
+        var now = DateTimeOffset.UtcNow;
+        var midnight = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
+        var when = now.AddMinutes(-20) < midnight ? midnight : now.AddMinutes(-20);
+        var stamp = when.ToString("yyyy-MM-ddTHH:mm:ss.000Z");
         var line = "{\"timestamp\":\"" + stamp + "\",\"requestId\":\"req_a\",\"message\":"
             + "{\"id\":\"a\",\"model\":\"claude-sonnet-5\",\"usage\":"
             + "{\"input_tokens\":1000,\"output_tokens\":100,\"cache_read_input_tokens\":0}}}";
