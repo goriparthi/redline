@@ -55,6 +55,8 @@ echo "autostart reports without changing anything"
 AUTOSTART="$(run 0 autostart)"
 [[ "$AUTOSTART" == *": on"* || "$AUTOSTART" == *": off"* ]] \
     || fail "autostart did not report a state: $AUTOSTART"
+contains "$(run 0 autostart --json)" '"outcome" : "status"' \
+    "autostart --json did not report the state"
 
 echo "settings can be read and changed, and nonsense refused"
 contains "$(run 0 config)" "limitRedPct" "config did not list the settings"
@@ -63,12 +65,23 @@ contains "$(run 0 config limitRedPct)" "90" "the change did not stick"
 # 2 is the refusal, and it has to refuse: the engine would not load this either
 run 2 config limitRedPct 500 >/dev/null
 
+# The shape a shell reads, which is the only thing the Windows settings page has to go on
+contains "$(run 0 config --json)" '"kind" : "number"' "config --json lost the control kinds"
+contains "$(run 0 config limitRedPct 80 --json)" '"outcome" : "changed"' \
+    "config --json did not report the change"
+contains "$(run 2 config limitRedPct 500 --json)" '"outcome" : "rejected"' \
+    "config --json did not report the refusal on stdout"
+
 echo "the usage feed can be wired and unwired"
 # A scratch home, so this never touches the real ~/.claude
 contains "$(run 20 setup)" "off" "setup did not report a state"
+# Off is an answer, and it comes back as one rather than as an exit code to interpret
+contains "$(run 20 setup --json)" '"on" : false' "setup --json did not report the state"
 contains "$(run 0 setup claude)" "on" "setup claude did not wire the feed"
 contains "$(run 0 setup)" "on" "setup did not stay wired"
 contains "$(run 0 setup off)" "off" "setup off did not unwire"
+contains "$(run 0 setup off --json)" '"outcome" : "unchanged"' \
+    "setup --json called a second off a change"
 
 echo "history reads it back"
 contains "$(run 0 history)" "1.1K" "history lost the 1100 tokens"

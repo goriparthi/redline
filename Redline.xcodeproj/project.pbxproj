@@ -23,6 +23,7 @@
 		2044E58B5F45345FAF072297 /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC0415DE092CA1B2B112DCB /* CredentialStore.swift */; };
 		233F0A121677C30B02115400 /* DirectoryWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 416FA0591EE378363A4170F5 /* DirectoryWatcher.swift */; };
 		24926363A3D24D71291FCE23 /* OllamaUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F168CA25C84917EF43FA40A7 /* OllamaUsage.swift */; };
+		26DB2E4BAAFB4EB855B0FEF2 /* StatuslineScripts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827E008CBF48C2C38A6BCBBA /* StatuslineScripts.swift */; };
 		28FC1B7A93BE50DE30B5CB7D /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACDA678A22CDEA25530A764 /* SettingsWindow.swift */; };
 		2AB71CA3AA4E2A7761B61628 /* VersionCompare.swift in Sources */ = {isa = PBXBuildFile; fileRef = B629D202EE25A611B666669E /* VersionCompare.swift */; };
 		2E9DF5B50A68B9D9DE4CE0E3 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = E42BD3B72393530FD2217E05 /* Diagnostics.swift */; };
@@ -31,8 +32,10 @@
 		3449476BD8EA798D28593265 /* MenuRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750D227E31167B98C4F99ABF /* MenuRowView.swift */; };
 		3463145D1F433B054394DE98 /* OllamaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F436657B1570389AAB09F13 /* OllamaService.swift */; };
 		34E5A3DC377480F42995A4E0 /* Warehouse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84975E45680DCAD617F40832 /* Warehouse.swift */; };
+		3A8D56DA5ABA3B5FDD047BA1 /* ShellToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22159160D56E4557C5E65D14 /* ShellToggle.swift */; };
 		4D224036965D4EF12BC62D9F /* Pace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 447ED9DA10B4CBB9133689B5 /* Pace.swift */; };
 		4FB45D1DB225292BDB1B1E64 /* Findings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F42B9C62E394CFF7098FF6 /* Findings.swift */; };
+		5669D5C1A8B3CCAB7ADFEFE0 /* ConfigEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 438470ABF301437B45D8ABAF /* ConfigEditor.swift */; };
 		59BCA283605365D30DEB0099 /* FirstRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB28E0B0D7A29BB559A18C5 /* FirstRun.swift */; };
 		60727C2F80BE6F79328CA27C /* ProviderIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1F788537B5D5D2CBAFC5D04F /* ProviderIcons.xcassets */; };
 		63C9EEC4C3CD9715FD4AAECA /* OAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB67C592C32CEC96CB61C6 /* OAuth.swift */; };
@@ -46,6 +49,7 @@
 		8560A27BB2F22422F65B1251 /* RedlinePlatform.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 025DD5A0E7F60DB53C11EA5A /* RedlinePlatform.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		85B47DCDD9A67C95AA0FAC73 /* Redline.icns in Resources */ = {isa = PBXBuildFile; fileRef = 988FB716748B26CD67278337 /* Redline.icns */; };
 		8767E8452B43CF2B2D1E14D5 /* SingleInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED513D0EA87D7E4737349F9 /* SingleInstance.swift */; };
+		8953442ACFDEDDB1DD71E15A /* StatuslineSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE432B166E8759E334267A4 /* StatuslineSetup.swift */; };
 		8A37C1B9C476E667D3C7626E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594A59204E47A19AF9380F42 /* AppDelegate.swift */; };
 		8C2563A6AFA609A303856A8E /* FindingsDismissal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E6A1635E2B50F8522016FE /* FindingsDismissal.swift */; };
 		907581D12B2C9014E996E105 /* Autostart.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06A292080944DB679F86D72 /* Autostart.swift */; };
@@ -198,6 +202,7 @@
 		1D8A7BED0FAF0DE852F5BA05 /* RedlineTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = RedlineTemplate.png; sourceTree = "<group>"; };
 		1F788537B5D5D2CBAFC5D04F /* ProviderIcons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = ProviderIcons.xcassets; sourceTree = "<group>"; };
 		1F7FBA512B8F449385AC9ED5 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
+		22159160D56E4557C5E65D14 /* ShellToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellToggle.swift; sourceTree = "<group>"; };
 		22C93E249F1597144C127A4C /* ProviderGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderGlyph.swift; sourceTree = "<group>"; };
 		256BCA039C4F6C0212417A7A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		2B3364DACF0254F15DD72B8C /* RedlineHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedlineHome.swift; sourceTree = "<group>"; };
@@ -208,6 +213,7 @@
 		40B2994711ADFCA836371D67 /* CommandLineTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineTool.swift; sourceTree = "<group>"; };
 		416FA0591EE378363A4170F5 /* DirectoryWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryWatcher.swift; sourceTree = "<group>"; };
 		41A68FC1D13F91D4CD4152F9 /* FindingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsService.swift; sourceTree = "<group>"; };
+		438470ABF301437B45D8ABAF /* ConfigEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigEditor.swift; sourceTree = "<group>"; };
 		447ED9DA10B4CBB9133689B5 /* Pace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pace.swift; sourceTree = "<group>"; };
 		46D95C1D61B6246B59EB1A9D /* Alerting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alerting.swift; sourceTree = "<group>"; };
 		48BC351F168C9882F9F793EE /* Updates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updates.swift; sourceTree = "<group>"; };
@@ -223,9 +229,11 @@
 		750D227E31167B98C4F99ABF /* MenuRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRowView.swift; sourceTree = "<group>"; };
 		77E369CE6531396BD0644322 /* Redline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Redline.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		78FE2F26BDB6366C0D7C1974 /* RedlineWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RedlineWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BE432B166E8759E334267A4 /* StatuslineSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatuslineSetup.swift; sourceTree = "<group>"; };
 		7F5981A6A2D1BAC9D92B13C1 /* claude-statusline.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "claude-statusline.sh"; sourceTree = "<group>"; };
 		7F86294B8C331F3CA4A5DD4F /* CredentialScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialScan.swift; sourceTree = "<group>"; };
 		8113FDF017A78BE87CDBBACF /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		827E008CBF48C2C38A6BCBBA /* StatuslineScripts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatuslineScripts.swift; sourceTree = "<group>"; };
 		84975E45680DCAD617F40832 /* Warehouse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Warehouse.swift; sourceTree = "<group>"; };
 		87D84AD92C821EDBC4ED14A7 /* Provenance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provenance.swift; sourceTree = "<group>"; };
 		892543FD1D3054EC7BC3AC20 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
@@ -446,6 +454,7 @@
 				EF2D39E506526264BDC08DB4 /* CodexSessions.swift */,
 				40B2994711ADFCA836371D67 /* CommandLineTool.swift */,
 				624A5B9C5D72E93609652D17 /* Config.swift */,
+				438470ABF301437B45D8ABAF /* ConfigEditor.swift */,
 				7F86294B8C331F3CA4A5DD4F /* CredentialScan.swift */,
 				1F7FBA512B8F449385AC9ED5 /* Database.swift */,
 				E42BD3B72393530FD2217E05 /* Diagnostics.swift */,
@@ -462,6 +471,7 @@
 				4BE55B716DD9CD51291AC568 /* ProviderOverview.swift */,
 				2B3364DACF0254F15DD72B8C /* RedlineHome.swift */,
 				D2AB1EB471162AD7AFEDDFE2 /* ServiceStatus.swift */,
+				22159160D56E4557C5E65D14 /* ShellToggle.swift */,
 				0328F317FC0146B2DA0B4DA2 /* Sidecar.swift */,
 				CED513D0EA87D7E4737349F9 /* SingleInstance.swift */,
 				3BF44BE14785AF8BB8135FB7 /* Snapshot.swift */,
@@ -469,6 +479,8 @@
 				AB7A91F7558A008A61D6AE0B /* Sparkline.swift */,
 				67B7FD6A0630E63983E47356 /* Status.swift */,
 				316615D98C6029DA63C5F95F /* StatuslineFeed.swift */,
+				827E008CBF48C2C38A6BCBBA /* StatuslineScripts.swift */,
+				7BE432B166E8759E334267A4 /* StatuslineSetup.swift */,
 				CE0F1328D40B59A59DB9A303 /* TranscriptTail.swift */,
 				C70F9EB19961D2896832675D /* Trends.swift */,
 				FC4D3B9D0F9D8C9F124020D6 /* Usage.swift */,
@@ -726,6 +738,7 @@
 				FF43854EF3B1451EFD855320 /* CodexSessions.swift in Sources */,
 				67D5E4A431583F010093B7F5 /* CommandLineTool.swift in Sources */,
 				6A67B4BBE283F922FA6F430F /* Config.swift in Sources */,
+				5669D5C1A8B3CCAB7ADFEFE0 /* ConfigEditor.swift in Sources */,
 				F8E4378AA294C4F6A5FBD381 /* CredentialScan.swift in Sources */,
 				6647DCA6E529792DA6B8AD98 /* Database.swift in Sources */,
 				2E9DF5B50A68B9D9DE4CE0E3 /* Diagnostics.swift in Sources */,
@@ -742,6 +755,7 @@
 				7C5B56AF030E67CDD8346E0F /* ProviderOverview.swift in Sources */,
 				B1CD68EEBE3BAB5D79E7B792 /* RedlineHome.swift in Sources */,
 				9CD52EA04F1CDE8CD286AF39 /* ServiceStatus.swift in Sources */,
+				3A8D56DA5ABA3B5FDD047BA1 /* ShellToggle.swift in Sources */,
 				177BBC02BE0031772154DB68 /* Sidecar.swift in Sources */,
 				8767E8452B43CF2B2D1E14D5 /* SingleInstance.swift in Sources */,
 				2F1CF67F76429502CD8D63D1 /* Snapshot.swift in Sources */,
@@ -749,6 +763,8 @@
 				D1346E76D50919C07BCA074F /* Sparkline.swift in Sources */,
 				BFD47662265902E42C8C8B3B /* Status.swift in Sources */,
 				C5C2F68D2DB0C05BBE58D058 /* StatuslineFeed.swift in Sources */,
+				26DB2E4BAAFB4EB855B0FEF2 /* StatuslineScripts.swift in Sources */,
+				8953442ACFDEDDB1DD71E15A /* StatuslineSetup.swift in Sources */,
 				A7F044D575CF943E9F3A6DF3 /* TranscriptTail.swift in Sources */,
 				90F7AD2392C6CABAE8853890 /* Trends.swift in Sources */,
 				1649CE694ADE1CCFF1E9E6DF /* Usage.swift in Sources */,

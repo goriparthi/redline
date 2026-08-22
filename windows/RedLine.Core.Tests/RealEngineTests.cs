@@ -93,4 +93,105 @@ public class RealEngineTests
         }
         finally { Directory.Delete(home, recursive: true); }
     }
+
+    /// <summary>
+    /// Settings through the real engine: what it offers, a change it takes, and the same
+    /// change again. The second one is "already that" rather than a failure.
+    /// </summary>
+    [Fact]
+    public void SettingsAreReadAndChangedThroughTheEngine()
+    {
+        if (Binary is not { } binary) return;
+        var (engine, home) = Fresh(binary);
+        try
+        {
+            var store = new SettingsStore(engine);
+
+            var catalog = store.Read();
+            Assert.True(catalog.Available, catalog.Problem);
+            Assert.NotEmpty(catalog.Settings);
+            var yellow = catalog.Find("limitYellowPct");
+            Assert.NotNull(yellow);
+            Assert.Equal(SettingKind.Number, yellow.Kind);
+
+            var changed = store.Write("limitYellowPct", 70d);
+            Assert.Equal(SettingsOutcomeKind.Changed, changed.Kind);
+            Assert.Equal("70", changed.Value);
+
+            Assert.Equal("70", store.Read().Find("limitYellowPct")?.Value);
+            Assert.Equal(SettingsOutcomeKind.Unchanged,
+                         store.Write("limitYellowPct", 70d).Kind);
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
+
+    /// <summary>
+    /// The engine is the only validator. A value it would not load comes back refused, with
+    /// its own words for what it wanted, and nothing is written.
+    /// </summary>
+    [Fact]
+    public void AValueTheEngineWouldNotLoadIsRefusedRatherThanStored()
+    {
+        if (Binary is not { } binary) return;
+        var (engine, home) = Fresh(binary);
+        try
+        {
+            var store = new SettingsStore(engine);
+            var before = store.Read().Find("limitYellowPct")?.Value;
+
+            var refused = store.Write("limitYellowPct", 900d);
+            Assert.Equal(SettingsOutcomeKind.Rejected, refused.Kind);
+            Assert.False(refused.Accepted);
+            Assert.NotEqual("", refused.Expected);
+            Assert.Equal(before, store.Read().Find("limitYellowPct")?.Value);
+
+            Assert.Equal(SettingsOutcomeKind.UnknownKey, store.Write("nosuch", "1").Kind);
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
+
+    /// <summary>
+    /// The usage feed through the real engine, in a scratch home so nothing touches the
+    /// machine's own Claude settings. Off, on, still on, and off again.
+    /// </summary>
+    [Fact]
+    public void TheUsageFeedIsWiredAndUnwiredThroughTheEngine()
+    {
+        if (Binary is not { } binary) return;
+        var (engine, home) = Fresh(binary);
+        try
+        {
+            var toggles = new ToggleStore(engine);
+
+            var before = toggles.UsageFeed();
+            Assert.Equal(ToggleOutcomeKind.Status, before.Kind);
+            Assert.False(before.On);
+
+            var wired = toggles.SetUsageFeed(true);
+            Assert.Equal(ToggleOutcomeKind.Changed, wired.Kind);
+            Assert.True(wired.On);
+            Assert.True(toggles.UsageFeed().On);
+            Assert.Equal(ToggleOutcomeKind.Unchanged, toggles.SetUsageFeed(true).Kind);
+
+            Assert.Equal(ToggleOutcomeKind.Changed, toggles.SetUsageFeed(false).Kind);
+            Assert.False(toggles.UsageFeed().On);
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
+
+    /// <summary>Reading only: turning autostart on would write a real login entry.</summary>
+    [Fact]
+    public void AutostartReportsItselfThroughTheEngine()
+    {
+        if (Binary is not { } binary) return;
+        var (engine, home) = Fresh(binary);
+        try
+        {
+            var outcome = new ToggleStore(engine).Autostart();
+            Assert.Equal(ToggleOutcomeKind.Status, outcome.Kind);
+            Assert.True(outcome.Known);
+            Assert.NotEqual("", outcome.Name);
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
 }

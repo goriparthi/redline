@@ -1,0 +1,96 @@
+{
+  "settings" : [
+    {
+      "key" : "limitYellowPct",
+      "kind" : "number",
+      "max" : 100,
+      "min" : 1,
+      "summary" : "percentage at which a window counts as approaching its limit",
+      "value" : "60"
+    },
+    {
+      "key" : "limitRedPct",
+      "kind" : "number",
+      "max" : 100,
+      "min" : 1,
+      "summary" : "percentage at which a window counts as at its limit",
+      "value" : "85"
+    },
+    {
+      "key" : "pollIntervalSeconds",
+      "kind" : "number",
+      "max" : 86400,
+      "min" : 10,
+      "summary" : "how often to re-read, in seconds",
+      "value" : "300"
+    },
+    {
+      "allowed" : [
+        "Claude",
+        "Codex",
+        "Ollama"
+      ],
+      "key" : "providers",
+      "kind" : "list",
+      "summary" : "which sources to read, comma separated",
+      "value" : "Claude,Codex,Ollama"
+    },
+    {
+      "key" : "recordHistory",
+      "kind" : "bool",
+      "summary" : "keep a daily rollup so history outlives the transcripts",
+      "value" : "true"
+    },
+    {
+      "key" : "alerts",
+      "kind" : "bool",
+      "summary" : "say something when a window crosses a threshold",
+      "value" : "true"
+    },
+    {
+      "key" : "publishSidecar",
+      "kind" : "bool",
+      "summary" : "publish the current windows for other local tools to read",
+      "value" : "true"
+    },
+    {
+      "key" : "findingsScans",
+      "kind" : "bool",
+      "summary" : "look through transcripts for setup findings",
+      "value" : "true"
+    },
+    {
+      "key" : "agentFleet",
+      "kind" : "bool",
+      "summary" : "show which Claude Code sessions are running",
+      "value" : "true"
+    },
+    {
+      "key" : "mindfulCues",
+      "kind" : "bool",
+      "summary" : "notice unbroken stretches, late hours and long streaks",
+      "value" : "true"
+    },
+    {
+      "allowed" : [
+        "all",
+        "session",
+        "week"
+      ],
+      "key" : "limitWindows",
+      "kind" : "choice",
+      "summary" : "which windows to show",
+      "value" : "all"
+    },
+    {
+      "allowed" : [
+        "stable",
+        "beta"
+      ],
+      "key" : "updateChannel",
+      "kind" : "choice",
+      "summary" : "which releases to offer",
+      "value" : "stable"
+    }
+  ]
+}

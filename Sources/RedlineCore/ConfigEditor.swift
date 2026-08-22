@@ -86,6 +86,48 @@ public enum ConfigEditor {
         return settings.map { ($0, $0.read(config)) }
     }
 
+    /// Every setting as another language reads it: the value, and what a control needs to
+    /// render itself. The CLI prints this verbatim, so it is the contract, and it is tested.
+    public static func catalog(at url: URL? = nil) -> [[String: Any]] {
+        current(at: url).map { setting, value in
+            var row: [String: Any] = ["key": setting.key, "value": value,
+                                      "summary": setting.summary]
+            switch setting.kind {
+            case .bool:
+                row["kind"] = "bool"
+            case let .number(min, max):
+                row["kind"] = "number"; row["min"] = min; row["max"] = max
+            case let .choice(allowed):
+                row["kind"] = "choice"; row["allowed"] = allowed
+            case let .list(allowed):
+                row["kind"] = "list"; row["allowed"] = allowed
+            }
+            return row
+        }
+    }
+
+    /// What happened, in the shape a shell reads. Reported rather than left to an exit code:
+    /// "already that" and "refused" are different answers and only one is worth a message.
+    public static func json(for outcome: Outcome) -> [String: Any] {
+        switch outcome {
+        case let .changed(key, from, to):
+            return ["outcome": "changed", "key": key, "from": from, "to": to]
+        case let .unchanged(key, value):
+            return ["outcome": "unchanged", "key": key, "value": value]
+        case let .rejected(key, reason):
+            return ["outcome": "rejected", "key": key, "expected": reason]
+        case let .unknownKey(key):
+            return ["outcome": "unknownKey", "key": key]
+        case let .failed(why):
+            return ["outcome": "failed", "message": why]
+        }
+    }
+
+    /// Reading one setting, in the same shape as the answers above.
+    public static func readJSON(key: String, value: String) -> [String: Any] {
+        ["outcome": "read", "key": key, "value": value]
+    }
+
     public static func value(of key: String, at url: URL? = nil) -> String? {
         setting(key).map { $0.read(Config.load(from: url)) }
     }

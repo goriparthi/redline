@@ -18,9 +18,15 @@ public enum EngineStatus
     Unavailable = -1,
 }
 
-public sealed record EngineResult(EngineStatus Status, string Output)
+public sealed record EngineResult(EngineStatus Status, string Output, int ExitCode = -1,
+                                  string Error = "")
 {
-    public bool Ran => Status != EngineStatus.Unavailable;
+    /// <summary>
+    /// The engine ran and exited, whatever it exited with. Not every command's codes are the
+    /// status vocabulary: `config` exits 2 to refuse a value, which is an answer rather than
+    /// a failure to start, so this asks whether there was an exit code at all.
+    /// </summary>
+    public bool Ran => ExitCode >= 0;
 }
 
 /// <summary>
@@ -105,14 +111,22 @@ public sealed class Engine
             {
                 return new EngineResult(EngineStatus.Unavailable, "redline would not start");
             }
-            var output = process.StandardOutput.ReadToEnd();
+            // Both pipes are drained at once. Reading one to the end and then the other
+            // deadlocks the moment the second fills its buffer with nobody emptying it.
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
             if (!process.WaitForExit((int)timeout.TotalMilliseconds))
             {
                 // A wedged engine must not wedge the UI with it
                 try { process.Kill(entireProcessTree: true); } catch { /* already gone */ }
                 return new EngineResult(EngineStatus.Unavailable, "redline did not finish");
             }
-            return new EngineResult(Classify(process.ExitCode), output);
+            // Exiting closed both pipes, so these are at EOF; the wait is a backstop
+            Task.WaitAll([output, error], TimeSpan.FromSeconds(5));
+            return new EngineResult(Classify(process.ExitCode),
+                                    output.IsCompletedSuccessfully ? output.Result : "",
+                                    process.ExitCode,
+                                    error.IsCompletedSuccessfully ? error.Result : "");
         }
         catch (Exception error) when (error is System.ComponentModel.Win32Exception
                                           or InvalidOperationException or IOException)

@@ -157,9 +157,9 @@ Split so that most of it can be tested without a Windows machine.
 Nothing in C# parses a transcript. That would be a second implementation of a format nobody
 documents, and the two would eventually report different numbers for the same day.
 
-### Two contracts across the language boundary
+### Three contracts across the language boundary
 
-Neither can be caught by a compiler, so both are files that each side asserts against.
+None can be caught by a compiler, so each is a file that both sides assert against.
 
 - `windows/RedLine.Core.Tests/fixtures/snapshot-headless.json` is real engine output.
   `SnapshotContractTests` exists in both languages and reads the same file. This is what
@@ -168,6 +168,10 @@ Neither can be caught by a compiler, so both are files that each side asserts ag
 - `Tests/Fixtures/formatting.json` pins every figure a person reads. The C# port formats in
   invariant culture, because a German locale would otherwise render `$1,234,567.89` as
   `$1.234.567,89` on one platform and not the other.
+- `windows/RedLine.Core.Tests/fixtures/config-settings.json` is real `redline config --json`
+  output. `SettingsContractTests` exists in both languages: the Swift side asserts the engine
+  still publishes exactly that, the C# side asserts it can still render a control for every
+  row. Regenerate it with `REDLINE_HOME=<empty dir> redline config --json`.
 
 ### What the app is now
 
@@ -245,6 +249,69 @@ macOS does, and taskbar deskbands were removed in Windows 11, so an icon that re
 number is the only equivalent, and it is what every other taskbar meter does. `GetHicon` hands
 back a GDI handle the `Icon` wrapper never frees, so each redraw destroys the one it replaces.
 
+### Settings, without a second validator
+
+The engine owns the rules and the shell asks. `ConfigEditor` applies a change through
+`Config.apply`, the same path a hand-edited file takes, and keeps it only if it survived, so
+whatever the engine would refuse to load is refused here. `redline config --json` publishes
+every setting with its current value and a kind (`bool`, `number` with bounds, `choice`,
+`list`), which is enough for a shell to render a control per setting without knowing a single
+key by name. Keys this build does not recognise survive a write rather than being dropped.
+
+A change reports what it did rather than only exiting non-zero, because "already that" and
+"refused" are different answers: `--json` prints `changed`, `unchanged`, `rejected` with the
+engine's own words for what it wanted, `unknownKey`, or `failed`. The refusal goes to stdout
+with the rest, so a shell reads one stream and never parses prose. Exit codes are unchanged,
+since a script still depends on them.
+
+On the C# side `SettingsStore` shells out for both halves and knows nothing else: no key
+names, no defaults, no bounds. `SettingsCatalog` carries either the settings or the reason
+there are none, because a page showing nothing looks like an app with no settings. A kind this
+build has never seen is kept and marked unknown rather than dropped, so a newer engine gains a
+setting here instead of quietly losing one.
+
+Two things this turned up. `EngineResult.Ran` used to mean "the exit code was one of the
+status codes", which made `config` refusing a value look like an engine that would not start;
+it now means the process exited at all, and the raw code and stderr travel with the result.
+And `Engine.Run` read only stdout, so a stderr big enough to fill its pipe would have wedged
+the call: both are drained together now.
+
+### The settings window
+
+Built in code-behind from what the engine publishes, with an almost empty XAML shell. Nothing
+in that file knows a setting by name, what it defaults to or what it accepts: it reads a kind
+and renders the control for it. Bool is a switch, number a NumberBox with the engine's own
+bounds, choice a ComboBox of the words it published, list a box per option. A kind this build
+has never seen is shown as text rather than hidden.
+
+Code-behind rather than a DataTemplate for two reasons. The controls depend on kinds the XAML
+cannot know, and any public type reachable from XAML gets bindable type info generated whose
+setters fail on an init-only member, so a template would need a parallel set of mutable row
+classes for no gain.
+
+Three things worth keeping in mind if this is edited:
+
+- A change runs off the UI thread, because it starts a process, and **the control's value has
+  to be read before that**. Reading `toggle.IsOn` inside the background lambda is a crash, not
+  a wrong answer.
+- Setting a value raises the same event as someone changing it, so a `building` flag guards
+  every handler. Without it, loading the page would write every setting straight back.
+- A refusal is answered by reloading from the engine rather than by putting the control back
+  by hand, since the engine is the only thing that knows what is now stored.
+
+Autostart and the usage feed are on the same page but are commands rather than config, so they
+are the only two things asked for by name. `redline autostart` and `redline setup` grew a
+`--json` shape for it, with the same `status` / `changed` / `unchanged` / `failed` vocabulary a
+config change uses. Autostart from the app starts the app, not `redline watch`: the app runs a
+watcher of its own and a second one would only lose the race for the lock.
+
+The tray now follows the configured thresholds instead of the built-in defaults, which is a
+bug the settings page made visible: changing the yellow threshold used to leave the icon
+colouring itself by 60 and 85 while the engine used the new numbers.
+
+The self test builds the page and reports how many controls it made, and CI fails if that is
+under twelve. A settings page that renders nothing looks exactly like one that rendered fine.
+
 ### Distribution: exe or MSI
 
 Ship **both**, for different audiences.
@@ -265,8 +332,8 @@ eligibility rules fit.
 
 ### Still to do
 
-The dashboard and its charts, settings, first run, toasts, MSIX packaging, the widget
-provider, Authenticode, winget.
+The dashboard and its charts, first run, toasts, MSIX packaging, the widget provider,
+Authenticode, winget.
 
 ## Linux
 

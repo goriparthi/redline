@@ -5,11 +5,11 @@ orientation and the things that are expensive to rediscover.
 
 ## Where the work is
 
-Branch `cross-platform-core`, 44 commits ahead of `main`, **nothing merged and nothing should
+Branch `cross-platform-core`, well ahead of `main`, **nothing merged and nothing should
 be merged** until PG says so. All three CI jobs green.
 
-macOS 399 Swift tests, Linux 395, Windows ~390, plus 66 C# tests. The counts differ only by
-cases gated to a platform.
+macOS 416 Swift tests, Linux 412, Windows a little fewer, plus 92 C# tests. The Swift counts
+differ only by cases gated to a platform.
 
 ## The one rule
 
@@ -44,23 +44,32 @@ core, where the Windows job takes seven. Windows only builds because the core st
 ## What the Windows app does today
 
 Tray icon with the percentage drawn into it, a dark 400x520 window with a rail per limit
-window, a context menu (open, refresh, quit), and it runs its own `redline watch` so history
-stays current the way the macOS app does by being the watcher.
+window, a context menu (open, refresh, settings, quit), a settings page built from whatever the
+engine publishes, and it runs its own `redline watch` so history stays current the way the
+macOS app does by being the watcher.
 
 CI proves the whole chain on a real Windows runner, not just that it compiles:
 
 ```
-report: ok: tray=created engine=running title=42% windows=1
+report: ok: tray=created engine=running title=42% windows=1 settings=<n>
 ```
 
 That is a transcript on disk, the app starting its own engine, the watcher ingesting and
-publishing, the monitor noticing, and the window drawing it.
+publishing, the monitor noticing, and the window drawing it. The count is every control the
+settings page built from the engine's own catalogue; CI fails under twelve, because a page
+that renders nothing looks exactly like one that rendered fine.
 
 ## Not done
 
-Dashboard and charts, settings, first run, toasts, MSIX packaging, the Windows 11 widget,
-Authenticode, winget. `redlined` and named-pipe IPC were **cancelled**: the app reads
-`snapshot.json` and shells out to `redline.exe`, which is all it ever needed.
+Dashboard and charts, first run, toasts, MSIX packaging, the Windows 11 widget, Authenticode,
+winget. `redlined` and named-pipe IPC were **cancelled**: the app reads `snapshot.json` and
+shells out to `redline.exe`, which is all it ever needed.
+
+Settings are done, end to end. The engine publishes every setting and its kind through
+`redline config --json`, takes a change through the same validation a hand-edited file gets,
+and reports what it did rather than only exiting non-zero; `autostart` and `setup` grew the
+same `--json` shape. `RedLine.Core` reads and writes through those and knows no key by name,
+and the WinUI page renders a control per kind.
 
 ## The three loops
 
@@ -127,6 +136,10 @@ WinUI:
   startup. Use `.Icon`, a real HICON.
 - `GetHicon` hands back a GDI handle the `Icon` wrapper never frees. Destroy the previous one
   on every redraw.
+- A control's value must be read on the UI thread. `SettingsWindow` runs each change off it,
+  because a change starts a process, and reading `toggle.IsOn` inside that lambda is a crash.
+- Setting a control's value raises the same event as someone changing it, so every handler is
+  guarded by a `building` flag or loading the page writes every setting straight back.
 
 Cross-language:
 
@@ -136,17 +149,25 @@ Cross-language:
   broke the embedded-script drift test.
 - Record equality compares collections by *reference*, so two identical snapshots never
   matched and the UI would have redrawn on every sweep. `SnapshotMonitor` compares bytes.
+- Days are UTC. A test transcript stamped "twenty minutes ago" belongs to yesterday for the
+  first twenty minutes of a UTC day, and today's total is then zero while the week's is not.
+  `EngineHostTests` clamps the stamp to midnight; runners are UTC, so this fails for real.
+- An exit code outside the status vocabulary is still a run. `config` exits 2 to refuse a
+  value, and `EngineResult.Ran` used to call that an engine that would not start.
 
-## Two contracts across the language boundary
+## Three contracts across the language boundary
 
-Neither can be caught by a compiler, so both are files each side asserts against:
+None can be caught by a compiler, so each is a file both sides assert against:
 
 - `windows/RedLine.Core.Tests/fixtures/snapshot-headless.json` is real engine output.
   `SnapshotContractTests` exists in **both** languages and reads the same file.
 - `Tests/Fixtures/formatting.json` pins every figure a person reads.
+- `windows/RedLine.Core.Tests/fixtures/config-settings.json` is real `redline config --json`
+  output, and `SettingsContractTests` exists in both languages too.
 
 Regenerate the snapshot fixture by running `redline watch` against a scratch home and copying
-what it publishes. If a field is renamed, the Swift suite fails first and says so.
+what it publishes, and the settings fixture with `REDLINE_HOME=<empty dir> redline config
+--json`. If a field is renamed, the Swift suite fails first and says so.
 
 ## Generated files
 
@@ -186,8 +207,7 @@ role and bucket with it.
 
 ## Next
 
-Settings first: thresholds, providers, autostart and the usage feed, with the logic in
-`RedLine.Core` where it can be tested. Then the dashboard, then MSIX so there is a real
+The dashboard and its charts, which is the last big piece of UI, then MSIX so there is a real
 installer. MSIX rather than MSI because it is the only packaging that can carry the widget.
 
 Signing is Authenticode, and unlike notarization a fresh certificate carries no reputation, so

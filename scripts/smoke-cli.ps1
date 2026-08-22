@@ -52,6 +52,9 @@ try {
     if ((Invoke-Redline 0 @("autostart")) -notmatch ": (on|off)") {
         throw "autostart did not report a state"
     }
+    if ((Invoke-Redline 0 @("autostart", "--json")) -notmatch '"outcome" : "status"') {
+        throw "autostart --json did not report the state"
+    }
 
     Write-Host "settings can be read and changed, and nonsense refused"
     if ((Invoke-Redline 0 @("config")) -notmatch "limitRedPct") { throw "config did not list the settings" }
@@ -60,11 +63,29 @@ try {
     # 2 is the refusal, and it has to refuse: the engine would not load this either
     Invoke-Redline 2 @("config", "limitRedPct", "500") | Out-Null
 
+    # The shape a shell reads, which is the only thing the Windows settings page has to go on
+    if ((Invoke-Redline 0 @("config", "--json")) -notmatch '"kind" : "number"') {
+        throw "config --json lost the control kinds"
+    }
+    if ((Invoke-Redline 0 @("config", "limitRedPct", "80", "--json")) -notmatch '"outcome" : "changed"') {
+        throw "config --json did not report the change"
+    }
+    if ((Invoke-Redline 2 @("config", "limitRedPct", "500", "--json")) -notmatch '"outcome" : "rejected"') {
+        throw "config --json did not report the refusal on stdout"
+    }
+
     Write-Host "the usage feed can be wired and unwired"
     if ((Invoke-Redline 20 @("setup")) -notmatch "off") { throw "setup did not report a state" }
+    # Off is an answer, and it comes back as one rather than as an exit code to interpret
+    if ((Invoke-Redline 20 @("setup", "--json")) -notmatch '"on" : false') {
+        throw "setup --json did not report the state"
+    }
     if ((Invoke-Redline 0 @("setup", "claude")) -notmatch "on") { throw "setup claude did not wire the feed" }
     if ((Invoke-Redline 0 @("setup")) -notmatch "on") { throw "setup did not stay wired" }
     if ((Invoke-Redline 0 @("setup", "off")) -notmatch "off") { throw "setup off did not unwire" }
+    if ((Invoke-Redline 0 @("setup", "off", "--json")) -notmatch '"outcome" : "unchanged"') {
+        throw "setup --json called a second off a change"
+    }
 
     Write-Host "history reads it back"
     if ((Invoke-Redline 0 @("history")) -notmatch "1.1K") {

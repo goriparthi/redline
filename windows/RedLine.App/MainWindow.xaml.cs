@@ -23,6 +23,11 @@ public sealed partial class MainWindow : Window
     private readonly SnapshotMonitor monitor = new();
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private TaskbarIcon? tray;
+    /// The settings page, kept only while it is open: closing a WinUI window destroys it
+    private SettingsWindow? settings;
+    /// The thresholds the engine is using, so the colour here means what it means there
+    private double approaching = TrayPresenter.ApproachingPercent;
+    private double atLimit = TrayPresenter.AtLimitPercent;
     /// The last icon drawn for the tray, kept so its GDI handle can be released when replaced
     private System.Drawing.Icon? trayIcon;
 
@@ -30,7 +35,23 @@ public sealed partial class MainWindow : Window
     public string SelfTestSummary =>
         $"tray={(tray?.IsCreated == true ? "created" : "missing")} "
         + $"engine={(host.IsRunning ? "running" : "stopped")} {renderSummary}"
+        + $" settings={settingsControls}"
         + (EngineNote.Length > 0 ? $" note=\"{EngineNote}\"" : "");
+
+    /// <summary>Not probed. Zero would be a real count, so it cannot be the resting value.</summary>
+    private int settingsControls = -1;
+
+    /// <summary>
+    /// Builds the settings page and remembers how many controls it made. Only the self test
+    /// calls this: a page that renders nothing looks exactly like one that rendered fine, and
+    /// CI is the only machine here that ever runs WinUI.
+    /// </summary>
+    public void ProbeSettings()
+    {
+        var page = new SettingsWindow();
+        settingsControls = page.ControlCount;
+        page.Close();
+    }
 
     private string renderSummary = "not rendered";
 
@@ -49,6 +70,8 @@ public sealed partial class MainWindow : Window
     /// which exits the process outright and so runs no finalizers.</summary>
     public void ShutDown()
     {
+        settings?.Close();
+        settings = null;
         monitor.Dispose();
         host.Dispose();
         tray?.Dispose();
@@ -70,6 +93,7 @@ public sealed partial class MainWindow : Window
         monitor.Updated += snapshot => dispatcher.TryEnqueue(() => Render(snapshot));
         monitor.Start();
         Render(monitor.Current);
+        ReadThresholds();
 
         Closed += (_, _) => ShutDown();
     }
@@ -85,6 +109,10 @@ public sealed partial class MainWindow : Window
         var refresh = new MenuFlyoutItem { Text = "Refresh now" };
         refresh.Click += (_, _) => monitor.Reread();
         menu.Items.Add(refresh);
+
+        var configure = new MenuFlyoutItem { Text = "Settings" };
+        configure.Click += (_, _) => ShowSettings();
+        menu.Items.Add(configure);
 
         menu.Items.Add(new MenuFlyoutSeparator());
 
@@ -159,7 +187,7 @@ public sealed partial class MainWindow : Window
     private void Render(Snapshot? snapshot)
     {
         var now = DateTimeOffset.UtcNow;
-        var view = TrayPresenter.From(snapshot, now);
+        var view = TrayPresenter.From(snapshot, now, approaching, atLimit);
         TitleText.Text = view.Title;
         TitleText.Foreground = Fill(view.Level);
         PhraseText.Text = view.Phrase;
@@ -177,9 +205,7 @@ public sealed partial class MainWindow : Window
                 Label = $"{w.Provider} · {w.DisplayName}",
                 Reading = $"{Math.Round(w.Utilization)}%",
                 Value = Math.Clamp(w.Utilization, 0, 100),
-                Fill = Fill(TrayPresenter.Classify(w.Utilization,
-                                                   TrayPresenter.ApproachingPercent,
-                                                   TrayPresenter.AtLimitPercent)),
+                Fill = Fill(TrayPresenter.Classify(w.Utilization, approaching, atLimit)),
             })
             .ToList();
 
@@ -231,6 +257,41 @@ public sealed partial class MainWindow : Window
         trayIcon = TrayGlyph.Render(label, colour);
         tray.Icon = trayIcon;
         TrayGlyph.Release(previous);
+    }
+
+    /// <summary>
+    /// The thresholds are a setting, so the colour in the tray has to follow them or this app
+    /// calls a window healthy while the engine calls it red. Off the UI thread: it runs the
+    /// engine, and the window must not wait on that to appear.
+    /// </summary>
+    private void ReadThresholds()
+    {
+        Task.Run(() =>
+        {
+            var catalog = new SettingsStore().Read();
+            if (!catalog.Available) return;
+            var yellow = catalog.Find("limitYellowPct")?.Number;
+            var red = catalog.Find("limitRedPct")?.Number;
+            dispatcher.TryEnqueue(() =>
+            {
+                approaching = yellow ?? approaching;
+                atLimit = red ?? atLimit;
+                Render(monitor.Current);
+            });
+        });
+    }
+
+    private void ShowSettings()
+    {
+        if (settings is null)
+        {
+            var page = new SettingsWindow();
+            // A change to the thresholds has to reach the tray without a restart
+            page.Changed += () => dispatcher.TryEnqueue(ReadThresholds);
+            page.Closed += (_, _) => settings = null;
+            settings = page;
+        }
+        settings.Activate();
     }
 
     private void ShowWindow()

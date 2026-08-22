@@ -173,6 +173,14 @@ jobs:
           if ($report -notmatch "tray=created") { throw "the tray icon was never created: $report" }
           # The app has to keep its own data current, not wait for someone to run the watcher
           if ($report -notmatch "engine=running") { throw "the app did not start the engine: $report" }
+          # The settings page built a control for every setting the engine published. A page
+          # that renders nothing looks exactly like one that rendered fine.
+          # Matched explicitly: -notmatch does not reliably populate $Matches
+          $built = [regex]::Match($report, "settings=(-?\d+)")
+          if (-not $built.Success) { throw "the settings page never built: $report" }
+          if ([int]$built.Groups[1].Value -lt 12) {
+            throw "the settings page built too little: $report"
+          }
 
       - uses: actions/upload-artifact@v4
         with:
