@@ -56,5 +56,9 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <!-- What turning the two virtualizations off in Properties actually costs: a restricted
+         capability. Fine for sideloading and winget, which is how this ships; the Store would
+         want it justified, and RedLine is not going there. -->
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 </Package>
