@@ -8,7 +8,7 @@ orientation and the things that are expensive to rediscover.
 Branch `cross-platform-core`, well ahead of `main`, **nothing merged and nothing should
 be merged** until PG says so. All three CI jobs green.
 
-macOS 416 Swift tests, Linux 412, Windows a little fewer, plus 92 C# tests. The Swift counts
+macOS 421 Swift tests, Linux 417, Windows a little fewer, plus 103 C# tests. The Swift counts
 differ only by cases gated to a platform.
 
 ## The one rule
@@ -51,13 +51,14 @@ macOS app does by being the watcher.
 CI proves the whole chain on a real Windows runner, not just that it compiles:
 
 ```
-report: ok: tray=created engine=running title=42% windows=1 settings=<n>
+report: ok: tray=created engine=running title=42% windows=1 settings=16
 ```
 
 That is a transcript on disk, the app starting its own engine, the watcher ingesting and
-publishing, the monitor noticing, and the window drawing it. The count is every control the
-settings page built from the engine's own catalogue; CI fails under twelve, because a page
-that renders nothing looks exactly like one that rendered fine.
+publishing, the monitor noticing, and the window drawing it. Sixteen is every control the
+settings page built from the engine's own catalogue: eleven for the settings that take one
+each, three boxes for the provider list, and the two command toggles. CI fails under twelve,
+because a page that renders nothing looks exactly like one that rendered fine.
 
 ## Not done
 
