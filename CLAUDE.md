@@ -3,8 +3,10 @@
 Personal project. Read `docs/ARCHITECTURE.md` before changing anything and
 `docs/EXTENDING.md` before adding anything.
 
-**Windows port in progress.** Read `notes/HANDOFF.md` first if you are picking that up. It
-lives on the `cross-platform-core` branch and is not to be merged until asked.
+**There is a Windows shell now**, merged from `cross-platform-core`. One Swift engine, two
+native shells: nothing in C# ever parses a transcript. Read `notes/HANDOFF.md` before touching
+it and `notes/cross-platform.md` for the detail. Windows is not released yet; an installer
+needs a certificate nobody has bought.
 
 ## Deploying is not optional
 
