@@ -76,6 +76,7 @@
 		B7F10B5D17960404187C323C /* TerminalFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 189B263A79FBCA8DC0F50A4A /* TerminalFocus.swift */; };
 		B8F5BC0B534826FD82FD8DDB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256BCA039C4F6C0212417A7A /* main.swift */; };
 		BBA42DAFC5509A56934462F0 /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D5DF78B76A1A05E1DC5517 /* BrandUI.swift */; };
+		BBBE8F092167F3228BF0F1BC /* AlertFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C6C6FF66ABCEB6232B4C79 /* AlertFeed.swift */; };
 		BC8BA0C15ACE6386FD208FE3 /* ClaudeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C90916BD1CD3AFDCA86D89C /* ClaudeSetup.swift */; };
 		BEDE53D6D98918E29558333F /* Dashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50E09070EBE226E6195A468 /* Dashboard.swift */; };
 		BFD47662265902E42C8C8B3B /* Status.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67B7FD6A0630E63983E47356 /* Status.swift */; };
@@ -224,6 +225,7 @@
 		594A59204E47A19AF9380F42 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		5F436657B1570389AAB09F13 /* OllamaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaService.swift; sourceTree = "<group>"; };
 		624A5B9C5D72E93609652D17 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		64C6C6FF66ABCEB6232B4C79 /* AlertFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertFeed.swift; sourceTree = "<group>"; };
 		67B7FD6A0630E63983E47356 /* Status.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Status.swift; sourceTree = "<group>"; };
 		6CB28E0B0D7A29BB559A18C5 /* FirstRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRun.swift; sourceTree = "<group>"; };
 		750D227E31167B98C4F99ABF /* MenuRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRowView.swift; sourceTree = "<group>"; };
@@ -442,6 +444,7 @@
 		EF63F5151055D3F432C21EEF /* RedlineCore */ = {
 			isa = PBXGroup;
 			children = (
+				64C6C6FF66ABCEB6232B4C79 /* AlertFeed.swift */,
 				46D95C1D61B6246B59EB1A9D /* Alerting.swift */,
 				B1F04B7D53AD648152DAD564 /* AppPaths.swift */,
 				F243DEA3F6D6C090FFF94EF1 /* Availability.swift */,
@@ -726,6 +729,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BBBE8F092167F3228BF0F1BC /* AlertFeed.swift in Sources */,
 				A95B6AB89A9592A42D58134F /* Alerting.swift in Sources */,
 				D177FDF4BD221F66E995E6F9 /* AppPaths.swift in Sources */,
 				0AA2EE3944F14CF933B1A7F5 /* Availability.swift in Sources */,

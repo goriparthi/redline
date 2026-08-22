@@ -185,6 +185,10 @@ jobs:
           # ingested by the time the feed has already produced a reading; a negative means
           # the page threw, and the digits below will not match it.
           if ($report -notmatch "dashboard=\d+") { throw "the dashboard never built: $report" }
+          # Notifications registered and one actually posted. Registering is the half that
+          # can fail on an unpackaged app; showing is the half that proves the path.
+          if ($report -notmatch "toasts=registered") { throw "toasts did not register: $report" }
+          if ($report -notmatch "posted=[1-9]") { throw "no toast was delivered: $report" }
 
       - uses: actions/upload-artifact@v4
         with:

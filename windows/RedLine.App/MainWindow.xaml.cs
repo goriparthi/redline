@@ -21,6 +21,9 @@ public sealed partial class MainWindow : Window
     // Without this it would show whatever was last published and quietly go stale.
     private readonly EngineHost host = new();
     private readonly SnapshotMonitor monitor = new();
+    // The engine decides what is worth saying; these two only carry it to the desktop
+    private readonly AlertMonitor alerts = new();
+    private readonly Toasts toasts = new();
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private TaskbarIcon? tray;
     /// The settings page, kept only while it is open: closing a WinUI window destroys it
@@ -37,6 +40,8 @@ public sealed partial class MainWindow : Window
         $"tray={(tray?.IsCreated == true ? "created" : "missing")} "
         + $"engine={(host.IsRunning ? "running" : "stopped")} {renderSummary}"
         + $" settings={settingsControls} dashboard={dashboardBars}"
+        + $" toasts={toasts.State} posted={toasts.Posted}"
+        + (toasts.Note.Length > 0 ? $" toastnote=\"{toasts.Note}\"" : "")
         + (EngineNote.Length > 0 ? $" note=\"{EngineNote}\"" : "");
 
     /// <summary>Not probed. Zero would be a real count, so it cannot be the resting value.</summary>
@@ -60,6 +65,18 @@ public sealed partial class MainWindow : Window
         var chart = new DashboardWindow();
         dashboardBars = chart.BarCount;
         chart.Close();
+
+        // Posts one, rather than only reporting that registration worked. A Show that throws
+        // is exactly the failure this exists to catch, and the runner is thrown away after.
+        toasts.Post(new AlertEvent
+        {
+            Id = "redline.selftest",
+            Kind = "threshold",
+            Provider = "RedLine",
+            Key = "self_test",
+            Title = "RedLine self test",
+            Body = "Delivery works",
+        });
     }
 
     private string renderSummary = "not rendered";
@@ -83,6 +100,8 @@ public sealed partial class MainWindow : Window
         settings = null;
         dashboard?.Close();
         dashboard = null;
+        alerts.Dispose();
+        toasts.Dispose();
         monitor.Dispose();
         host.Dispose();
         tray?.Dispose();
@@ -105,6 +124,12 @@ public sealed partial class MainWindow : Window
         monitor.Start();
         Render(monitor.Current);
         ReadThresholds();
+
+        // Started after the first render: nothing already on disk is delivered, so this
+        // cannot open to a backlog of yesterday's limits.
+        toasts.Start();
+        alerts.Raised += raised => dispatcher.TryEnqueue(() => toasts.Post(raised));
+        alerts.Start();
 
         Closed += (_, _) => ShutDown();
     }

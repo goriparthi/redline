@@ -157,7 +157,7 @@ Split so that most of it can be tested without a Windows machine.
 Nothing in C# parses a transcript. That would be a second implementation of a format nobody
 documents, and the two would eventually report different numbers for the same day.
 
-### Four contracts across the language boundary
+### Five contracts across the language boundary
 
 None can be caught by a compiler, so each is a file that both sides assert against.
 
@@ -175,6 +175,9 @@ None can be caught by a compiler, so each is a file that both sides assert again
 - `windows/RedLine.Core.Tests/fixtures/trends.json` is what the dashboard reads, for fixed
   inputs so it holds still. `TrendsContractTests` exists in both languages, and the Swift side
   carries the inputs it was made from.
+- `windows/RedLine.Core.Tests/fixtures/alert-feed.json` is what a toast is built from, with
+  `AlertContractTests` in both languages. Every word a shell posts has to be in there, because
+  the shell assembles nothing.
 
 ### What the app is now
 
@@ -344,6 +347,30 @@ A machine with no history at all publishes no buckets rather than a row of zeros
 no provider there is nothing to bucket. The dashboard says so in words instead of drawing a
 flat fortnight.
 
+### Toasts
+
+The engine decides, the shell posts. `Alerting` already knew when something was worth saying
+and had the state to say it once; what was missing off macOS was anyone running it, because
+the app is the evaluator there. `redline watch` now evaluates on every publish and writes
+`alert-feed.json`: a sequence number, a timestamp, and the events, each carrying the title,
+the body and whether it makes a noise. A limit reached is the only one that does, and that is
+decided once in the core rather than by each shell.
+
+`AlertMonitor` on the C# side follows two rules, both about not being annoying. A batch already
+posted is never posted again, and whatever is on disk when it starts counts as delivered:
+an alert is about now, and opening to a backlog of yesterday's limits is how someone decides
+to turn alerts off. The sequence climbs across restarts because it is read back from the file
+rather than kept in memory.
+
+`Alerting.claudeIsStale` moved into the core with it. The rule, two polls or ten minutes
+whichever is longer, was in `AppDelegate` where the headless watcher could not reach it, and a
+second copy would have meant one of them alerting on a reading nobody can vouch for.
+
+Toasts themselves are `Microsoft.Windows.AppNotifications`, which an unpackaged app has to
+`Register()` for explicitly. Each is tagged with the engine's event id, so the same event
+arriving twice replaces the notification instead of stacking. The self test posts one rather
+than only reporting that registration worked: `Show` throwing is the failure worth catching.
+
 ### Distribution: exe or MSI
 
 Ship **both**, for different audiences.
@@ -364,7 +391,7 @@ eligibility rules fit.
 
 ### Still to do
 
-First run, toasts, MSIX packaging, the widget provider, Authenticode, winget. The dashboard
+First run, MSIX packaging, the widget provider, Authenticode, winget. The dashboard
 has the daily chart and the model mix; the hourly chart, the cadence panel and findings are
 on the macOS one and not here.
 

@@ -82,6 +82,9 @@ public sealed class EnginePaths
     }
 
     public string SnapshotPath => Path.Combine(DataDirectory, "snapshot.json");
+
+    /// <summary>Where the watcher writes what it has decided is worth saying.</summary>
+    public string AlertFeedPath => Path.Combine(DataDirectory, "alert-feed.json");
     public string ConfigPath => Path.Combine(ConfigDirectory, "config.json");
 
     private string Home() =>

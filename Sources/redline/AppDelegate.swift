@@ -2040,9 +2040,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     /// Claude's windows are only as current as their source: the statusline feed stops
     /// writing the moment Claude Code does. Past this threshold every surface drains the
     /// window's status color to steel, so an old percentage can never impersonate a live one.
+    ///
+    /// The threshold itself is in the core, because the headless watcher asks the same
+    /// question before it decides anything is worth interrupting someone for.
     private var claudeLimitsAreStale: Bool {
-        guard let at = claudeLimitsAt else { return false }
-        return Date().timeIntervalSince(at) > max(config.pollIntervalSeconds * 2, 600)
+        Alerting.claudeIsStale(asOf: claudeLimitsAt, config: config)
     }
 
     private func isStale(_ w: LimitWindow) -> Bool {

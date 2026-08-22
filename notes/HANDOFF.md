@@ -45,14 +45,15 @@ core, where the Windows job takes seven. Windows only builds because the core st
 
 Tray icon with the percentage drawn into it, a dark 400x520 window with a rail per limit
 window, a context menu (open, refresh, dashboard, settings, quit), a settings page built from
-whatever the engine publishes, a dashboard with a daily chart and the model mix, and it runs
-its own `redline watch` so history stays current the way the macOS app does by being the
-watcher.
+whatever the engine publishes, a dashboard with a daily chart and the model mix, toasts for
+what the engine decides is worth saying, and it runs its own `redline watch` so history stays
+current the way the macOS app does by being the watcher.
 
 CI proves the whole chain on a real Windows runner, not just that it compiles:
 
 ```
 report: ok: tray=created engine=running title=42% windows=1 settings=16 dashboard=14
+        toasts=registered posted=1
 ```
 
 That is a transcript on disk, the app starting its own engine, the watcher ingesting and
@@ -66,7 +67,7 @@ would not be.
 
 ## Not done
 
-First run, toasts, MSIX packaging, the Windows 11 widget, Authenticode, winget. The dashboard
+First run, MSIX packaging, the Windows 11 widget, Authenticode, winget. The dashboard
 has its daily chart and model mix; the hourly chart, cadence and findings panels are on the
 macOS one only. `redlined` and named-pipe IPC were **cancelled**: the app reads `snapshot.json` and
 shells out to `redline.exe`, which is all it ever needed.
@@ -182,7 +183,7 @@ Cross-language:
 - An exit code outside the status vocabulary is still a run. `config` exits 2 to refuse a
   value, and `EngineResult.Ran` used to call that an engine that would not start.
 
-## Four contracts across the language boundary
+## Five contracts across the language boundary
 
 None can be caught by a compiler, so each is a file both sides assert against:
 
@@ -193,6 +194,8 @@ None can be caught by a compiler, so each is a file both sides assert against:
   output, and `SettingsContractTests` exists in both languages too.
 - `windows/RedLine.Core.Tests/fixtures/trends.json` is what the dashboard reads, built from
   fixed inputs the Swift `TrendsContractTests` carries, so it does not move with the clock.
+- `windows/RedLine.Core.Tests/fixtures/alert-feed.json` is what a toast is built from. The
+  shell assembles no wording of its own, so every word it posts is in that file.
 
 Regenerate the snapshot fixture by running `redline watch` against a scratch home and copying
 what it publishes, and the settings fixture with `REDLINE_HOME=<empty dir> redline config
@@ -236,8 +239,9 @@ role and bucket with it.
 
 ## Next
 
-MSIX, so there is a real installer and the widget has something to ship in. First run and
-toasts are smaller and can follow. MSIX rather than MSI because it is the only packaging that can carry the widget.
+First run, which is small: what RedLine is, and offers of the two things it can wire for you,
+both of which already have a store and a switch on the settings page. Then MSIX, which is
+where the certificate question has to be answered. MSIX rather than MSI because it is the only packaging that can carry the widget.
 
 Signing is Authenticode, and unlike notarization a fresh certificate carries no reputation, so
 SmartScreen warns anyway until installs accumulate. EV skips the wait. Azure Trusted Signing is

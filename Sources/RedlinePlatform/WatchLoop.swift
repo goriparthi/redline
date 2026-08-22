@@ -41,6 +41,8 @@ public final class WatchLoop {
         case started(watching: [URL], sweep: TimeInterval)
         case ingested(Ingest.Outcome, reason: String)
         case published(Snapshot)
+        /// Decided and written for a shell to deliver. Nothing here posts a notification.
+        case alerted([AlertEvent], seq: Int)
         case historyOff
     }
 
@@ -209,9 +211,37 @@ public final class WatchLoop {
     /// costs the history pass that already succeeded.
     private func publishIfAsked() {
         guard options.publishSnapshot else { return }
-        let snapshot = SnapshotBuilder.fromDisk(config: Config.load(), warehouse: Warehouse())
+        let config = Config.load()
+        let snapshot = SnapshotBuilder.fromDisk(config: config, warehouse: Warehouse())
         guard SnapshotStore.writeEverywhere(snapshot) else { return }
         report(.published(snapshot))
+        publishAlerts(from: snapshot, config: config)
+    }
+
+    /// Decides what is worth saying and writes it for a shell to deliver.
+    ///
+    /// The deciding is `Alerting`'s, the same code the macOS app runs, so a Windows toast and
+    /// a macOS notification cannot disagree about whether something was worth interrupting
+    /// someone for. Only the watcher that publishes the snapshot does this: two evaluators
+    /// sharing one state file would each swallow half the events.
+    private func publishAlerts(from snapshot: Snapshot, config: Config) {
+        guard config.alerts else { return }
+        let windows = snapshot.limits.map {
+            LimitWindow(provider: $0.provider, key: $0.key, utilization: $0.utilization,
+                        resetsAt: $0.resetsAt, source: .unknown)
+        }
+        guard !windows.isEmpty else { return }
+
+        let now = Date()
+        var state = AlertStore.load()
+        let events = Alerting.evaluate(
+            windows: windows, config: config, now: now,
+            isStale: Alerting.staleness(claudeLimitsAsOf: snapshot.claudeLimitsAsOf,
+                                        config: config, now: now),
+            state: &state)
+        AlertStore.save(state)
+        guard let seq = AlertFeed.publish(events, now: now) else { return }
+        report(.alerted(events, seq: seq))
     }
 
     private func ingest(reason: String) {

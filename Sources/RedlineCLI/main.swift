@@ -58,6 +58,8 @@ if arguments.first == "watch" {
             guard !snapshot.limits.isEmpty else { break }
             print("  published \(snapshot.limits.count) limit "
                   + "window\(snapshot.limits.count == 1 ? "" : "s")")
+        case let .alerted(events, seq):
+            for event in events { print("  alert #\(seq) \(event.title): \(event.body)") }
         case .historyOff:
             FileHandle.standardError.write(Data(
                 "Keep Local History is off, so there is nothing to watch into.\n".utf8))
