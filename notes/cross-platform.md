@@ -157,7 +157,7 @@ Split so that most of it can be tested without a Windows machine.
 Nothing in C# parses a transcript. That would be a second implementation of a format nobody
 documents, and the two would eventually report different numbers for the same day.
 
-### Three contracts across the language boundary
+### Four contracts across the language boundary
 
 None can be caught by a compiler, so each is a file that both sides assert against.
 
@@ -172,6 +172,9 @@ None can be caught by a compiler, so each is a file that both sides assert again
   output. `SettingsContractTests` exists in both languages: the Swift side asserts the engine
   still publishes exactly that, the C# side asserts it can still render a control for every
   row. Regenerate it with `REDLINE_HOME=<empty dir> redline config --json`.
+- `windows/RedLine.Core.Tests/fixtures/trends.json` is what the dashboard reads, for fixed
+  inputs so it holds still. `TrendsContractTests` exists in both languages, and the Swift side
+  carries the inputs it was made from.
 
 ### What the app is now
 
@@ -312,6 +315,35 @@ colouring itself by 60 and 85 while the engine used the new numbers.
 The self test builds the page and reports how many controls it made, and CI fails if that is
 under twelve. A settings page that renders nothing looks exactly like one that rendered fine.
 
+### The dashboard
+
+Three tiles from the published snapshot, a daily chart, and where the tokens went, with a
+range picker for 7, 14, 30 or 90 days.
+
+The engine gained a `trends` command for it, which is also a real CLI command with a sparkline
+table of its own. It publishes the daily series already added up across providers, the same
+split per provider, the model mix, and `label_every_days`, because the axis cadence is a
+decision and two shells working it out separately would label one range two ways. A quiet day
+is a zero in the series rather than a missing date: dropping it slides every later day left
+and draws a week that never happened.
+
+`redline trends --json` is a fourth contract, with `TrendsContractTests` in both languages. The
+fixture is output for fixed inputs rather than a live run, because the numbers move with the
+clock and the shape must not. It is compared after being parsed rather than as text: Linux
+writes a cost as `0.045` where macOS writes `0.044999999999999998`, the same double printed two
+ways, and a text comparison fails on whichever machine did not make the file.
+
+What the C# decides is pixels. `TrendChart` sizes bars against the busiest day, and labels
+counting **back** from the newest, so today is always named; counting forward labels the
+oldest and can leave the right hand end bare, which is the end anyone is looking at. A day with
+nothing keeps a two pixel sliver in the hairline colour, so it reads as a quiet day rather than
+a missing one. An unpriced model reads as `n/a`, never as zero, and any window holding one says
+"at least" in front of every cost, including the per day tooltip.
+
+A machine with no history at all publishes no buckets rather than a row of zeros, because with
+no provider there is nothing to bucket. The dashboard says so in words instead of drawing a
+flat fortnight.
+
 ### Distribution: exe or MSI
 
 Ship **both**, for different audiences.
@@ -332,8 +364,9 @@ eligibility rules fit.
 
 ### Still to do
 
-The dashboard and its charts, first run, toasts, MSIX packaging, the widget provider,
-Authenticode, winget.
+First run, toasts, MSIX packaging, the widget provider, Authenticode, winget. The dashboard
+has the daily chart and the model mix; the hourly chart, the cadence panel and findings are
+on the macOS one and not here.
 
 ## Linux
 

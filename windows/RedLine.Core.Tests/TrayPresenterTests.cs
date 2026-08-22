@@ -115,4 +115,19 @@ public class TrayPresenterTests
         Assert.False(string.IsNullOrWhiteSpace(
             TrayPresenter.From(Make(utilization), Now).Phrase));
     }
+
+    /// <summary>
+    /// A tile is where a number is read as fact, so an unpriced model has to make the figure
+    /// read as a floor, and nothing read has to differ from a measured zero.
+    /// </summary>
+    [Fact]
+    public void ATileSaysWhenItsSpendIsOnlyAFloor()
+    {
+        Assert.Equal("$1.50", TrayPresenter.Spend(new Totals { Cost = 1.5 }));
+        Assert.Equal("at least $1.50",
+                     TrayPresenter.Spend(new Totals { Cost = 1.5, HasUnpriced = true }));
+        Assert.Equal("no data", TrayPresenter.Spend(null));
+        Assert.Equal("no data", TrayPresenter.Volume(null));
+        Assert.Equal("0", TrayPresenter.Volume(new Totals { Io = 0 }));
+    }
 }

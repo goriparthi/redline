@@ -63,9 +63,9 @@ public partial class App : Application
             if (!done && DateTimeOffset.UtcNow < deadline) return;
 
             t.Stop();
-            // Built here rather than at startup: it runs the engine three times, and the
+            // Built here rather than at startup: they run the engine several times, and the
             // chain being timed above is the thing this test is actually about.
-            main?.ProbeSettings();
+            main?.ProbeWindows();
             var summary = main?.SelfTestSummary ?? "no window";
             // Stopped explicitly: Environment.Exit runs no finalizers, and a watcher left
             // behind by a test run would hold the lock against the next one.

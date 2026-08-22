@@ -28,8 +28,8 @@ public enum RedlineCLI {
 
     /// The words that mean "run the tool and exit" rather than "launch the app". Kept here
     /// so the entry point and the help text cannot disagree about what exists.
-    public static let commands = ["status", "findings", "history", "cadence", "ingest",
-                                  "log", "help"]
+    public static let commands = ["status", "findings", "history", "trends", "cadence",
+                                  "ingest", "log", "help"]
 
     public static let usage = """
     redline <command> [options]
@@ -37,6 +37,7 @@ public enum RedlineCLI {
       status              current limits, tokens and cost
       findings            setup findings from your transcripts
       history             recorded daily history from the local warehouse
+      trends              the shape of the last N days, by day and by model
       cadence             how the work is spread out: runs, hours, days in a row
       ingest              read new transcript records into the local store now
       log                 recorded warnings and errors, newest last
@@ -45,7 +46,7 @@ public enum RedlineCLI {
     options
       --json              machine-readable output
       --csv               comma-separated output (history only)
-      --days N            window to report on (findings, history, log)
+      --days N            window to report on (findings, history, trends, log)
       --level L           debug | info | warn | error, lowest to report (log)
       --tally             group the log by code, most frequent first
       --tail N            only the last N entries (log)
@@ -67,6 +68,7 @@ public enum RedlineCLI {
         case "status":   return status(json: json, now: now)
         case "findings": return findings(json: json, days: days ?? 7, now: now)
         case "history":  return history(json: json, csv: csv, days: days ?? 30, now: now)
+        case "trends":   return trends(json: json, days: days ?? 14, now: now)
         case "cadence":  return cadence(json: json, days: days ?? 14, now: now)
         case "ingest":   return ingest(json: json, now: now)
         case "log":      return logs(json: json, args: args, days: days, now: now)
@@ -383,6 +385,69 @@ public enum RedlineCLI {
         lines.append("\(records.count) records · \(fmtTokens(tokens)) tokens · "
             + "\(fmtCost(cost)) estimated · days are UTC")
         return Result(text: lines.joined(separator: "\n"), code: Code.ok)
+    }
+
+    // MARK: - trends
+
+    /// The shape of the last N days: a series by day, the same split by provider, and which
+    /// models it went on.
+    ///
+    /// Published rather than left to be worked out, because a chart in another language must
+    /// not decide for itself how a day is bucketed, what a quiet day looks like, or when a
+    /// cost is a floor rather than a figure.
+    static func trends(json: Bool, days: Int, now: Date) -> Result {
+        let config = Config.load()
+        let days = max(1, min(days, 365))
+        let since = now.addingTimeInterval(-Double(days) * 86400)
+        let entries = Warehouse().entries(since: since).filter { config.wants($0.provider) }
+
+        let byProvider = Trends.trend(entries, by: .day, count: days, now: now, config: config)
+        let models = Trends.byModel(entries, since: since, config: config)
+        let tokens = models.reduce(0) { $0 + $1.io }
+        let cost = models.reduce(0.0) { $0 + $1.cost }
+        // One unpriced model makes every total below it a floor, and saying so is the whole
+        // difference between a number and a guess
+        let hasUnpriced = models.contains { !$0.priced }
+        let combined = Trends.combine(byProvider)
+        let code = entries.isEmpty ? Code.indeterminate : Code.ok
+
+        if json {
+            return Result(text: encode(Trends.report(days: days, series: combined,
+                                                     providers: byProvider, models: models)),
+                          code: code)
+        }
+
+        guard !entries.isEmpty else {
+            return Result(text: "No usage in the last \(days) days.", code: code)
+        }
+
+        let peak = combined.map(\.io).max() ?? 0
+        var lines = ["last \(days) days · \(fmtTokens(tokens)) tokens · "
+                     + "\(fmtCost(cost))\(hasUnpriced ? "+" : "") estimated"]
+        lines.append("")
+        for spot in combined {
+            let share = peak > 0 ? Double(spot.io) / Double(peak) : 0
+            lines.append(Sparkline.pad(DailyAxis.label(for: spot.start), to: 7)
+                         + Sparkline.pad(fmtTokens(spot.io), to: 8, alignRight: true)
+                         + "  " + Sparkline.bar(share: share, width: 24))
+        }
+        if !models.isEmpty {
+            lines.append("")
+            lines.append("by model")
+            let top = models.prefix(6)
+            for share in top {
+                let of = tokens > 0 ? Double(share.io) / Double(tokens) : 0
+                lines.append(Sparkline.pad(Sparkline.shortModel(share.model), to: 22)
+                             + Sparkline.pad(fmtTokens(share.io), to: 8, alignRight: true)
+                             + "  " + Sparkline.bar(share: of, width: 12)
+                             + "  " + Sparkline.percent(of)
+                             + "  " + (share.priced ? fmtCost(share.cost) : "n/a"))
+            }
+            if models.count > top.count {
+                lines.append("+\(models.count - top.count) more")
+            }
+        }
+        return Result(text: lines.joined(separator: "\n"), code: code)
     }
 
     // MARK: - ingest

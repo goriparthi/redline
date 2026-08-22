@@ -44,26 +44,31 @@ core, where the Windows job takes seven. Windows only builds because the core st
 ## What the Windows app does today
 
 Tray icon with the percentage drawn into it, a dark 400x520 window with a rail per limit
-window, a context menu (open, refresh, settings, quit), a settings page built from whatever the
-engine publishes, and it runs its own `redline watch` so history stays current the way the
-macOS app does by being the watcher.
+window, a context menu (open, refresh, dashboard, settings, quit), a settings page built from
+whatever the engine publishes, a dashboard with a daily chart and the model mix, and it runs
+its own `redline watch` so history stays current the way the macOS app does by being the
+watcher.
 
 CI proves the whole chain on a real Windows runner, not just that it compiles:
 
 ```
-report: ok: tray=created engine=running title=42% windows=1 settings=16
+report: ok: tray=created engine=running title=42% windows=1 settings=16 dashboard=<n>
 ```
 
 That is a transcript on disk, the app starting its own engine, the watcher ingesting and
 publishing, the monitor noticing, and the window drawing it. Sixteen is every control the
 settings page built from the engine's own catalogue: eleven for the settings that take one
 each, three boxes for the provider list, and the two command toggles. CI fails under twelve,
-because a page that renders nothing looks exactly like one that rendered fine.
+because a page that renders nothing looks exactly like one that rendered fine. The dashboard's count is bars
+drawn, and zero is honest there: the feed can produce a reading before the watcher has
+ingested anything, so CI only requires the number to be a number, which a page that threw
+would not be.
 
 ## Not done
 
-Dashboard and charts, first run, toasts, MSIX packaging, the Windows 11 widget, Authenticode,
-winget. `redlined` and named-pipe IPC were **cancelled**: the app reads `snapshot.json` and
+First run, toasts, MSIX packaging, the Windows 11 widget, Authenticode, winget. The dashboard
+has its daily chart and model mix; the hourly chart, cadence and findings panels are on the
+macOS one only. `redlined` and named-pipe IPC were **cancelled**: the app reads `snapshot.json` and
 shells out to `redline.exe`, which is all it ever needed.
 
 Settings are done, end to end. The engine publishes every setting and its kind through
@@ -141,6 +146,9 @@ WinUI:
   because a change starts a process, and reading `toggle.IsOn` inside that lambda is a crash.
 - Setting a control's value raises the same event as someone changing it, so every handler is
   guarded by a `building` flag or loading the page writes every setting straight back.
+- JSONSerialization prints a double differently per platform: Linux writes `0.045` where macOS
+  writes `0.044999999999999998`. Compare a JSON fixture after parsing it, never as text.
+- `Rest` is a disallowed tuple element name, at any position.
 
 Cross-language:
 
@@ -156,7 +164,7 @@ Cross-language:
 - An exit code outside the status vocabulary is still a run. `config` exits 2 to refuse a
   value, and `EngineResult.Ran` used to call that an engine that would not start.
 
-## Three contracts across the language boundary
+## Four contracts across the language boundary
 
 None can be caught by a compiler, so each is a file both sides assert against:
 
@@ -165,6 +173,8 @@ None can be caught by a compiler, so each is a file both sides assert against:
 - `Tests/Fixtures/formatting.json` pins every figure a person reads.
 - `windows/RedLine.Core.Tests/fixtures/config-settings.json` is real `redline config --json`
   output, and `SettingsContractTests` exists in both languages too.
+- `windows/RedLine.Core.Tests/fixtures/trends.json` is what the dashboard reads, built from
+  fixed inputs the Swift `TrendsContractTests` carries, so it does not move with the clock.
 
 Regenerate the snapshot fixture by running `redline watch` against a scratch home and copying
 what it publishes, and the settings fixture with `REDLINE_HOME=<empty dir> redline config
@@ -208,8 +218,8 @@ role and bucket with it.
 
 ## Next
 
-The dashboard and its charts, which is the last big piece of UI, then MSIX so there is a real
-installer. MSIX rather than MSI because it is the only packaging that can carry the widget.
+MSIX, so there is a real installer and the widget has something to ship in. First run and
+toasts are smaller and can follow. MSIX rather than MSI because it is the only packaging that can carry the widget.
 
 Signing is Authenticode, and unlike notarization a fresh certificate carries no reputation, so
 SmartScreen warns anyway until installs accumulate. EV skips the wait. Azure Trusted Signing is

@@ -86,4 +86,12 @@ contains "$(run 0 setup off --json)" '"outcome" : "unchanged"' \
 echo "history reads it back"
 contains "$(run 0 history)" "1.1K" "history lost the 1100 tokens"
 
+echo "the same tokens shape a chart"
+contains "$(run 0 trends --days 7)" "by model" "trends lost the model mix"
+# The dashboard reads all of this, and nothing else tells it how to label an axis
+TRENDS="$(run 0 trends --days 7 --json)"
+contains "$TRENDS" '"label_every_days"' "trends --json lost the axis cadence"
+contains "$TRENDS" '"series"' "trends --json lost the combined series"
+contains "$TRENDS" '"has_unpriced"' "trends --json lost the unpriced flag"
+
 echo "OK: $BIN"

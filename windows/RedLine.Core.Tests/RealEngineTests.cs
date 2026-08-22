@@ -179,6 +179,68 @@ public class RealEngineTests
         finally { Directory.Delete(home, recursive: true); }
     }
 
+    /// <summary>
+    /// The dashboard's data through the real engine: a transcript in, a daily series out,
+    /// with the day it landed on carrying the tokens.
+    /// </summary>
+    [Fact]
+    public void ATranscriptBecomesADailySeriesThroughTheEngine()
+    {
+        if (Binary is not { } binary) return;
+        var (engine, home) = Fresh(binary);
+        try
+        {
+            // Clamped to midnight for the same reason EngineHostTests is: days are UTC, and
+            // "thirty minutes ago" is yesterday for the first half hour of one.
+            var now = DateTimeOffset.UtcNow;
+            var midnight = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
+            var when = now.AddMinutes(-30) < midnight ? midnight : now.AddMinutes(-30);
+            var line = "{\"timestamp\":\"" + when.ToString("yyyy-MM-ddTHH:mm:ss.000Z")
+                + "\",\"requestId\":\"req_a\",\"message\":{\"id\":\"a\","
+                + "\"model\":\"claude-sonnet-5\",\"usage\":{\"input_tokens\":1000,"
+                + "\"output_tokens\":100,\"cache_read_input_tokens\":0}}}";
+            File.WriteAllText(
+                Path.Combine(home, ".claude", "projects", "demo", "session.jsonl"), line + "\n");
+            Assert.Equal(EngineStatus.Ok, engine.Run("ingest").Status);
+
+            var report = new TrendStore(engine).Read(7);
+            Assert.True(report.Available, report.Problem);
+            Assert.Equal(7, report.Days);
+            Assert.Equal(7, report.Series.Count);
+            Assert.False(report.IsEmpty);
+            Assert.Equal(1100, report.Series.Sum(p => p.Tokens));
+            Assert.Equal("Claude", Assert.Single(report.Providers).Provider);
+            Assert.Equal("claude-sonnet-5", Assert.Single(report.Models).Model);
+
+            var bars = TrendChart.Bars(report);
+            Assert.Equal(7, bars.Count);
+            Assert.Equal(1.0, bars[^1].Share);
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
+
+    /// <summary>
+    /// An empty machine reports a window with nothing in it, which is not a failure. There
+    /// are no buckets at all rather than a row of zeros: with no provider there is nothing to
+    /// bucket, and the dashboard says so in words instead of drawing a flat fortnight.
+    /// </summary>
+    [Fact]
+    public void AnEmptyMachineReportsAQuietWindowRatherThanAProblem()
+    {
+        if (Binary is not { } binary) return;
+        var (engine, home) = Fresh(binary);
+        try
+        {
+            var report = new TrendStore(engine).Read(14);
+            Assert.True(report.Available, report.Problem);
+            Assert.True(report.IsEmpty);
+            Assert.Empty(report.Series);
+            Assert.Empty(TrendChart.Bars(report));
+            Assert.Contains("Nothing recorded in the last 14 days", report.Summary);
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
+
     /// <summary>Reading only: turning autostart on would write a real login entry.</summary>
     [Fact]
     public void AutostartReportsItselfThroughTheEngine()

@@ -58,6 +58,25 @@ public enum DailyAxis {
         default:     return 14
         }
     }
+
+    static let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    /// The day a bucket belongs to, unambiguously. Built by hand rather than with a
+    /// DateFormatter, which is where the cost formatting went wrong on Linux.
+    public static func key(for start: Date, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.year, .month, .day], from: start)
+        return String(format: "%04d-%02d-%02d",
+                      parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+    }
+
+    /// What an axis prints. Published by the engine so two shells cannot label one day two
+    /// ways, and English on purpose, like every other string RedLine shows.
+    public static func label(for start: Date, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.month, .day], from: start)
+        let month = min(max((parts.month ?? 1) - 1, 0), 11)
+        return "\(months[month]) \(parts.day ?? 0)"
+    }
 }
 
 public enum Trends {
@@ -105,6 +124,61 @@ public enum Trends {
         // Oldest first, ending with the bucket now falls in
         return (0..<count).reversed().compactMap {
             calendar.date(byAdding: bucketing.component, value: -$0, to: current)
+        }
+    }
+
+    /// Everything a chart in another language needs, in one shape.
+    ///
+    /// Pure on purpose: the command gathers the data, this decides what is published, and a
+    /// test can pin every value without a warehouse or a clock. See SettingsContractTests'
+    /// twin for trends, which both languages read.
+    public static func report(days: Int, series: [UsagePoint], providers: [ProviderTrend],
+                              models: [ModelShare],
+                              calendar: Calendar = .current) -> [String: Any] {
+        [
+            "days": days,
+            "label_every_days": DailyAxis.strideDays(for: days),
+            "day_basis": "local",
+            "tokens": models.reduce(0) { $0 + $1.io },
+            "cost_usd": models.reduce(0.0) { $0 + $1.cost },
+            // One unpriced model makes every total a floor, and saying so is the whole
+            // difference between a number and a guess
+            "has_unpriced": models.contains { !$0.priced },
+            "series": series.map { point($0, calendar: calendar) },
+            "providers": providers.map {
+                ["provider": $0.provider, "tokens": $0.totalIO, "cost_usd": $0.totalCost,
+                 "points": $0.points.map { point($0, calendar: calendar) }]
+            },
+            "models": models.map {
+                ["model": $0.model, "provider": $0.provider, "tokens": $0.io,
+                 "cost_usd": $0.cost, "priced": $0.priced]
+            },
+        ]
+    }
+
+    static func point(_ spot: UsagePoint, calendar: Calendar) -> [String: Any] {
+        ["day": DailyAxis.key(for: spot.start, calendar: calendar),
+         "label": DailyAxis.label(for: spot.start, calendar: calendar),
+         "tokens": spot.io, "cost_usd": spot.cost]
+    }
+
+    /// Every provider's buckets added together, for a chart that draws one series. The
+    /// buckets are the same starts in the same order for every provider, so this lines up.
+    public static func combine(_ trends: [ProviderTrend]) -> [UsagePoint] {
+        guard let first = trends.first else { return [] }
+        return first.points.indices.map { i in
+            var io = 0
+            var cost = 0.0
+            var cacheRead = 0
+            var cacheWrite = 0
+            for trend in trends where i < trend.points.count {
+                io += trend.points[i].io
+                cost += trend.points[i].cost
+                cacheRead += trend.points[i].cacheRead
+                cacheWrite += trend.points[i].cacheWrite
+            }
+            return UsagePoint(start: first.points[i].start, io: io, cost: cost,
+                              cacheRead: cacheRead, cacheWrite: cacheWrite)
         }
     }
 

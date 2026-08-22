@@ -181,6 +181,10 @@ jobs:
           if ([int]$built.Groups[1].Value -lt 12) {
             throw "the settings page built too little: $report"
           }
+          # The dashboard drew. Zero bars is honest here, because the watcher may not have
+          # ingested by the time the feed has already produced a reading; a negative means
+          # the page threw, and the digits below will not match it.
+          if ($report -notmatch "dashboard=\d+") { throw "the dashboard never built: $report" }
 
       - uses: actions/upload-artifact@v4
         with:

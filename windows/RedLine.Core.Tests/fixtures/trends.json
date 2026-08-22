@@ -1,0 +1,96 @@
+{
+  "cost_usd" : 0.044999999999999998,
+  "day_basis" : "local",
+  "days" : 3,
+  "has_unpriced" : true,
+  "label_every_days" : 1,
+  "models" : [
+    {
+      "cost_usd" : 0.044999999999999998,
+      "model" : "claude-sonnet-5",
+      "priced" : true,
+      "provider" : "Claude",
+      "tokens" : 12600
+    },
+    {
+      "cost_usd" : 0,
+      "model" : "gpt-5-codex",
+      "priced" : false,
+      "provider" : "Codex",
+      "tokens" : 2300
+    }
+  ],
+  "providers" : [
+    {
+      "cost_usd" : 0.045000000000000005,
+      "points" : [
+        {
+          "cost_usd" : 0.021000000000000001,
+          "day" : "2026-08-20",
+          "label" : "Aug 20",
+          "tokens" : 6200
+        },
+        {
+          "cost_usd" : 0.014999999999999999,
+          "day" : "2026-08-21",
+          "label" : "Aug 21",
+          "tokens" : 4200
+        },
+        {
+          "cost_usd" : 0.0089999999999999993,
+          "day" : "2026-08-22",
+          "label" : "Aug 22",
+          "tokens" : 2200
+        }
+      ],
+      "provider" : "Claude",
+      "tokens" : 12600
+    },
+    {
+      "cost_usd" : 0,
+      "points" : [
+        {
+          "cost_usd" : 0,
+          "day" : "2026-08-20",
+          "label" : "Aug 20",
+          "tokens" : 0
+        },
+        {
+          "cost_usd" : 0,
+          "day" : "2026-08-21",
+          "label" : "Aug 21",
+          "tokens" : 1500
+        },
+        {
+          "cost_usd" : 0,
+          "day" : "2026-08-22",
+          "label" : "Aug 22",
+          "tokens" : 800
+        }
+      ],
+      "provider" : "Codex",
+      "tokens" : 2300
+    }
+  ],
+  "series" : [
+    {
+      "cost_usd" : 0.021000000000000001,
+      "day" : "2026-08-20",
+      "label" : "Aug 20",
+      "tokens" : 6200
+    },
+    {
+      "cost_usd" : 0.014999999999999999,
+      "day" : "2026-08-21",
+      "label" : "Aug 21",
+      "tokens" : 5700
+    },
+    {
+      "cost_usd" : 0.0089999999999999993,
+      "day" : "2026-08-22",
+      "label" : "Aug 22",
+      "tokens" : 3000
+    }
+  ],
+  "tokens" : 14900
+}

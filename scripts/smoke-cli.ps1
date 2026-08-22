@@ -92,6 +92,18 @@ try {
         throw "history lost the 1100 tokens"
     }
 
+    Write-Host "the same tokens shape a chart"
+    if ((Invoke-Redline 0 @("trends", "--days", "7")) -notmatch "by model") {
+        throw "trends lost the model mix"
+    }
+    # The dashboard reads all of this, and nothing else tells it how to label an axis
+    $trends = Invoke-Redline 0 @("trends", "--days", "7", "--json")
+    foreach ($key in @("label_every_days", "series", "has_unpriced")) {
+        if ($trends -notmatch [regex]::Escape('"' + $key + '"')) {
+            throw "trends --json lost $key"
+        }
+    }
+
     Write-Host "OK: $Bin"
 }
 finally {

@@ -71,6 +71,24 @@ public static class TrayPresenter
         return new TrayView(title, phrase, level, Detail(snapshot, worst));
     }
 
+    /// <summary>
+    /// A total as a tile reads it. Nothing recorded says so rather than showing a zero, which
+    /// is a different claim: one means no usage, the other means nothing was read.
+    /// </summary>
+    public static string Volume(Totals? totals) =>
+        totals is null ? "no data" : Formatting.Tokens(totals.Io);
+
+    /// <summary>
+    /// The spend beside it. An unpriced model makes the figure a floor, and the words have to
+    /// carry that, because a tile is exactly where someone reads a number as fact.
+    /// </summary>
+    public static string Spend(Totals? totals)
+    {
+        if (totals is null) return "no data";
+        var cost = Formatting.Cost(totals.Cost);
+        return totals.HasUnpriced ? $"at least {cost}" : cost;
+    }
+
     public static TrayLevel Classify(double utilization, double approaching, double atLimit)
     {
         if (utilization >= atLimit) return TrayLevel.AtLimit;

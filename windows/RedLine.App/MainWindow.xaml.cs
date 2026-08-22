@@ -25,6 +25,7 @@ public sealed partial class MainWindow : Window
     private TaskbarIcon? tray;
     /// The settings page, kept only while it is open: closing a WinUI window destroys it
     private SettingsWindow? settings;
+    private DashboardWindow? dashboard;
     /// The thresholds the engine is using, so the colour here means what it means there
     private double approaching = TrayPresenter.ApproachingPercent;
     private double atLimit = TrayPresenter.AtLimitPercent;
@@ -35,22 +36,30 @@ public sealed partial class MainWindow : Window
     public string SelfTestSummary =>
         $"tray={(tray?.IsCreated == true ? "created" : "missing")} "
         + $"engine={(host.IsRunning ? "running" : "stopped")} {renderSummary}"
-        + $" settings={settingsControls}"
+        + $" settings={settingsControls} dashboard={dashboardBars}"
         + (EngineNote.Length > 0 ? $" note=\"{EngineNote}\"" : "");
 
     /// <summary>Not probed. Zero would be a real count, so it cannot be the resting value.</summary>
     private int settingsControls = -1;
+    private int dashboardBars = -1;
 
     /// <summary>
-    /// Builds the settings page and remembers how many controls it made. Only the self test
-    /// calls this: a page that renders nothing looks exactly like one that rendered fine, and
-    /// CI is the only machine here that ever runs WinUI.
+    /// Builds both pages and remembers what they made. Only the self test calls this: a page
+    /// that renders nothing looks exactly like one that rendered fine, and CI is the only
+    /// machine here that ever runs WinUI.
+    ///
+    /// The bar count can honestly be zero, because the watcher may not have ingested yet when
+    /// the snapshot has already arrived through the feed. Negative is the failure.
     /// </summary>
-    public void ProbeSettings()
+    public void ProbeWindows()
     {
         var page = new SettingsWindow();
         settingsControls = page.ControlCount;
         page.Close();
+
+        var chart = new DashboardWindow();
+        dashboardBars = chart.BarCount;
+        chart.Close();
     }
 
     private string renderSummary = "not rendered";
@@ -72,6 +81,8 @@ public sealed partial class MainWindow : Window
     {
         settings?.Close();
         settings = null;
+        dashboard?.Close();
+        dashboard = null;
         monitor.Dispose();
         host.Dispose();
         tray?.Dispose();
@@ -109,6 +120,10 @@ public sealed partial class MainWindow : Window
         var refresh = new MenuFlyoutItem { Text = "Refresh now" };
         refresh.Click += (_, _) => monitor.Reread();
         menu.Items.Add(refresh);
+
+        var history = new MenuFlyoutItem { Text = "Dashboard" };
+        history.Click += (_, _) => ShowDashboard();
+        menu.Items.Add(history);
 
         var configure = new MenuFlyoutItem { Text = "Settings" };
         configure.Click += (_, _) => ShowSettings();
@@ -292,6 +307,22 @@ public sealed partial class MainWindow : Window
             settings = page;
         }
         settings.Activate();
+    }
+
+    private void ShowDashboard()
+    {
+        if (dashboard is null)
+        {
+            var page = new DashboardWindow();
+            page.Closed += (_, _) => dashboard = null;
+            dashboard = page;
+        }
+        else
+        {
+            // Reopened rather than rebuilt, so it shows what has happened since
+            dashboard.Load();
+        }
+        dashboard.Activate();
     }
 
     private void ShowWindow()
