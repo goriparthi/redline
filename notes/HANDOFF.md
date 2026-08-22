@@ -52,7 +52,7 @@ watcher.
 CI proves the whole chain on a real Windows runner, not just that it compiles:
 
 ```
-report: ok: tray=created engine=running title=42% windows=1 settings=16 dashboard=<n>
+report: ok: tray=created engine=running title=42% windows=1 settings=16 dashboard=14
 ```
 
 That is a transcript on disk, the app starting its own engine, the watcher ingesting and
