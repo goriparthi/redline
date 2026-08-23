@@ -221,6 +221,12 @@ jobs:
           "  {0} ({1:N0} bytes)" -f $package.Name, $package.Length
           "MSIX=$($package.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+          # Kept aside before anything signs it. This is the copy a Store submission wants,
+          # and signtool works in place, so without this there would be no unsigned one left.
+          $keep = Join-Path $env:GITHUB_WORKSPACE "dist\msix-unsigned"
+          New-Item -ItemType Directory -Force -Path $keep | Out-Null
+          Copy-Item $package.FullName $keep
+
       # The certificate is generated here and thrown away with the runner. Its subject has to
       # match the manifest's Publisher exactly or the package will not install.
       - name: Sign and install it
@@ -235,6 +241,11 @@ jobs:
           $password = ConvertTo-SecureString -String "redline-ci" -Force -AsPlainText
           $pfx = Join-Path $env:RUNNER_TEMP "redline-ci.pfx"
           Export-PfxCertificate -Cert $cert -FilePath $pfx -Password $password | Out-Null
+          # The public half travels with the signed package, because a machine cannot install
+          # it without trusting the key first, and this key exists nowhere else. Public only:
+          # the private half stays in this runner's store and dies with it.
+          $cer = Join-Path $env:GITHUB_WORKSPACE "dist\msix\redline-ci-public.cer"
+          Export-Certificate -Cert $cert -FilePath $cer | Out-Null
           # Trusted, or Windows refuses a package it cannot chain to anything
           Import-PfxCertificate -FilePath $pfx -Password $password `
             -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
@@ -340,11 +351,19 @@ jobs:
           path: dist/app/
           if-no-files-found: error
 
-      # Unsigned on purpose: the CI certificate is a throwaway and signing it with one would
-      # hand out a package that only trusts a key nobody has. It is here to be inspected, and
-      # to be signed for real once there is a certificate.
+      # For the Store. Untouched by signtool, which is what a submission wants: certification
+      # signs it with a Store trusted certificate on the way in.
       - uses: actions/upload-artifact@v4
         with:
           name: redline-windows-msix-x64-unsigned
+          path: dist/msix-unsigned/
+          if-no-files-found: error
+
+      # For installing by hand, on a machine you own and are about to throw away. Signed with
+      # the certificate this run generated, with its public half beside it, because nothing
+      # else on earth trusts that key. See docs/WINDOWS-STORE.md for the two commands.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redline-windows-msix-x64-testsigned
           path: dist/msix/
           if-no-files-found: error

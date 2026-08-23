@@ -87,6 +87,39 @@ command line tool its view of the same history, which is a real loss but not a b
   update check. Worth saying, because a monitoring tool that phoned home would be judged
   differently.
 
+## Getting it onto a machine you own
+
+CI publishes three artifacts per run, and picking the wrong one wastes an afternoon.
+
+| Artifact | What it is | Use it for |
+|---|---|---|
+| `redline-windows-app-x64` | the self-contained folder | looking at the app, screenshots |
+| `redline-windows-msix-x64-unsigned` | the package, untouched | the Store submission |
+| `redline-windows-msix-x64-testsigned` | the same package signed by the run, plus its public certificate | installing by hand |
+
+**To just look at it, take the folder.** Unzip and run `RedLine.App.exe`. No install, nothing
+to trust, and the engine is already beside it. This is the one to use for screenshots.
+
+**To install the package for real**, take the test signed artifact and, in an elevated
+PowerShell:
+
+```powershell
+Import-Certificate -FilePath .\redline-ci-public.cer `
+                   -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+Add-AppxPackage .\RedLine.App_0.8.3.0_x64.msix
+```
+
+The certificate step is not optional and not a formality: that key was generated inside the CI
+run and exists nowhere else, so no machine trusts it until told to. Only do this on a machine
+you are about to throw away. Uninstall with
+`Get-AppxPackage PrashanthGoriparthi.RedLineMonitor | Remove-AppxPackage`.
+
+The unsigned artifact cannot be installed this way at all. That is not a defect: Windows
+refuses unsigned packages, which is the whole reason RedLine goes through the Store.
+
+Downloading an artifact needs authentication even on a public repository, so on the VM either
+use `gh run download <run-id> -n <artifact-name>` or the S3 route already set up for it.
+
 ## Before you submit
 
 Dispatch CI with `wack=true`. It runs the Windows App Certification Kit against the package,
