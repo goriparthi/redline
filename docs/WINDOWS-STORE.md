@@ -19,8 +19,17 @@ already drafted below.
 Nothing here can be scripted, and the first two are permanent.
 
 1. **Register as an individual developer** at
-   [partner.microsoft.com](https://partner.microsoft.com/dashboard). Free; identity
-   verification is part of it.
+   [storedeveloper.microsoft.com](https://storedeveloper.microsoft.com) → Get started for free
+   → **Individual developer (free)**.
+
+   Not `partner.microsoft.com/dashboard`, which lands on the Microsoft Cloud Partner Program:
+   a different thing entirely, for resellers and partner organizations. If a page is asking
+   you to log in with a **work** account, you are in the wrong one. An individual developer
+   account takes a **personal** Microsoft account.
+
+   Verification is a government-issued ID scan and a selfie. Two answers given here are
+   permanent: the **country or region**, and the **Publisher Display Name**, which is the
+   third of the three values below, so write it down exactly as entered.
 2. **Reserve the name.** Apps and games → New product → MSIX or PWA app → check `RedLine` is
    available → Reserve product name. If `RedLine` is taken, whatever is reserved instead
    becomes the display name in the Store and the app is still RedLine everywhere else.
