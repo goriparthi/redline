@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The MSIX identity. Publisher has to match the subject of whatever certificate signs the
-     package, so it changes when a real Authenticode certificate arrives; CI signs with a
-     throwaway self signed one carrying this exact subject.
+<!-- The MSIX identity, as Partner Center assigned it. None of it can be changed: the product
+     was created with it. Publisher is a GUID Microsoft issued, not a person, and any
+     certificate that signs this package has to carry that exact subject, which is why CI's
+     throwaway self signed one does too.
 
      Version is checked against Resources/Info.plist by scripts/ci.sh, because a package that
      claims a different version from the app inside it is the kind of thing nobody notices
@@ -14,12 +15,15 @@
   IgnorableNamespaces="uap rescap desktop6">
 
   <Identity
-    Name="Goriparthi.RedLine"
-    Publisher="CN=Prashanth Goriparthi"
+    Name="PrashanthGoriparthi.RedLineMonitor"
+    Publisher="CN=FAC0DA4F-3C48-41BA-A60C-9C96E94CBB9F"
     Version="0.8.3.0" />
 
+  <!-- RedLineMonitor, not RedLine, in both places a name is declared: the Store validates
+       these against a reserved name and RedLine itself was taken. The app calls itself
+       RedLine everywhere it speaks for itself, which nothing validates. -->
   <Properties>
-    <DisplayName>RedLine</DisplayName>
+    <DisplayName>RedLineMonitor</DisplayName>
     <PublisherDisplayName>Prashanth Goriparthi</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
     <!-- Off, both of them. Left on, the app's writes to AppData land in a private per package
@@ -44,7 +48,7 @@
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="RedLine"
+        DisplayName="RedLineMonitor"
         Description="Know your limit. Local usage and limits for Claude, Codex and Ollama."
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"

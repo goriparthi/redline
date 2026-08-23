@@ -70,9 +70,10 @@ would not be.
 First run, the Windows 11 widget, Authenticode, winget.
 
 MSIX is built, signed with a throwaway certificate, installed, self tested from the installed
-copy and uninstalled, all in CI. What is missing is the Store submission: the identity in
-`Package.appxmanifest` is the sideload one, and `scripts/set-store-identity.ps1` patches in the
-values Partner Center assigns once the name is reserved. See `docs/WINDOWS-STORE.md`.
+copy and uninstalled, all in CI. The manifest carries the **real Store identity**, assigned by
+Partner Center on 2026-08-22 and unchangeable, so the package CI proves is the one that gets
+uploaded and there is nothing to patch at submission time. The reserved name is
+**RedLineMonitor**, because RedLine was taken. See `docs/WINDOWS-STORE.md`.
 
 Dispatch CI with `wack=true` before a submission. It runs the Windows App Certification Kit,
 which is what Store certification runs, so a rejection costs a CI run rather than a round trip
@@ -257,9 +258,10 @@ role and bucket with it.
 
 **Windows ships through the Microsoft Store.** Decided 2026-08-22: RedLine buys no Authenticode
 certificate, ever. The Store signs the package during certification instead, individual
-registration is free, and it is the only route that still allows the Windows 11 widget.
-`docs/WINDOWS-STORE.md` is the procedure, the identity values PG has to fetch by hand, and the
-restricted capability justification already written out.
+registration is free, and it is the only route that still allows the Windows 11 widget. The
+account exists and the product is reserved; what is left is a submission.
+`docs/WINDOWS-STORE.md` is the procedure, the identity, and the restricted capability
+justification already written out.
 
 Do not offer a certificate again, and do not plan a direct download installer: an unsigned MSIX
 cannot be installed and an unsigned exe warns forever.

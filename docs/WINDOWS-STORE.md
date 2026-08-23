@@ -14,49 +14,41 @@ The Store is the way round it, and the reason is narrow and worth stating plainl
 The cost is a public listing, a review per release, and one written justification, which is
 already drafted below.
 
-## What has to happen once, by hand
+## The account and the name, both done
 
-Nothing here can be scripted, and the first two are permanent.
+Registration is at [storedeveloper.microsoft.com](https://storedeveloper.microsoft.com) → Get
+started for free → **Individual developer (free)**, with a **personal** Microsoft account.
 
-1. **Register as an individual developer** at
-   [storedeveloper.microsoft.com](https://storedeveloper.microsoft.com) → Get started for free
-   → **Individual developer (free)**.
+Not `partner.microsoft.com/dashboard`, which lands on the Microsoft Cloud Partner Program: a
+different thing entirely, for resellers and partner organizations. If a page asks you to log in
+with a **work** account, you are in the wrong one.
 
-   Not `partner.microsoft.com/dashboard`, which lands on the Microsoft Cloud Partner Program:
-   a different thing entirely, for resellers and partner organizations. If a page is asking
-   you to log in with a **work** account, you are in the wrong one. An individual developer
-   account takes a **personal** Microsoft account.
+`RedLine` was taken, so the reserved name is **RedLineMonitor**. That is the name in the Store
+and in the Start menu; the app calls itself RedLine everywhere it speaks for itself, which
+nothing validates. If `RedLine` ever frees up, Manage app names can add it.
 
-   Verification is a government-issued ID scan and a selfie. Two answers given here are
-   permanent: the **country or region**, and the **Publisher Display Name**, which is the
-   third of the three values below, so write it down exactly as entered.
-2. **Reserve the name.** Apps and games → New product → MSIX or PWA app → check `RedLine` is
-   available → Reserve product name. If `RedLine` is taken, whatever is reserved instead
-   becomes the display name in the Store and the app is still RedLine everywhere else.
-3. **Copy three values** off the product identity page:
+## The identity, which is now fixed forever
 
-   | Partner Center calls it | Goes into `Package.appxmanifest` |
-   |---|---|
-   | Package/Identity/Name | `<Identity Name="...">` |
-   | Package/Identity/Publisher | `<Identity Publisher="CN=...">` |
-   | Package/Properties/PublisherDisplayName | `<PublisherDisplayName>` |
+Partner Center assigned these when the product was created, and **none of them can be
+changed**. They are in `Package.appxmanifest` already:
 
-   The publisher is a GUID Microsoft assigns, not a person's name. **Package identity cannot
-   be changed after the product is created**, so read it twice.
+| Partner Center | Value |
+|---|---|
+| Package/Identity/Name | `PrashanthGoriparthi.RedLineMonitor` |
+| Package/Identity/Publisher | `CN=FAC0DA4F-3C48-41BA-A60C-9C96E94CBB9F` |
+| Package/Properties/PublisherDisplayName | `Prashanth Goriparthi` |
+| Package Family Name | `PrashanthGoriparthi.RedLineMonitor_5q7p1twdvrvx0` |
+| Store ID | `9P33V6M8FMHK` |
+
+The Publisher is a GUID Microsoft issued, not a person. Any certificate that signs this
+package must carry that exact subject, including the throwaway one CI generates, or Windows
+reads the package as tampered with.
 
 ## Producing the package
 
-The manifest in the repo carries the sideload identity, which is what CI installs and self
-tests on every run. Do not edit it by hand for a submission; patch it, so the two cannot drift:
-
-```powershell
-scripts\set-store-identity.ps1 -Name "<Identity Name>" `
-                               -Publisher "CN=<guid>" `
-                               -PublisherDisplayName "<publisher display name>"
-```
-
-Then build the package the way CI does, and upload the `.msix` to the submission. It goes up
-unsigned: certification signs it.
+There is nothing to patch. The manifest carries the real Store identity, so the package CI
+builds, installs and self tests on every run is the same one that gets uploaded. Build it the
+way the `Build the MSIX` step does and upload the `.msix`, unsigned: certification signs it.
 
 The version comes from `Resources/Info.plist` by way of the normal release procedure, and
 `scripts/ci.sh` fails when the manifest has drifted from it. The Store reserves the fourth part

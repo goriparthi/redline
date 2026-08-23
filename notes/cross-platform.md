@@ -422,9 +422,12 @@ storage, and either runs $200 to $400 a year. Going without a certificate entire
 MSIX at all, because Windows refuses to install an unsigned package, which would have meant
 shipping a zip through winget and giving up the widget for good.
 
-`docs/WINDOWS-STORE.md` carries the procedure. The two things that are not scriptable are
-registering and reserving the name, because Partner Center assigns the package identity and it
-cannot be changed afterwards.
+`docs/WINDOWS-STORE.md` carries the procedure. Registering and reserving the name were the two
+parts nobody could script, and both are done: the product is **RedLineMonitor**, because
+RedLine was taken, and Partner Center assigned an identity that can never be changed. The
+manifest carries it, so the package CI installs and self tests on every run is the one that
+gets uploaded, and CI's throwaway certificate uses the assigned publisher GUID as its subject
+because anything else reads as a tampered package.
 
 ### Still to do
 
