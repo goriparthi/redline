@@ -9,6 +9,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      wack:
+        description: "Run the Windows App Certification Kit against the MSIX"
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -293,6 +298,39 @@ jobs:
             if (Get-AppxPackage Goriparthi.RedLine) { throw "the package would not uninstall" }
             Write-Host "uninstalled cleanly"
           }
+
+      # What Store certification runs, so a rejection costs a CI run rather than a submission
+      # round trip. Off by default because it takes minutes and a submission is rare: dispatch
+      # the workflow with wack=true before sending one. The binaries worth watching are the
+      # Swift ones, which are not built with the flags the binary analyzer looks for.
+      - name: Windows App Certification Kit
+        if: ${{ inputs.wack }}
+        shell: pwsh
+        run: |
+          $appcert = "C:\Program Files (x86)\Windows Kits\10\App Certification Kit\appcert.exe"
+          if (-not (Test-Path $appcert)) {
+            throw "no App Certification Kit on this runner; it ships with the Windows SDK"
+          }
+          $report = Join-Path $env:RUNNER_TEMP "wack.xml"
+          & $appcert reset | Out-Null
+          & $appcert test -appxpackagepath $env:MSIX -reportoutputpath $report
+          if (-not (Test-Path $report)) { throw "the kit wrote no report" }
+
+          $xml = [xml](Get-Content $report)
+          $overall = $xml.REPORT.OVERALL_RESULT
+          Write-Host "overall: $overall"
+          $xml.SelectNodes("//TEST[@RESULT='FAIL']") | ForEach-Object {
+            Write-Host ("FAIL  " + $_.NAME)
+            $_.SelectNodes(".//MESSAGE") | ForEach-Object { Write-Host ("      " + $_.InnerText) }
+          }
+          if ($overall -ne "PASS") { throw "the certification kit says $overall" }
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.wack }}
+        with:
+          name: redline-wack-report
+          path: ${{ runner.temp }}/wack.xml
+          if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4
         with:

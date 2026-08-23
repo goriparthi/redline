@@ -70,9 +70,14 @@ would not be.
 First run, the Windows 11 widget, Authenticode, winget.
 
 MSIX is built, signed with a throwaway certificate, installed, self tested from the installed
-copy and uninstalled, all in CI. What is missing is a real certificate: the uploaded artifact
-is unsigned on purpose, and `Publisher` in `Package.appxmanifest` has to be changed to match
-whatever subject the real one carries. The dashboard
+copy and uninstalled, all in CI. What is missing is the Store submission: the identity in
+`Package.appxmanifest` is the sideload one, and `scripts/set-store-identity.ps1` patches in the
+values Partner Center assigns once the name is reserved. See `docs/WINDOWS-STORE.md`.
+
+Dispatch CI with `wack=true` before a submission. It runs the Windows App Certification Kit,
+which is what Store certification runs, so a rejection costs a CI run rather than a round trip
+through review. The binaries worth watching there are the Swift ones: nothing builds them with
+the flags the binary analyzer looks for, Control Flow Guard in particular. The dashboard
 has its daily chart and model mix; the hourly chart, cadence and findings panels are on the
 macOS one only. `redlined` and named-pipe IPC were **cancelled**: the app reads `snapshot.json` and
 shells out to `redline.exe`, which is all it ever needed.
@@ -246,14 +251,18 @@ role and bucket with it.
 
 ## Next
 
-First run, which is small: what RedLine is, and offers of the two things it can wire for you,
-both of which already have a store and a switch on the settings page.
+**Windows ships through the Microsoft Store.** Decided 2026-08-22: RedLine buys no Authenticode
+certificate, ever. The Store signs the package during certification instead, individual
+registration is free, and it is the only route that still allows the Windows 11 widget.
+`docs/WINDOWS-STORE.md` is the procedure, the identity values PG has to fetch by hand, and the
+restricted capability justification already written out.
 
-Then the certificate, which is a decision rather than a task. Authenticode is the equivalent
-of notarization, and the difference that matters is that a fresh certificate carries no
-reputation: SmartScreen warns anyway until installs accumulate. EV skips the wait but needs
-hardware token or cloud HSM key storage. Azure Trusted Signing is the cheapest current route
-if the eligibility rules fit. Nothing can ship as an installer until that is answered. MSIX rather than MSI because it is the only packaging that can carry the widget.
+Do not offer a certificate again, and do not plan a direct download installer: an unsigned MSIX
+cannot be installed and an unsigned exe warns forever.
+
+Then first run, which is small: what RedLine is, and offers of the two things it can wire for
+you, both of which already have a store and a switch on the settings page. Then the widget,
+which the Store package can finally carry. MSIX rather than MSI because it is the only packaging that can carry the widget.
 
 Signing is Authenticode, and unlike notarization a fresh certificate carries no reputation, so
 SmartScreen warns anyway until installs accumulate. EV skips the wait. Azure Trusted Signing is

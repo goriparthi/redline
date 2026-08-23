@@ -410,12 +410,21 @@ Three things the manifest decides:
 package, so it changes when a real one arrives. The version is a fourth place to bump on a
 release, and `scripts/ci.sh` fails when it has drifted from `Info.plist`.
 
-Signing is not optional at that point. The macOS equivalent of notarization is
-**Authenticode**, and the important difference is that a fresh certificate carries no
-reputation: SmartScreen warns anyway until enough installs accumulate. An **EV** certificate
-skips that wait but needs hardware token or cloud HSM key storage. Budget roughly $200 to $400
-a year for OV, more for EV. Azure Trusted Signing is the cheapest current route if the
-eligibility rules fit.
+Signing is not optional at that point, and RedLine will not buy a certificate. Decided
+2026-08-22, after the alternatives were laid out: **it ships through the Microsoft Store**,
+which signs the package during certification. Individual registration has been free since late
+2025, so the whole problem costs nothing.
+
+The alternatives, for the record. Authenticode is the macOS equivalent of notarization, and the
+difference that matters is that a fresh certificate carries no reputation: SmartScreen warns
+anyway until installs accumulate, EV skips the wait but needs hardware token or cloud HSM key
+storage, and either runs $200 to $400 a year. Going without a certificate entirely means no
+MSIX at all, because Windows refuses to install an unsigned package, which would have meant
+shipping a zip through winget and giving up the widget for good.
+
+`docs/WINDOWS-STORE.md` carries the procedure. The two things that are not scriptable are
+registering and reserving the name, because Partner Center assigns the package identity and it
+cannot be changed afterwards.
 
 ### Still to do
 
