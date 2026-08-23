@@ -76,8 +76,12 @@ values Partner Center assigns once the name is reserved. See `docs/WINDOWS-STORE
 
 Dispatch CI with `wack=true` before a submission. It runs the Windows App Certification Kit,
 which is what Store certification runs, so a rejection costs a CI run rather than a round trip
-through review. The binaries worth watching there are the Swift ones: nothing builds them with
-the flags the binary analyzer looks for, Control Flow Guard in particular. The dashboard
+through review.
+
+**It passes today**, measured on 2026-08-22, package type Centennial. That answers the one
+thing worth worrying about: the Swift binaries are not built with Control Flow Guard and the
+binary analyzer does not object to them anyway. Run it again before each submission rather than
+assuming, since the toolchain and the runtime DLLs both move. The dashboard
 has its daily chart and model mix; the hourly chart, cadence and findings panels are on the
 macOS one only. `redlined` and named-pipe IPC were **cancelled**: the app reads `snapshot.json` and
 shells out to `redline.exe`, which is all it ever needed.

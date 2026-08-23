@@ -86,6 +86,16 @@ command line tool its view of the same history, which is a real loss but not a b
   update check. Worth saying, because a monitoring tool that phoned home would be judged
   differently.
 
+## Before you submit
+
+Dispatch CI with `wack=true`. It runs the Windows App Certification Kit against the package,
+which is what Store certification runs, so anything it rejects costs a CI run rather than a
+trip through review.
+
+It passed on 2026-08-22, which settles the one real doubt: the Swift binaries are not built
+with Control Flow Guard, and the binary analyzer accepts them regardless. Run it again anyway
+before each submission, because the Swift toolchain and its runtime DLLs both move.
+
 ## What this does not change
 
 `core-windows` keeps building, signing, installing and self testing the sideload package on
