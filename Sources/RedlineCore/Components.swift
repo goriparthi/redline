@@ -1,14 +1,37 @@
-// The shared component set. Every card, chip, tile, rail, dot and placeholder in the app
-// and the widget comes from here, so styling is defined once rather than at each call site.
+// The shared component set. Every card, chip, tile, rail, dot and placeholder in the app and
+// the widget comes from here, so styling is defined once rather than at each call site.
 import SwiftUI
-import RedlineCore
 
-// MARK: - Status presentation
+// MARK: - Status vocabulary
 
-/// How a status looks. Split from the status itself so RedlineCore carries no colour and no
-/// SF Symbol name; a non-AppKit shell maps the same kinds to its own iconography.
-public extension RLStatus {
-    var color: Color {
+/// One presentation of state, carrying a colour, a shape and a word together. Nothing in the
+/// UI signals status with colour alone, so a status is never allowed to be just a tint.
+public struct RLStatus: Equatable, Sendable {
+    public enum Kind: Equatable, Sendable {
+        case healthy, approaching, atLimit, offline, unknown, stale
+    }
+
+    public let kind: Kind
+    /// Overrides the default wording when a caller knows something more specific.
+    public let phrase: String
+
+    public init(_ kind: Kind, phrase: String? = nil) {
+        self.kind = kind
+        self.phrase = phrase ?? RLStatus.defaultPhrase(kind)
+    }
+
+    static func defaultPhrase(_ kind: Kind) -> String {
+        switch kind {
+        case .healthy:     return "Healthy"
+        case .approaching: return "Approaching your limit"
+        case .atLimit:     return "Limit reached"
+        case .offline:     return "Not reachable"
+        case .unknown:     return "Not checked"
+        case .stale:       return "Last known reading"
+        }
+    }
+
+    public var color: Color {
         switch kind {
         case .healthy:     return RL.State.success
         case .approaching: return RL.State.warning
@@ -20,7 +43,7 @@ public extension RLStatus {
     }
 
     /// A distinct shape per state, so the difference survives greyscale and colour blindness.
-    var symbol: String {
+    public var symbol: String {
         switch kind {
         case .healthy:     return "checkmark.circle.fill"
         case .approaching: return "exclamationmark.triangle.fill"
@@ -31,6 +54,28 @@ public extension RLStatus {
         }
     }
 
+    /// From a utilization percentage and the configured thresholds.
+    public static func forUtilization(_ utilization: Double, approaching: Double = 60,
+                                      atLimit: Double = 85, stale: Bool = false) -> RLStatus {
+        if stale { return RLStatus(.stale) }
+        switch Brand.status(for: utilization, approachingPct: approaching,
+                            atLimitPct: atLimit) {
+        case .healthy:     return RLStatus(.healthy)
+        case .approaching: return RLStatus(.approaching)
+        case .atLimit:     return RLStatus(.atLimit)
+        }
+    }
+
+    /// From the shared service-health vocabulary, so a status page and a limit window are
+    /// drawn by the same component.
+    public static func forTone(_ tone: ServiceGlyph.Tone, phrase: String? = nil) -> RLStatus {
+        switch tone {
+        case .healthy:  return RLStatus(.healthy, phrase: phrase)
+        case .warning:  return RLStatus(.approaching, phrase: phrase)
+        case .critical: return RLStatus(.atLimit, phrase: phrase)
+        case .unknown:  return RLStatus(.unknown, phrase: phrase)
+        }
+    }
 }
 
 /// A status as a glyph, optionally with its words beside it. The label is what keeps status

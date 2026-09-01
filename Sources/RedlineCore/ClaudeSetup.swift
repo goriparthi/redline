@@ -118,7 +118,7 @@ public enum ClaudeSetup {
             guard let raw, !raw.isEmpty else { return }
             if raw.hasPrefix("~/") {
                 imports.append(home.appendingPathComponent(String(raw.dropFirst(2))))
-            } else if AppPaths.isAbsolute(raw) {
+            } else if raw.hasPrefix("/") {
                 imports.append(URL(fileURLWithPath: raw))
             } else {
                 imports.append(url.deletingLastPathComponent().appendingPathComponent(raw))

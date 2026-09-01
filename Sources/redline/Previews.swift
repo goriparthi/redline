@@ -5,7 +5,6 @@
 // named as sample data, so a preview can never be mistaken for a reading.
 #if DEBUG
 import RedlineCore
-import RedlineUI
 import SwiftUI
 
 /// Invented data, kept in one namespace so it is obvious at every use site that a figure came

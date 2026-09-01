@@ -45,7 +45,8 @@ public struct FindingsDismissals: Codable, Equatable {
 
 public enum FindingsDismissalStore {
     public static func url(home: URL? = nil) -> URL {
-        AppPaths.data("findings-dismissed.json", in: home)
+        (home ?? RedlineHome.url)
+            .appendingPathComponent(".local/share/redline/findings-dismissed.json")
     }
 
     public static func load(from url: URL? = nil) -> FindingsDismissals {

@@ -2,7 +2,6 @@
 // Two flags exist so the Homebrew cask can register and remove the LaunchAgent.
 import AppKit
 import RedlineCore
-import RedlineUI
 
 let redlineVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     ?? "dev"

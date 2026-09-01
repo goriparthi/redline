@@ -6,7 +6,6 @@
 // only when the user picks Check for Updates.
 import Foundation
 import RedlineCore
-import RedlineUI
 
 enum Updates {
     /// The public repository. Shown in About so the source is reachable from the app

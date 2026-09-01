@@ -4,7 +4,6 @@
 // out" and "not allowed yet" need opposite responses.
 import Foundation
 import RedlineCore
-import RedlineUI
 import Security
 
 enum ClaudeCredentialSource {
