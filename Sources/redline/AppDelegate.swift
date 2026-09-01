@@ -1923,11 +1923,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     }
 
     private static let feedWaiting = "Waiting for Claude Code to report usage"
+    private static let feedIdle = "No Claude Code activity since the last reset"
+
+    /// Which quiet this is. A sidecar on disk has reported before, so its windows expiring is
+    /// idleness; no sidecar at all is a feed that has yet to see a single draw.
+    private var feedNote: String {
+        FileManager.default.fileExists(atPath: StatuslineFeed.defaultPath().path)
+            ? Self.feedIdle : Self.feedWaiting
+    }
 
     /// Which nothing this is. A wired-up feed holding no reading yet waits on Claude Code;
     /// only an unwired one is a source the user still has to pick.
     private var claudeSourceNote: String {
-        StatuslineInstaller.isWanted() ? Self.feedWaiting : "No limits source set up"
+        StatuslineInstaller.isWanted() ? feedNote : "No limits source set up"
     }
 
     // MARK: - UI
@@ -1976,7 +1984,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             button.toolTip = signedIn ? "Usage loading…"
                 : config.useCLIToken
                     ? "Claude Code's Keychain token is not readable; open RedLine to fix it"
-                    : StatuslineInstaller.isWanted() ? Self.feedWaiting
+                    : StatuslineInstaller.isWanted() ? feedNote
                                                      : "Connect Claude to view usage"
         case "cost":
             button.title = fmtCost(today.cost)
