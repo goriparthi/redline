@@ -1437,7 +1437,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         for s in fleet.sessions {
             let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             item.attributedTitle = fleetRowTitle(s, now: now)
-            item.toolTip = s.cwd
+            // No tooltip: it opens over the submenu, which already shows the path
             item.submenu = fleetRowMenu(s)
             menu.addItem(item)
         }
