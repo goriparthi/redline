@@ -1,0 +1,9 @@
+<Project>
+  <!-- One version for every project. Keep equal to Resources/Info.plist and project.yml. -->
+  <PropertyGroup>
+    <Version>0.8.5</Version>
+    <Authors>Prashanth Goriparthi</Authors>
+    <Product>RedLine</Product>
+    <Copyright>MIT licence; brand assets excluded, see brand/</Copyright>
+  </PropertyGroup>
+</Project>
