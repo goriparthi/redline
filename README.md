@@ -13,6 +13,22 @@ source of truth for colour, type, and copy.
 
 > **Not affiliated with, endorsed by, or supported by Anthropic, OpenAI, or Ollama.**
 
+## Also on Windows
+
+RedLine now runs on Windows 10 and 11 as well: the same readings in the notification area, with
+the Claude session and week stacked in the tray icon, desktop widgets, a per-user MSI that needs
+no administrator rights, and the `redlinectl` command line. The Windows build is new, and until
+its releases are code signed SmartScreen asks once (**More info > Run anyway**).
+**[windows/README.md](windows/README.md)** has the install routes and what differs.
+
+<p align="center">
+<img src="site/img/windows/hero.png" alt="RedLine on Windows: the dashboard, a Claude desktop widget, and the tray dropdown open above the taskbar, where two tray icons show Claude's session at 34 percent and week at 41 percent" width="820">
+</p>
+
+<p align="center">
+<img src="site/img/windows/tray.png" alt="Four tray icons, enlarged: Claude stacked as 34 over 41, the same two figures side by side as 34 S and 41 W, 72 in amber with a dot for an agent waiting, and 45 in grey for a last known reading" width="620">
+</p>
+
 ## Read this before you install
 
 RedLine's **token and cost totals** come from transcript files those tools already write to
@@ -156,6 +172,9 @@ nearest its limit.
   opens the running copy's dashboard and exits rather than adding a second menu bar item.
 
 ## Install
+
+**On Windows?** See [windows/README.md](windows/README.md): the same app as a tray icon, built
+with .NET 8.
 
 Three routes. **The DMG is the one to prefer**: it is signed, notarized, and updates
 itself in place from the menu, verified against this project's signing identity. Building

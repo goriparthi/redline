@@ -1,13 +1,13 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>RedLine: AI usage monitor for macOS</title>
+<title>RedLine: AI usage monitor for macOS and Windows</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="RedLine is a private macOS usage monitor for Claude, Codex, and Ollama. See usage, remaining capacity, and reset times without breaking focus.">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="RedLine is a private usage monitor for Claude, Codex, and Ollama, on macOS and Windows. See usage, remaining capacity, and reset times without breaking focus.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%230B0D10'/%3E%3Cpath d='M48 65C92 65 108 108 139 125' fill='none' stroke='%23F4F1EA' stroke-width='18' stroke-linecap='round'/%3E%3Cpath d='M48 128H178' fill='none' stroke='%23818792' stroke-width='14' stroke-linecap='round'/%3E%3Cpath d='M48 191C92 191 108 148 139 131' fill='none' stroke='%23F4F1EA' stroke-width='18' stroke-linecap='round'/%3E%3Cpath d='M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139' fill='none' stroke='%23818792' stroke-width='19' stroke-linecap='round'/%3E%3Cpath d='M163 143L207 199' fill='none' stroke='%23818792' stroke-width='20' stroke-linecap='round'/%3E%3Cpath d='M126 128H214' fill='none' stroke='%23FF3B30' stroke-width='8' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
   /* Tokens are verbatim from brand/tokens/redline-tokens.json. RedLine's identity is
-     dark-first (Carbon is the main background), so this page commits to one visual world
-     rather than theming, and paints every colour explicitly so it holds on any host ground. */
+     dark-first (Carbon is the main background); a light reading on warm paper follows the OS. */
   :root {
     --carbon:   #0B0D10;
     --graphite: #171A1F;
@@ -30,7 +30,35 @@
     --sweep: 500ms;
 
     --ui: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-    --metrics: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    --metrics: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* What the mark and the primary button paint with, so light can swap them */
+    --mark-ink: #F4F1EA;
+    --mark-structure: #818792;
+    --btn-bg: #F4F1EA;
+    --btn-ink: #0B0D10;
+    --btn-hover: #FFFFFF;
+  }
+
+  /* Light: warm paper and near-black ink, the app's own light appearance. The token names
+     keep their roles (carbon is the ground, chalk the ink), so every rule below still holds.
+     Steel, amber and clear are darkened here only far enough to read as text on paper. */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --carbon:   #F4F1EA;
+      --graphite: #FBFAF6;
+      --steel:    #5C616B;
+      --chalk:    #15181C;
+      --amber:    #B25E00;
+      --clear:    #1F8F3A;
+      --hairline: #E0DBD0;
+      --raised:   #ECE8DF;
+      --mark-ink: #15181C;
+      --mark-structure: #6B707A;
+      --btn-bg: #15181C;
+      --btn-ink: #F4F1EA;
+      --btn-hover: #000000;
+    }
   }
 
   * { box-sizing: border-box; }
@@ -71,7 +99,8 @@
   /* ---------- masthead ---------- */
 
   .masthead { display: flex; align-items: center; gap: .75rem; padding: 1.75rem 0; }
-  .masthead svg { width: 34px; height: 34px; display: block; }
+  .masthead svg { width: 34px; height: 34px; display: block; flex: none; }
+  @media (max-width: 480px) { .masthead a + a { margin-left: .9rem; } .masthead a.wide-only { display: none; } }
   /* Wordmark type specs match brand/logo/redline-wordmark-dark.svg exactly */
   .wordmark {
     font-family: var(--ui);
@@ -99,7 +128,7 @@
   .hero-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
                gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; }
   @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
-  .hero-copy { display: flex; flex-direction: column; gap: 1.25rem; max-width: 34ch; }
+  .hero-copy { display: flex; flex-direction: column; gap: 1.25rem; max-width: 31rem; }
   .hero-copy h1 {
     font-size: clamp(2.25rem, 5.5vw, 3.5rem);
     font-weight: 680;
@@ -123,8 +152,9 @@
   }
   .btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
   /* Chalk, not red: the palette reserves Signal for the limit, capped near 5% of a screen */
-  .btn-primary { background: var(--chalk); color: var(--carbon); }
-  .btn-primary:hover { background: #FFFFFF; }
+  .btn-primary { background: var(--btn-bg); color: var(--btn-ink); }
+  .btn-primary:hover { background: var(--btn-hover); }
+  .btn svg { width: 1em; height: 1em; flex: none; }
   .btn-quiet { border-color: var(--hairline); color: var(--chalk); }
   .btn-quiet:hover { border-color: var(--steel); }
 
@@ -363,8 +393,68 @@
     color: var(--steel); font-size: .8125rem;
   }
 
+  /* ---------- platform switch ---------- */
+
+  /* One page, two platforms: the switch swaps what is platform specific in the hero, and
+     everything else says which platform it describes. Without script, macOS shows. */
+  .platforms {
+    display: inline-flex; gap: 2px; padding: 3px; align-self: flex-start;
+    background: var(--graphite); border: 1px solid var(--hairline); border-radius: 999px;
+  }
+  .platforms button {
+    font: 600 .8125rem/1 var(--ui); color: var(--steel);
+    background: transparent; border: 0; border-radius: 999px;
+    padding: .5rem .95rem; cursor: pointer;
+    transition: background-color var(--standard) ease, color var(--standard) ease;
+  }
+  .platforms button:hover { color: var(--chalk); }
+  .platforms button[aria-pressed="true"] { background: var(--raised); color: var(--chalk); }
+  .platforms button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  .platforms .new {
+    font-family: var(--metrics); font-size: .5625rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--steel); margin-left: .35rem; vertical-align: 1px;
+  }
+
+  html[data-platform="win"] [data-only="mac"],
+  html:not([data-platform="win"]) [data-only="win"] { display: none !important; }
+
+  /* On Windows the Windows section follows the hero; on a Mac the Mac gallery does */
+  html[data-platform="win"] .wrap { display: flex; flex-direction: column; }
+  html[data-platform="win"] .masthead, html[data-platform="win"] header.hero { order: -2; }
+  html[data-platform="win"] #windows { order: -1; }
+
+  .hero-shot { margin: 0; }
+  .hero-shot img { width: 100%; height: auto; display: block; border-radius: var(--r-lg); }
+  .hero-shot figcaption { font-size: .8125rem; color: var(--steel); margin-top: .6rem; }
+
+  /* ---------- the Windows section ---------- */
+
+  .badge-new {
+    display: inline-block; font-family: var(--metrics); font-size: .625rem; letter-spacing: .1em;
+    text-transform: uppercase; padding: .2rem .5rem; border-radius: 999px; vertical-align: middle;
+    border: 1px solid color-mix(in srgb, var(--signal) 45%, var(--hairline)); color: var(--chalk);
+    margin-left: .5rem;
+  }
+  .shot-strip { max-width: min(960px, 100%); margin-inline: auto; }
+  .shot-strip img { border: 0; background: transparent; }
+  .shot-strip figcaption { text-align: center; max-width: 72ch; margin-inline: auto; }
+  .shot-plain img { border: 0; background: transparent; }
+  .win-collage {
+    display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.8fr);
+    gap: clamp(1rem, 2vw, 1.6rem); align-items: start; margin-top: clamp(1.25rem, 3vw, 2rem);
+  }
+  .win-collage-right { display: grid; gap: clamp(1rem, 2vw, 1.6rem); }
+  @media (max-width: 900px) {
+    .win-collage { grid-template-columns: 1fr; }
+    .win-collage > .shot:first-child { max-width: min(420px, 100%); margin-inline: auto; }
+  }
+  .diff-grid { margin-top: clamp(1.5rem, 3vw, 2.25rem); }
+  .grid3 + .grid3 { margin-top: clamp(1rem, 2.5vw, 1.5rem); }
+  .sub-head { margin-top: clamp(2rem, 5vw, 3rem); }
+
   @media (prefers-reduced-motion: reduce) {
     .fill { transition: none; }
+    .platforms button { transition: none; }
   }
 </style>
 
@@ -372,37 +462,55 @@
   <div class="masthead">
     <!-- brand/logo/redline-symbol.svg, unmodified geometry -->
     <svg viewBox="0 0 256 256" role="img" aria-label="RedLine">
-      <path d="M48 65C92 65 108 108 139 125" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
-      <path d="M48 128H178" fill="none" stroke="#818792" stroke-width="14" stroke-linecap="round"/>
-      <path d="M48 191C92 191 108 148 139 131" fill="none" stroke="#F4F1EA" stroke-width="18" stroke-linecap="round"/>
-      <path d="M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139" fill="none" stroke="#818792" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M163 143L207 199" fill="none" stroke="#818792" stroke-width="20" stroke-linecap="round"/>
+      <path d="M48 65C92 65 108 108 139 125" fill="none" style="stroke:var(--mark-ink)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M48 128H178" fill="none" style="stroke:var(--mark-structure)" stroke-width="14" stroke-linecap="round"/>
+      <path d="M48 191C92 191 108 148 139 131" fill="none" style="stroke:var(--mark-ink)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M118 57H151C187 57 207 76 207 103C207 121 198 131 184 139" fill="none" style="stroke:var(--mark-structure)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M163 143L207 199" fill="none" style="stroke:var(--mark-structure)" stroke-width="20" stroke-linecap="round"/>
       <path d="M126 128H214" fill="none" stroke="#FF3B30" stroke-width="8" stroke-linecap="round"/>
-      <circle cx="48" cy="65" r="9" fill="#F4F1EA"/>
-      <circle cx="48" cy="128" r="7" fill="#818792"/>
-      <circle cx="48" cy="191" r="9" fill="#F4F1EA"/>
+      <circle cx="48" cy="65" r="9" style="fill:var(--mark-ink)"/>
+      <circle cx="48" cy="128" r="7" style="fill:var(--mark-structure)"/>
+      <circle cx="48" cy="191" r="9" style="fill:var(--mark-ink)"/>
     </svg>
     <span class="wordmark">RedLine</span>
     <span class="spacer"></span>
-    <a href="https://github.com/goriparthi/redline/blob/main/SECURITY.md">Security</a>
+    <a href="#windows">Windows</a>
+    <a class="wide-only" href="https://github.com/goriparthi/redline/blob/main/SECURITY.md">Security</a>
     <a href="https://github.com/goriparthi/redline">GitHub</a>
   </div>
 
   <header class="hero">
     <div class="hero-grid">
     <div class="hero-copy">
+      <div class="platforms" role="group" aria-label="Platform">
+        <button type="button" data-platform="mac" aria-pressed="true">macOS</button>
+        <button type="button" data-platform="win" aria-pressed="false">Windows<span class="new">new</span></button>
+      </div>
       <h1>Every model.<br>One clear <span class="line">line</span>.</h1>
-      <p class="sub">Claude, Codex, and Ollama usage in a quiet macOS menu-bar app.
+      <p class="sub" data-only="mac">Claude, Codex, and Ollama usage in a quiet macOS menu-bar app.
          Know what remains before your flow gets interrupted, and which of your agents is
          sitting there waiting on you.</p>
+      <p class="sub" data-only="win">Claude, Codex, and Ollama usage in a quiet Windows tray app.
+         The number in the notification area is your Claude session over your week, and the
+         dashboard, widgets and command line read the same figures.</p>
       <div class="actions">
-        <a class="btn btn-primary" href="https://github.com/goriparthi/redline/releases/latest">Download for macOS</a>
+        <a class="btn btn-primary" data-only="mac" href="https://github.com/goriparthi/redline/releases/latest">Download for macOS</a>
+        <a class="btn btn-primary" data-only="win" href="https://github.com/goriparthi/redline/releases/latest">Download for Windows</a>
+        <a class="btn btn-quiet" data-only="mac" href="#windows">Also on Windows</a>
+        <a class="btn btn-quiet" data-only="win" href="https://github.com/goriparthi/redline/releases/latest">Download for macOS</a>
         <a class="btn btn-quiet" href="https://github.com/goriparthi/redline">View source</a>
       </div>
-      <p class="label">macOS 14 or later · menu bar and desktop widget · MIT</p>
+      <p class="label" data-only="mac">macOS 14 or later · menu bar and desktop widget · MIT</p>
+      <p class="label" data-only="win">Windows 10 or 11, x64 · per-user MSI, no admin rights · MIT</p>
     </div>
 
-    <div class="panel">
+    <figure class="hero-shot" data-only="win">
+      <img src="img/windows/hero.png" width="1600" height="1043" alt="RedLine on Windows: the dashboard with limits for Claude and Codex, a Claude desktop widget, and the tray dropdown open above the taskbar, where two tray icons show Claude's session at 34 percent and week at 41 percent">
+      <figcaption>The tray icon draws the numbers; left click opens the dropdown, and the
+        dashboard and widgets sit on the desktop beside your work.</figcaption>
+    </figure>
+
+    <div class="panel" data-only="mac">
       <div class="panel-head">
         <p class="label">Usage</p>
         <p class="label">Menu bar: nearest limit, your style</p>
@@ -442,8 +550,8 @@
 
   <section>
     <div class="sec-head">
-      <p class="label">In place</p>
-      <h2>Where it lives</h2>
+      <p class="label">In place · macOS</p>
+      <h2>Where it lives on a Mac</h2>
       <p>A menu bar readout you can glance at, a dashboard when you want the detail, and
          widgets on the desktop for whichever tracks you care about.</p>
     </div>
@@ -520,6 +628,170 @@
           </figure>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section id="windows" aria-labelledby="windows-title">
+    <div class="sec-head">
+      <p class="label">In place · Windows</p>
+      <h2 id="windows-title">The same reading, in the notification area<span class="badge-new">new</span></h2>
+      <p>A native port for Windows 10 and 11, written in C# on .NET 8. It reads the same files,
+         applies the same thresholds and shows the same figures as the Mac app, from the tray
+         instead of the menu bar. The Windows build is new, so the Mac app has had more time in
+         real use; if a figure reads wrong, <a href="https://github.com/goriparthi/redline/issues">say so</a>.</p>
+    </div>
+
+    <figure class="shot">
+      <picture>
+        <source srcset="img/windows/dashboard-light.png" media="(prefers-color-scheme: light)">
+        <img src="img/windows/dashboard-dark.png" width="1200" height="1760" alt="The RedLine dashboard on Windows: the nearest limit, a card each for Claude, Codex and Ollama, totals, limit rails for Claude and Codex, reported service status and tokens per day" loading="lazy">
+      </picture>
+      <figcaption>The dashboard, the same design as on the Mac, in Dark or Light or following
+        Windows. It opens from the dropdown or with Ctrl+D.</figcaption>
+    </figure>
+
+    <figure class="shot shot-strip" style="margin-top: clamp(1.25rem, 3vw, 2rem)">
+      <img src="img/windows/tray.png" width="1400" height="288" alt="Four tray icons, enlarged: Claude stacked as 34 over 41, the same two figures side by side as 34 S and 41 W, 72 in amber with a dot for an agent waiting, and 45 in grey for a last known reading" loading="lazy">
+      <figcaption>The tray has no room for text, so the icon is the number. With a Claude session
+        and week both in play it stacks them, session over week, or gives each its own icon if you pick Side by side in Settings. Colour follows your thresholds,
+        grey means the reading is not live, and a dot means an agent is waiting on you. The full
+        readout is in the tooltip.</figcaption>
+    </figure>
+
+    <div class="win-collage">
+      <figure class="shot">
+        <img src="img/windows/flyout.png" width="700" height="1128" alt="The tray dropdown: Claude and Codex limits with points to spare, agents waiting and busy, and usage today, in the last 5 hours and over 7 days, per provider and model" loading="lazy">
+        <figcaption>Left click the tray icon: limits first, then agents, then usage per
+          provider and model.</figcaption>
+      </figure>
+      <div class="win-collage-right">
+        <figure class="shot shot-plain">
+          <img src="img/windows/widgets.png" width="1400" height="713" alt="Desktop widgets on Windows in three sizes: a large Usage widget with session and week, a medium Claude widget, a medium Codex widget, a small Usage widget and a small Ollama widget" loading="lazy">
+          <figcaption>Desktop Widgets: small borderless windows with the same snapshot. Drag
+            them anywhere, keep several, right click to change size and track.</figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="img/windows/provider-detail.png" width="1200" height="959" alt="Codex in detail on Windows: this period, remaining, reset time and tokens, then its session and week rails and service status" loading="lazy">
+          <figcaption>One provider in detail: what is left, when it resets, and where the
+            figures came from.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="shots shots-pair">
+      <figure class="shot">
+        <picture>
+          <source srcset="img/windows/settings-light.png" media="(prefers-color-scheme: light)">
+          <img src="img/windows/settings.png" width="1000" height="1286" alt="Windows settings, Providers section: which tools RedLine reads, where Claude's percentages come from, and Ollama tracking" loading="lazy">
+        </picture>
+        <figcaption>Settings in six sections, as on the Mac, with Windows paths and Credential
+          Manager where macOS says Keychain.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/windows/settings-limits.png" width="1000" height="997" alt="Windows settings, Limits and Alerts section: threshold sliders, notifications, and the day cues" loading="lazy">
+        <figcaption>Thresholds drive the rails, the cards, the tray colour and the notifications
+          together.</figcaption>
+      </figure>
+    </div>
+
+    <div class="sec-head sub-head">
+      <p class="label">What is different</p>
+      <h3 style="font-size: clamp(1.2rem, 2.2vw, 1.5rem)">Same figures, Windows habits</h3>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>A number in the tray</h3><span class="chip">session / week</span></div>
+        <p>The icon draws the nearest limit's percentage. When Claude has both a session and a
+           week worth watching, it stacks them: session on top, week below. The tooltip carries
+           the full readout, and the dropdown the detail.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Desktop widgets</h3><span class="chip">3 sizes</span></div>
+        <p>WidgetKit has no Windows counterpart, so the widgets are small borderless windows
+           of RedLine's own. Open them from <strong>Desktop Widgets</strong> in the dropdown,
+           keep as many as you like, and pick a track for each.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>No admin rights</h3><span class="chip">per-user MSI</span></div>
+        <p>The MSI installs for you alone into <code>%LOCALAPPDATA%\Programs\RedLine</code>,
+           adds a Start menu entry and starts on sign-in. Newer MSIs upgrade in place, and
+           <strong>Install Update...</strong> in the tray checks the <code>.sha256</code> before
+           it runs one.</p>
+      </div>
+    </div>
+    <div class="grid3">
+      <div class="card">
+        <div class="card-top"><h3>redlinectl</h3><span class="chip">command line</span></div>
+        <p><code>redlinectl status --json</code>, <code>findings</code>, <code>history</code>
+           and the rest sit next to the app, with the same exit codes as on macOS, so a prompt
+           or a script never has to parse prose. It also serves as the Claude Code statusline
+           command.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Credential Manager</h3><span class="chip">credentials</span></div>
+        <p>Where macOS uses the Keychain, Windows uses Credential Manager. Claude Code on
+           Windows keeps its own credential in a file under your profile, which RedLine reads
+           only if you switch on <code>useCLIToken</code>, and only ever reads.</p>
+      </div>
+      <div class="card">
+        <div class="card-top"><h3>Paths that line up</h3><span class="chip">%USERPROFILE%</span></div>
+        <p>Config, history and the usage feed live under <code>.config\redline</code> and
+           <code>.local\share\redline</code> in your profile, the same layout as on a Mac.
+           Clicking an agent brings its terminal window forward; tabs cannot be targeted.</p>
+      </div>
+    </div>
+
+    <div class="sec-head sub-head">
+      <p class="label">Install on Windows</p>
+      <h3 style="font-size: clamp(1.2rem, 2.2vw, 1.5rem)">Three routes, none needing admin</h3>
+    </div>
+
+    <div class="install-grid">
+      <div class="route route-best">
+        <p class="label">Option 1 · recommended</p>
+        <h3>Download the MSI</h3>
+        <pre><a href="https://github.com/goriparthi/redline/releases/latest">Latest release</a> → RedLine-&lt;version&gt;-x64.msi
+→ double-click it</pre>
+        <p class="note">Installs for you alone, starts RedLine, and upgrades in place later.
+           Remove it from Settings, Apps, or with <strong>Uninstall RedLine...</strong> in the
+           tray. Scripted: <code>msiexec /i RedLine-&lt;version&gt;-x64.msi /qn</code>.</p>
+      </div>
+
+      <div class="route">
+        <p class="label">Option 2</p>
+        <h3>The zip</h3>
+        <pre>Expand-Archive `
+  .\RedLine-&lt;version&gt;-win-x64.zip .\RedLine
+powershell -ExecutionPolicy Bypass `
+  -File .\RedLine\install.ps1</pre>
+        <p class="note">The same files plus <code>install.ps1</code>, for anyone who would
+           rather not use Windows Installer. <code>uninstall.ps1</code> removes it again.</p>
+      </div>
+
+      <div class="route">
+        <p class="label">Option 3 · for source readers</p>
+        <h3>Build from source</h3>
+        <pre>git clone https://github.com/goriparthi/redline.git
+cd redline\windows
+.\scripts\build.ps1
+.\scripts\install.ps1</pre>
+        <p class="note">Needs the .NET 8 SDK. <a href="https://github.com/goriparthi/redline/blob/main/windows/README.md">windows/README.md</a>
+           has the details, paths and command line.</p>
+      </div>
+    </div>
+
+    <div class="warn">
+      <h3>Not code signed yet, so SmartScreen asks once</h3>
+      <p>Windows releases are <strong>not yet code signed</strong>. Until they are, the first
+         run shows <strong>Windows protected your PC</strong>. Choose <strong>More info</strong>,
+         then <strong>Run anyway</strong>; Windows remembers the choice for that file. Before
+         you do, compare the download with the <code>.sha256</code> published beside it:</p>
+      <pre><span class="c"># the printed hash should match the .sha256 file in the release</span>
+Get-FileHash -Algorithm SHA256 .\RedLine-&lt;version&gt;-x64.msi</pre>
+      <p>The warning is about the missing signature, not a scan result, and it says nothing
+         either way about the code. Building from source remains the route where you can read
+         what you run.</p>
     </div>
   </section>
 
@@ -765,9 +1037,9 @@ PROMPT</pre>
 
   <section>
     <div class="sec-head">
-      <p class="label">Install</p>
+      <p class="label">Install on macOS</p>
       <h2>Three routes</h2>
-      <p>Downloads are signed, notarized, and update themselves in place. Prefer to read
+      <p>Mac downloads are signed, notarized, and update themselves in place. Prefer to read
          what you run? The source route is below, and the code is all here.</p>
     </div>
 
@@ -843,7 +1115,7 @@ codesign -dv --verbose=2 /Applications/Redline.app</pre>
       <p class="label">Plainly</p>
       <h2>What this is not</h2>
       <p>RedLine is not a service. Nothing is hosted, no account is created, and nothing
-         leaves your Mac except the optional Claude rate-limit call. That is why there are no
+         leaves your computer except the optional Claude rate-limit call. That is why there are no
          terms to accept: the MIT licence governs, and it disclaims warranty and liability.</p>
     </div>
 
@@ -882,5 +1154,23 @@ codesign -dv --verbose=2 /Applications/Redline.app</pre>
     const paint = () => fills.forEach(f => { f.style.width = f.dataset.pct + '%'; });
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { paint(); return; }
     requestAnimationFrame(() => requestAnimationFrame(paint));
+  })();
+
+  // Platform switch: a remembered choice, then #windows in the URL, then the visitor's OS.
+  (function () {
+    const root = document.documentElement;
+    const buttons = document.querySelectorAll('.platforms button');
+    const set = (p, remember) => {
+      root.dataset.platform = p;
+      buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.platform === p)));
+      if (remember) { try { localStorage.setItem('redline-platform', p); } catch (e) {} }
+    };
+    let saved = null;
+    try { saved = localStorage.getItem('redline-platform'); } catch (e) {}
+    const ua = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '';
+    const guess = /win/i.test(ua) ? 'win' : 'mac';
+    set(location.hash === '#windows' ? 'win' : (saved === 'win' || saved === 'mac') ? saved : guess, false);
+    buttons.forEach(b => b.addEventListener('click', () => set(b.dataset.platform, true)));
+    document.querySelectorAll('a[href="#windows"]').forEach(a => a.addEventListener('click', () => set('win', false)));
   })();
 </script>
