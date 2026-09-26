@@ -1,0 +1,102 @@
+<!-- Theme-independent tokens: fonts, text styles, spacing, radii and the fixed brand tones. -->
+<!-- Mirrors RL.Typography, RL.Space, RL.Radius and RL.BrandTone in Theming/DesignSystem.cs. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    mc:Ignorable="po">
+
+  <!-- Fonts -->
+  <FontFamily x:Key="RL.Font.UI">Segoe UI Variable Text, Segoe UI</FontFamily>
+  <FontFamily x:Key="RL.Font.UIDisplay">Segoe UI Variable Display, Segoe UI</FontFamily>
+  <FontFamily x:Key="RL.Font.Mono">Cascadia Mono, Consolas, Courier New</FontFamily>
+  <FontFamily x:Key="RL.Font.Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+  <!-- Space: a 2px grid -->
+  <sys:Double x:Key="RL.Space.Xxs">2</sys:Double>
+  <sys:Double x:Key="RL.Space.Xs">4</sys:Double>
+  <sys:Double x:Key="RL.Space.Sm">6</sys:Double>
+  <sys:Double x:Key="RL.Space.Md">8</sys:Double>
+  <sys:Double x:Key="RL.Space.Lg">12</sys:Double>
+  <sys:Double x:Key="RL.Space.Xl">16</sys:Double>
+  <sys:Double x:Key="RL.Space.Xxl">22</sys:Double>
+  <sys:Double x:Key="RL.Space.Xxxl">32</sys:Double>
+
+  <!-- Radius -->
+  <sys:Double x:Key="RL.Radius.Chip">5</sys:Double>
+  <sys:Double x:Key="RL.Radius.Control">7</sys:Double>
+  <sys:Double x:Key="RL.Radius.Card">12</sys:Double>
+  <sys:Double x:Key="RL.Radius.Window">16</sys:Double>
+  <CornerRadius x:Key="RL.Corner.Chip">5</CornerRadius>
+  <CornerRadius x:Key="RL.Corner.Control">7</CornerRadius>
+  <CornerRadius x:Key="RL.Corner.Card">12</CornerRadius>
+  <CornerRadius x:Key="RL.Corner.Window">16</CornerRadius>
+
+  <!-- Fixed brand tones, for surfaces that paint Carbon in every theme -->
+  <Color x:Key="RL.Brand.Carbon">#FF0B0D10</Color>
+  <Color x:Key="RL.Brand.Graphite">#FF171A1F</Color>
+  <Color x:Key="RL.Brand.Steel">#FF818792</Color>
+  <Color x:Key="RL.Brand.Chalk">#FFF4F1EA</Color>
+  <Color x:Key="RL.Brand.Signal">#FFFF3B30</Color>
+  <Color x:Key="RL.Brand.Amber">#FFFF9F0A</Color>
+  <Color x:Key="RL.Brand.Clear">#FF32D74B</Color>
+  <SolidColorBrush x:Key="RL.Brand.Carbon.Brush" Color="#FF0B0D10" po:Freeze="True" />
+  <SolidColorBrush x:Key="RL.Brand.Graphite.Brush" Color="#FF171A1F" po:Freeze="True" />
+  <SolidColorBrush x:Key="RL.Brand.Steel.Brush" Color="#FF818792" po:Freeze="True" />
+  <SolidColorBrush x:Key="RL.Brand.Chalk.Brush" Color="#FFF4F1EA" po:Freeze="True" />
+  <SolidColorBrush x:Key="RL.Brand.Signal.Brush" Color="#FFFF3B30" po:Freeze="True" />
+  <SolidColorBrush x:Key="RL.Brand.Amber.Brush" Color="#FFFF9F0A" po:Freeze="True" />
+  <SolidColorBrush x:Key="RL.Brand.Clear.Brush" Color="#FF32D74B" po:Freeze="True" />
+
+  <!-- Text styles. Foreground defaults to primary ink; callers override for secondary or muted. -->
+  <Style x:Key="RL.Text.Base" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource RL.Font.UI}" />
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+  </Style>
+  <Style x:Key="RL.Text.Display" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontFamily" Value="{StaticResource RL.Font.Mono}" />
+    <Setter Property="FontSize" Value="25" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style x:Key="RL.Text.Title" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontFamily" Value="{StaticResource RL.Font.UIDisplay}" />
+    <Setter Property="FontSize" Value="24" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style x:Key="RL.Text.Heading" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style x:Key="RL.Text.Subheading" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style x:Key="RL.Text.Body" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style x:Key="RL.Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+  <!-- Tracking cannot be set on a TextBlock; use Components.TrackedText for upper-case labels -->
+  <Style x:Key="RL.Text.Label" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontFamily" Value="{StaticResource RL.Font.Mono}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Muted.Brush}" />
+  </Style>
+  <Style x:Key="RL.Text.Mono" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontFamily" Value="{StaticResource RL.Font.Mono}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style x:Key="RL.Text.MonoSmall" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontFamily" Value="{StaticResource RL.Font.Mono}" />
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+  <Style x:Key="RL.Text.MonoStrong" TargetType="TextBlock" BasedOn="{StaticResource RL.Text.Base}">
+    <Setter Property="FontFamily" Value="{StaticResource RL.Font.Mono}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+</ResourceDictionary>

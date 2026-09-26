@@ -1,0 +1,68 @@
+<!-- The light palette. Generated from Theming/DesignSystem.cs; keys and values must match it exactly. -->
+<!-- Each token is a Color and a frozen brush named <key>.Brush, for DynamicResource. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    mc:Ignorable="po">
+  <sys:String x:Key="RL.Theme.Name">Light</sys:String>
+
+  <!-- Surface -->
+  <Color x:Key="RL.Surface.Ground">#FFF4F1EA</Color>
+  <SolidColorBrush x:Key="RL.Surface.Ground.Brush" Color="#FFF4F1EA" po:Freeze="True" />
+  <Color x:Key="RL.Surface.Raised">#FFFFFFFF</Color>
+  <SolidColorBrush x:Key="RL.Surface.Raised.Brush" Color="#FFFFFFFF" po:Freeze="True" />
+  <Color x:Key="RL.Surface.Sunken">#FFE8E4DB</Color>
+  <SolidColorBrush x:Key="RL.Surface.Sunken.Brush" Color="#FFE8E4DB" po:Freeze="True" />
+  <Color x:Key="RL.Surface.Overlay">#FFFFFFFF</Color>
+  <SolidColorBrush x:Key="RL.Surface.Overlay.Brush" Color="#FFFFFFFF" po:Freeze="True" />
+  <Color x:Key="RL.Surface.RaisedHover">#FFFAF8F3</Color>
+  <SolidColorBrush x:Key="RL.Surface.RaisedHover.Brush" Color="#FFFAF8F3" po:Freeze="True" />
+
+  <!-- Ink -->
+  <Color x:Key="RL.Ink.Primary">#FF14171C</Color>
+  <SolidColorBrush x:Key="RL.Ink.Primary.Brush" Color="#FF14171C" po:Freeze="True" />
+  <Color x:Key="RL.Ink.Secondary">#FF4E5462</Color>
+  <SolidColorBrush x:Key="RL.Ink.Secondary.Brush" Color="#FF4E5462" po:Freeze="True" />
+  <Color x:Key="RL.Ink.Muted">#FF6B7280</Color>
+  <SolidColorBrush x:Key="RL.Ink.Muted.Brush" Color="#FF6B7280" po:Freeze="True" />
+  <Color x:Key="RL.Ink.OnAccent">#FFFFFFFF</Color>
+  <SolidColorBrush x:Key="RL.Ink.OnAccent.Brush" Color="#FFFFFFFF" po:Freeze="True" />
+
+  <!-- Stroke -->
+  <Color x:Key="RL.Stroke.Hairline">#FFDDD8CE</Color>
+  <SolidColorBrush x:Key="RL.Stroke.Hairline.Brush" Color="#FFDDD8CE" po:Freeze="True" />
+  <Color x:Key="RL.Stroke.Border">#FFC7C2B7</Color>
+  <SolidColorBrush x:Key="RL.Stroke.Border.Brush" Color="#FFC7C2B7" po:Freeze="True" />
+  <Color x:Key="RL.Stroke.BorderStrong">#FFA9A398</Color>
+  <SolidColorBrush x:Key="RL.Stroke.BorderStrong.Brush" Color="#FFA9A398" po:Freeze="True" />
+
+  <!-- State -->
+  <Color x:Key="RL.State.Success">#FF1E8E3E</Color>
+  <SolidColorBrush x:Key="RL.State.Success.Brush" Color="#FF1E8E3E" po:Freeze="True" />
+  <Color x:Key="RL.State.Warning">#FFA85C00</Color>
+  <SolidColorBrush x:Key="RL.State.Warning.Brush" Color="#FFA85C00" po:Freeze="True" />
+  <Color x:Key="RL.State.Error">#FFC9271D</Color>
+  <SolidColorBrush x:Key="RL.State.Error.Brush" Color="#FFC9271D" po:Freeze="True" />
+  <Color x:Key="RL.State.Offline">#FF6B7280</Color>
+  <SolidColorBrush x:Key="RL.State.Offline.Brush" Color="#FF6B7280" po:Freeze="True" />
+  <Color x:Key="RL.State.Unknown">#FF7A8090</Color>
+  <SolidColorBrush x:Key="RL.State.Unknown.Brush" Color="#FF7A8090" po:Freeze="True" />
+
+  <!-- Brandmark -->
+  <Color x:Key="RL.Brandmark.Signal">#FFC9271D</Color>
+  <SolidColorBrush x:Key="RL.Brandmark.Signal.Brush" Color="#FFC9271D" po:Freeze="True" />
+  <Color x:Key="RL.Brandmark.Money">#FF1E8E3E</Color>
+  <SolidColorBrush x:Key="RL.Brandmark.Money.Brush" Color="#FF1E8E3E" po:Freeze="True" />
+
+  <!-- Accent -->
+  <Color x:Key="RL.Accent.Codex">#FF0C6D7C</Color>
+  <SolidColorBrush x:Key="RL.Accent.Codex.Brush" Color="#FF0C6D7C" po:Freeze="True" />
+  <Color x:Key="RL.Accent.Anthropic">#FF8A6118</Color>
+  <SolidColorBrush x:Key="RL.Accent.Anthropic.Brush" Color="#FF8A6118" po:Freeze="True" />
+  <Color x:Key="RL.Accent.Ollama">#FF5F44A6</Color>
+  <SolidColorBrush x:Key="RL.Accent.Ollama.Brush" Color="#FF5F44A6" po:Freeze="True" />
+  <Color x:Key="RL.Accent.Neutral">#FF4E5462</Color>
+  <SolidColorBrush x:Key="RL.Accent.Neutral.Brush" Color="#FF4E5462" po:Freeze="True" />
+</ResourceDictionary>

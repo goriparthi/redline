@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Windows app: WPF windows plus a WinForms tray icon. Port of Sources/redline. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>RedLine</AssemblyName>
+    <RootNamespace>Redline.App</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon>Assets\RedLine.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- WinForms and WPF both define these names; the WPF ones win in this project -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <!-- WPF leaves System.IO out of implicit usings; nothing here uses Shapes.Path -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Redline.Core\Redline.Core.csproj" />
+    <!-- Ships redlinectl.exe beside RedLine.exe and lends Uninstaller the shim's own removal -->
+    <ProjectReference Include="..\Redline.Cli\Redline.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\RedLine.ico" />
+    <Resource Include="Assets\TrayWhite.ico" />
+    <Resource Include="Assets\TrayDark.ico" />
+    <None Remove="Assets\make_icons.py" />
+  </ItemGroup>
+
+  <!-- The provider marks are third-party; their notices ship beside the executable -->
+  <ItemGroup>
+    <Content Include="..\..\..\brand\provider-glyphs\THIRD_PARTY_NOTICES.md" Link="Notices\THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\brand\provider-glyphs\LICENSE-bootstrap-icons.txt" Link="Notices\LICENSE-bootstrap-icons.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\brand\provider-glyphs\LICENSE-simple-icons.md" Link="Notices\LICENSE-simple-icons.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

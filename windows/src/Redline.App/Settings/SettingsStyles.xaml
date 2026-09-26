@@ -1,0 +1,393 @@
+<!-- Implicit styles for the stock controls settings uses, drawn from the design tokens so they -->
+<!-- follow the theme. Merged into the settings and setup windows only. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Style x:Key="RL.Settings.Focus">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Border Margin="-3" CornerRadius="7" BorderThickness="1.5" BorderBrush="{DynamicResource RL.Ink.Primary.Brush}" Opacity="0.7" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- CheckBox: a rounded box, filled with primary ink when on -->
+  <Style TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RL.Font.UI}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource RL.Settings.Focus}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <Grid Background="Transparent">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="Box" Width="16" Height="16" CornerRadius="4" BorderThickness="1" VerticalAlignment="Top" Margin="0,1,0,0"
+                    Background="{DynamicResource RL.Surface.Sunken.Brush}" BorderBrush="{DynamicResource RL.Stroke.BorderStrong.Brush}">
+              <Path x:Name="Mark" Data="M3.2,8.2 L6.6,11.4 L12.8,4.8" Stroke="{DynamicResource RL.Surface.Ground.Brush}" StrokeThickness="2"
+                    StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed" Margin="-1" />
+            </Border>
+            <ContentPresenter x:Name="Label" Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Content" Value="{x:Null}">
+              <Setter TargetName="Label" Property="Margin" Value="0" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+              <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource RL.Ink.Secondary.Brush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- RadioButton: a ring with a primary-ink dot -->
+  <Style TargetType="RadioButton">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RL.Font.UI}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource RL.Settings.Focus}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Grid Background="Transparent">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid Width="16" Height="16" VerticalAlignment="Center">
+              <Ellipse x:Name="Ring" Fill="{DynamicResource RL.Surface.Sunken.Brush}" Stroke="{DynamicResource RL.Stroke.BorderStrong.Brush}" StrokeThickness="1" />
+              <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{DynamicResource RL.Ink.Primary.Brush}" Visibility="Collapsed" />
+            </Grid>
+            <ContentPresenter Grid.Column="1" Margin="7,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+              <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource RL.Ink.Secondary.Brush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Button: the bordered action, quieter than a toggle because it changes nothing on its own -->
+  <Style TargetType="Button">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RL.Font.UI}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Padding" Value="12,4" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource RL.Settings.Focus}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bg" CornerRadius="6" BorderThickness="1" Padding="{TemplateBinding Padding}"
+                  Background="{DynamicResource RL.Surface.RaisedHover.Brush}" BorderBrush="{DynamicResource RL.Stroke.Border.Brush}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource RL.Stroke.BorderStrong.Brush}" />
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource RL.Surface.Overlay.Brush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource RL.Surface.Sunken.Brush}" />
+            </Trigger>
+            <Trigger Property="IsDefault" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource RL.Brandmark.Signal.Brush}" />
+              <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource RL.Brandmark.Signal.Brush}" />
+              <Setter Property="Foreground" Value="White" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- A small square button for the stepper arrows -->
+  <Style x:Key="RL.Settings.StepButton" TargetType="RepeatButton">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Secondary.Brush}" />
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="13" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RepeatButton">
+          <Border x:Name="Bg" Background="Transparent" CornerRadius="3">
+            <TextBlock Text="{TemplateBinding Content}" FontFamily="{DynamicResource RL.Font.Icons}" FontSize="9"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource RL.Surface.Overlay.Brush}" />
+              <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.35" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- TextBox: a sunken well -->
+  <Style TargetType="TextBox">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource RL.Accent.Codex.Brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RL.Font.Mono}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="Bg" CornerRadius="6" BorderThickness="1" Background="{DynamicResource RL.Surface.Sunken.Brush}"
+                  BorderBrush="{DynamicResource RL.Stroke.Border.Brush}">
+            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" Focusable="False"
+                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource RL.Ink.Secondary.Brush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Slider: status-coloured fill (Foreground), a sunken track and a light thumb -->
+  <Style x:Key="RL.Settings.SliderThumb" TargetType="Thumb">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Grid Width="22" Height="18" Background="Transparent">
+            <Border x:Name="Knob" Width="20" Height="16" CornerRadius="8" Background="{DynamicResource RL.Ink.Primary.Brush}"
+                    BorderThickness="1" BorderBrush="{DynamicResource RL.Stroke.BorderStrong.Brush}" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsDragging" Value="True">
+              <Setter TargetName="Knob" Property="Opacity" Value="0.85" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="RL.Settings.SliderFill" TargetType="RepeatButton">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RepeatButton">
+          <Grid Background="Transparent">
+            <Border Height="5" CornerRadius="2.5" Background="{TemplateBinding Background}" VerticalAlignment="Center" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="Slider">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="IsMoveToPointEnabled" Value="True" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource RL.Settings.Focus}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Slider">
+          <Grid MinHeight="24" Background="Transparent">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Track x:Name="PART_Track">
+              <Track.DecreaseRepeatButton>
+                <RepeatButton Style="{StaticResource RL.Settings.SliderFill}" Command="Slider.DecreaseLarge"
+                              Background="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+              </Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton>
+                <RepeatButton Style="{StaticResource RL.Settings.SliderFill}" Command="Slider.IncreaseLarge"
+                              Background="{DynamicResource RL.Surface.Sunken.Brush}" />
+              </Track.IncreaseRepeatButton>
+              <Track.Thumb>
+                <Thumb Style="{StaticResource RL.Settings.SliderThumb}" />
+              </Track.Thumb>
+            </Track>
+            <TickBar Grid.Row="1" Height="3" Margin="11,1,11,0" Placement="Bottom" Fill="{DynamicResource RL.Stroke.BorderStrong.Brush}"
+                     TickFrequency="{TemplateBinding TickFrequency}" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ComboBox: a bordered field with a chevron, and a raised popup list -->
+  <Style x:Key="RL.Settings.ComboToggle" TargetType="ToggleButton">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="ClickMode" Value="Press" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Bg" CornerRadius="6" BorderThickness="1" Background="{DynamicResource RL.Surface.RaisedHover.Brush}"
+                  BorderBrush="{DynamicResource RL.Stroke.Border.Brush}">
+            <TextBlock Text="&#xE70D;" FontFamily="{DynamicResource RL.Font.Icons}" FontSize="10" HorizontalAlignment="Right"
+                       VerticalAlignment="Center" Margin="0,0,9,0" Foreground="{DynamicResource RL.Ink.Secondary.Brush}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource RL.Stroke.BorderStrong.Brush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="ComboBoxItem">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RL.Font.UI}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBoxItem">
+          <Border x:Name="Bg" CornerRadius="5" Padding="8,4" Background="Transparent">
+            <ContentPresenter />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource RL.Surface.Sunken.Brush}" />
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource RL.Stroke.Border.Brush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="ComboBox">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource RL.Font.UI}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource RL.Settings.Focus}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Grid>
+            <ToggleButton Style="{StaticResource RL.Settings.ComboToggle}"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+            <ContentPresenter Margin="10,3,28,3" VerticalAlignment="Center" IsHitTestVisible="False"
+                              Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+            <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade"
+                   IsOpen="{TemplateBinding IsDropDownOpen}">
+              <Border Margin="0,2,0,0" Padding="4" CornerRadius="8" BorderThickness="1" Background="{DynamicResource RL.Surface.Overlay.Brush}"
+                      BorderBrush="{DynamicResource RL.Stroke.Border.Brush}" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                </ScrollViewer>
+              </Border>
+            </Popup>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- A sidebar row: the product's own selection tint rather than the system accent -->
+  <Style x:Key="RL.Settings.SidebarRow" TargetType="ToggleButton">
+    <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Secondary.Brush}" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource RL.Settings.Focus}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Grid>
+            <Border x:Name="Hover" CornerRadius="7" Background="{DynamicResource RL.Surface.Sunken.Brush}" Visibility="Collapsed" />
+            <Border x:Name="Fill" CornerRadius="7" Background="{DynamicResource RL.Brandmark.Signal.Brush}" Opacity="0.18" Visibility="Collapsed" />
+            <ContentPresenter Margin="8" RecognizesAccessKey="False" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Hover" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Hover" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="Fill" Property="Visibility" Value="Visible" />
+              <Setter Property="Foreground" Value="{DynamicResource RL.Ink.Primary.Brush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ScrollBar: a thin thumb and no arrows -->
+  <Style x:Key="RL.Settings.ScrollThumb" TargetType="Thumb">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Border CornerRadius="3" Background="{DynamicResource RL.Stroke.BorderStrong.Brush}" Margin="3,2" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="ScrollBar">
+    <Setter Property="Width" Value="12" />
+    <Setter Property="MinWidth" Value="12" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ScrollBar">
+          <Track x:Name="PART_Track" IsDirectionReversed="True">
+            <Track.Thumb>
+              <Thumb Style="{StaticResource RL.Settings.ScrollThumb}" />
+            </Track.Thumb>
+          </Track>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>
