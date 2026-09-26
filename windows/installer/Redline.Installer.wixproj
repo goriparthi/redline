@@ -1,0 +1,16 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <!-- Per-user MSI around the published folder. scripts\build.ps1 passes PublishDir and MsiVersion. -->
+  <PropertyGroup>
+    <Platform>x64</Platform>
+    <OutputName>RedLine-$(Version)-x64</OutputName>
+    <MsiVersion Condition="'$(MsiVersion)' == ''">$(Version.Split('-')[0])</MsiVersion>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\dist\RedLine-$(Version)-win-x64</PublishDir>
+    <DefineConstants>MsiVersion=$(MsiVersion);PublishDir=$(PublishDir);AppDir=$(MSBuildThisFileDirectory)..\src\Redline.App</DefineConstants>
+    <!-- ICE38/64/91 assume roaming profiles, which a per-user install here is not. ICE61 is the
+         deliberate same-version upgrade that lets a stable release replace its own beta. -->
+    <SuppressIces>ICE38;ICE61;ICE64;ICE91</SuppressIces>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+</Project>

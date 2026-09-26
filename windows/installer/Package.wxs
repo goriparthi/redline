@@ -1,0 +1,73 @@
+<!-- RedLine for Windows: per-user install, no administrator rights, upgrades in place.
+     The UpgradeCode is permanent; changing it would make every release a separate product. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="RedLine" Manufacturer="Prashanth Goriparthi" Version="$(var.MsiVersion)"
+           UpgradeCode="{859B3A4C-3298-49F8-BE26-2845C71F3693}" Scope="perUser" Language="1033">
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of RedLine is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="RedLineIcon" SourceFile="$(var.AppDir)\Assets\RedLine.ico" />
+    <Property Id="ARPPRODUCTICON" Value="RedLineIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://goriparthi.github.io/redline/" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/goriparthi/redline/issues" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <!-- msiexec ... LAUNCHAPP=0 installs without starting it -->
+    <Property Id="LAUNCHAPP" Value="1" Secure="yes" />
+
+    <!-- Restart Manager matches bundled runtime DLLs (System.Console.dll) by name and blames every
+         .NET app on the machine, so it is off; the one process that matters is closed directly. -->
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
+    <util:CloseApplication Id="CloseRedLine" Target="RedLine.exe" CloseMessage="yes" TerminateProcess="1" RebootPrompt="no" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsDir" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="RedLine" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="RedLine">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenu" />
+    </Feature>
+
+    <!-- Everything RedLine set up outside its folder (sign-in entry, Claude feed wiring, Ollama
+         shim, saved token) is undone by the app itself, before its files go. Not on upgrade. -->
+    <CustomAction Id="RedLineCleanup" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]RedLine.exe&quot; --msi-uninstall"
+                  Execute="deferred" Impersonate="yes" Return="ignore" />
+    <CustomAction Id="LaunchRedLine" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]RedLine.exe&quot;"
+                  Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
+    <InstallExecuteSequence>
+      <Custom Action="RedLineCleanup" Before="RemoveFiles"
+              Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="LaunchRedLine" After="InstallFinalize"
+              Condition="NOT REMOVE~=&quot;ALL&quot; AND LAUNCHAPP=&quot;1&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <!-- The zip's scripted installer has no place inside an MSI install -->
+        <Exclude Files="$(var.PublishDir)\install.ps1" />
+        <Exclude Files="$(var.PublishDir)\uninstall.ps1" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenu" Guid="{3E5C0B8D-6F0E-4B53-9E1A-8C3B6E2D7A41}">
+        <Shortcut Id="RedLineShortcut" Name="RedLine" Description="Know your limit."
+                  Target="[INSTALLFOLDER]RedLine.exe" WorkingDirectory="INSTALLFOLDER" Icon="RedLineIcon" />
+        <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+        <!-- How the app knows an MSI owns it: in-app Uninstall and updates then go through msiexec -->
+        <RegistryValue Root="HKCU" Key="Software\RedLine\Installer" Name="ProductCode"
+                       Value="[ProductCode]" Type="string" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+</Wix>

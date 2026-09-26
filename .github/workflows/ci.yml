@@ -31,3 +31,17 @@ jobs:
       # than about the build. Notes are required to release and only warned about here.
       - name: Release notes
         run: scripts/check-notes.sh --allow-missing
+
+  windows:
+    # The Windows port lives in windows/; what it checks is windows/scripts/ci.ps1
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Run the Windows check suite
+        shell: pwsh
+        run: ./windows/scripts/ci.ps1

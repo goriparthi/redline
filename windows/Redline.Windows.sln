@@ -1,0 +1,64 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{57FD01BB-53E7-4BC8-A8F2-EF24102CA203}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Redline.Core", "src\Redline.Core\Redline.Core.csproj", "{A39F9D1F-7303-4BA5-9E71-593B9E30BEDD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3EB914AF-B513-4BB4-9221-4E20842B2EAF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Redline.Core.Tests", "tests\Redline.Core.Tests\Redline.Core.Tests.csproj", "{68F0A316-2B3F-49C9-9C8F-6EF954D685CC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Redline.App", "src\Redline.App\Redline.App.csproj", "{9FD9AEA8-B30B-47EA-A582-4AC6B8727D62}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Redline.Cli", "src\Redline.Cli\Redline.Cli.csproj", "{4BCAA9BC-4851-43E0-9D46-78833203756A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Redline.Cli.Tests", "tests\Redline.Cli.Tests\Redline.Cli.Tests.csproj", "{70889D17-E8B9-4261-8C19-8932C921409C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Redline.App.Tests", "tests\Redline.App.Tests\Redline.App.Tests.csproj", "{8E898E9F-C392-4942-984E-9E161DAE743F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A39F9D1F-7303-4BA5-9E71-593B9E30BEDD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A39F9D1F-7303-4BA5-9E71-593B9E30BEDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A39F9D1F-7303-4BA5-9E71-593B9E30BEDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A39F9D1F-7303-4BA5-9E71-593B9E30BEDD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68F0A316-2B3F-49C9-9C8F-6EF954D685CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68F0A316-2B3F-49C9-9C8F-6EF954D685CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68F0A316-2B3F-49C9-9C8F-6EF954D685CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68F0A316-2B3F-49C9-9C8F-6EF954D685CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9FD9AEA8-B30B-47EA-A582-4AC6B8727D62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9FD9AEA8-B30B-47EA-A582-4AC6B8727D62}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9FD9AEA8-B30B-47EA-A582-4AC6B8727D62}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9FD9AEA8-B30B-47EA-A582-4AC6B8727D62}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4BCAA9BC-4851-43E0-9D46-78833203756A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4BCAA9BC-4851-43E0-9D46-78833203756A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4BCAA9BC-4851-43E0-9D46-78833203756A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4BCAA9BC-4851-43E0-9D46-78833203756A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{70889D17-E8B9-4261-8C19-8932C921409C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{70889D17-E8B9-4261-8C19-8932C921409C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{70889D17-E8B9-4261-8C19-8932C921409C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{70889D17-E8B9-4261-8C19-8932C921409C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E898E9F-C392-4942-984E-9E161DAE743F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E898E9F-C392-4942-984E-9E161DAE743F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E898E9F-C392-4942-984E-9E161DAE743F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E898E9F-C392-4942-984E-9E161DAE743F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A39F9D1F-7303-4BA5-9E71-593B9E30BEDD} = {57FD01BB-53E7-4BC8-A8F2-EF24102CA203}
+		{68F0A316-2B3F-49C9-9C8F-6EF954D685CC} = {3EB914AF-B513-4BB4-9221-4E20842B2EAF}
+		{9FD9AEA8-B30B-47EA-A582-4AC6B8727D62} = {57FD01BB-53E7-4BC8-A8F2-EF24102CA203}
+		{4BCAA9BC-4851-43E0-9D46-78833203756A} = {57FD01BB-53E7-4BC8-A8F2-EF24102CA203}
+		{70889D17-E8B9-4261-8C19-8932C921409C} = {3EB914AF-B513-4BB4-9221-4E20842B2EAF}
+		{8E898E9F-C392-4942-984E-9E161DAE743F} = {3EB914AF-B513-4BB4-9221-4E20842B2EAF}
+	EndGlobalSection
+EndGlobal
