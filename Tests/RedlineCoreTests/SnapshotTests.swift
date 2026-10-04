@@ -124,6 +124,14 @@ final class SnapshotLocationTests: XCTestCase {
                        "a sandboxed widget can only rely on its own container")
     }
 
+    func testAppGroupIsNeverAPlainReadCandidate() {
+        XCTAssertEqual(SnapshotStore.readCandidates.last, SnapshotStore.userURL)
+        if let g = SnapshotStore.groupURL() {
+            XCTAssertFalse(SnapshotStore.readCandidates.contains(g),
+                           "a CLI spawned by another app must not touch the App Group")
+        }
+    }
+
     func testUserPathIsAlwaysAWriteTarget() {
         XCTAssertTrue(SnapshotStore.writeTargets.contains(SnapshotStore.userURL))
     }

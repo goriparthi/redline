@@ -263,11 +263,11 @@ public enum SnapshotStore {
         return out
     }
 
-    // Own container first: in the widget that is the one guaranteed readable location
+    // Own container first: in the widget that is the one guaranteed readable location.
+    // The App Group is left out: touching it from a CLI another app spawned prompts for that app.
     public static var readCandidates: [URL] {
         var out: [URL] = []
         if let local = localAppSupportURL { out.append(local) }
-        if !RedlineHome.isOverridden, let g = groupURL() { out.append(g) }
         out.append(userURL)
         return out
     }
@@ -278,11 +278,13 @@ public enum SnapshotStore {
         writeTargets.map { write(snapshot, to: $0) }.contains(true)
     }
 
+    // The App Group is a last resort, looked up only when nothing outside it had a snapshot
     public static func readAny() -> Snapshot? {
         for url in readCandidates {
             if let s = read(from: url) { return s }
         }
-        return nil
+        guard !RedlineHome.isOverridden, let g = groupURL() else { return nil }
+        return read(from: g)
     }
 
     private static var encoder: JSONEncoder {
