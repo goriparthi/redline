@@ -388,6 +388,21 @@ public sealed partial class AppController
         RebuildMenu();
     }
 
+    // The MSI helper leaves msiexec's outcome behind, since the process that asked is gone by then
+    void ReportLastUpdate()
+    {
+        if (MsiInstall.TakeResult() is not { } r) return;
+        var ctx = new Dictionary<string, string>
+        {
+            ["exitCode"] = r.ExitCode.ToString(), ["attempts"] = r.Attempts.ToString(), ["log"] = MsiInstall.LogPath(),
+        };
+        if (r.Succeeded) { Diag.Log.Info("update.msi_installed", "update installed", ctx); return; }
+        Diag.Log.Error("update.msi_failed", "update did not install", ctx);
+        updateStatus = r.ExitCode == 1618
+            ? "Update waited on another installer and gave up; try again"
+            : $"Update failed (msiexec {r.ExitCode}); see update-msi.log";
+    }
+
     /// <summary>The only way to replace a running tray app is for it to do it itself: quit, swap, relaunch.</summary>
     public void InstallUpdate()
     {

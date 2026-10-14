@@ -11,14 +11,16 @@ in `dist/` is a build nobody can install, and it is stale by the next commit.
 
 `docs/DEPLOY.md` is the full procedure. The short version:
 
-1. Bump `Resources/Info.plist` and `project.yml` to the same version.
+1. Bump `Resources/Info.plist`, `project.yml` and `windows/Directory.Build.props` to the same version.
 2. Write `notes/releases/<version>.md`.
 3. `make xcodeproj` if you added a source file, and commit it.
 4. Commit, then **push**, because `gh release create` tags the remote's HEAD and not yours.
 5. `NOTARY_PROFILE=redline make release`.
 6. Paste the printed version and sha256 into `Casks/redline-beta.rb` for a prerelease or
    `Casks/redline.rb` for a stable, and commit that as `Cask <version>`.
-7. `gh release list --limit 3` to confirm it is actually there.
+7. On Windows, `windows\scripts\build.ps1`, then `gh release upload v<version>` the MSI, the zip and both
+   `.sha256` files. A release with only a DMG makes Windows clients offer an update they cannot install.
+8. `gh release list --limit 3` to confirm it is actually there.
 
 Never point the stable cask at a prerelease. Never promote a beta to stable without being
 asked; ask first.

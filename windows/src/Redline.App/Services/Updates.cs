@@ -288,7 +288,9 @@ public sealed class Updates
                 var runningSig = _signatures.Inspect(Path.Combine(target, exe));
                 if (SignatureProblem(runningSig, _signatures.Inspect(zip)) is { } msiWhy) return Fail(msiWhy);
                 var self = Environment.ProcessId;
-                return new StageResult.Ready(() => MsiInstall.RunAfterExit($"/i \"{zip}\" /qn /norestart", self, work), work);
+                var args = $"/i \"{zip}\" /qn /norestart /l*v \"{MsiInstall.LogPath()}\"";
+                var relaunch = Path.Combine(target, exe);
+                return new StageResult.Ready(() => MsiInstall.RunAfterExit(args, self, work, relaunch, MsiInstall.ResultPath()), work);
             }
 
             var extracted = Path.Combine(work, "extracted");

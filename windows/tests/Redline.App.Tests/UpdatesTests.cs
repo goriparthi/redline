@@ -63,6 +63,44 @@ public class UpdatesTests
     public void ProductCodeMustBeABracedGuid(string? raw, bool accepted) =>
         Assert.Equal(accepted, MsiInstall.ProductCode(() => raw) is not null);
 
+    [Theory]
+    [InlineData("{\"exitCode\":0,\"attempts\":1,\"at\":\"2026-10-14T15:25:13Z\"}", 0, 1, true)]
+    [InlineData("\uFEFF{\"exitCode\":1618,\"attempts\":30}\r\n", 1618, 30, false)]
+    [InlineData("{\"exitCode\":3010}", 3010, 1, true)]
+    [InlineData("{\"exitCode\":1603,\"attempts\":1}", 1603, 1, false)]
+    public void TheHelpersResultIsReadBack(string text, int code, int attempts, bool succeeded)
+    {
+        var r = MsiInstall.ParseResult(text);
+        Assert.NotNull(r);
+        Assert.Equal(code, r!.ExitCode);
+        Assert.Equal(attempts, r.Attempts);
+        Assert.Equal(succeeded, r.Succeeded);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not json")]
+    [InlineData("{\"attempts\":2}")]
+    public void AnUnreadableResultIsIgnored(string text) => Assert.Null(MsiInstall.ParseResult(text));
+
+    [Fact]
+    public void TakingTheResultRemovesIt()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "redline-result-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(path, "{\"exitCode\":1618,\"attempts\":30}");
+        Assert.Equal(1618, MsiInstall.TakeResult(path)!.ExitCode);
+        Assert.False(File.Exists(path));
+        Assert.Null(MsiInstall.TakeResult(path));
+    }
+
+    [Fact]
+    public void TheMsiHelperWaitsOutABusyInstallerAndRelaunchesOnFailure()
+    {
+        Assert.Contains("$code -eq 1618", MsiInstall.WaitScript);
+        Assert.Contains("Start-Process -FilePath $Relaunch", MsiInstall.WaitScript);
+        Assert.Contains("-PassThru", MsiInstall.WaitScript);
+    }
+
     [Fact]
     public void NotNewerIsUpToDate()
     {

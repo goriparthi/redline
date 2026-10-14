@@ -17,11 +17,12 @@ and not before.
 
 | # | Artifact | Where it lives | Set by |
 |---|---|---|---|
-| 1 | Version | `Resources/Info.plist`, `project.yml` | you, by hand |
+| 1 | Version | `Resources/Info.plist`, `project.yml`, `windows/Directory.Build.props` | you, by hand |
 | 2 | Release notes | `notes/releases/<version>.md` | you, by hand |
 | 3 | Git tag and commit | `origin/main`, tag `v<version>` | `git push`, then `scripts/release.sh` |
 | 4 | GitHub release plus DMG | the releases page | `scripts/release.sh` |
 | 5 | Homebrew cask | `Casks/redline.rb` or `Casks/redline-beta.rb` | you, from the sha the release prints |
+| 6 | Windows MSI and zip, each with `.sha256` | the same release | `windows\scripts\build.ps1`, then `gh release upload` |
 
 Miss 3 and the tag points at the wrong commit. Miss 4 and nobody gets it. Miss 5 and
 `brew upgrade` keeps handing out the old build.
@@ -38,6 +39,8 @@ Bump both of these, and keep them in step:
 - `Resources/Info.plist`: `CFBundleShortVersionString` is the full version including any
   suffix, `CFBundleVersion` is the bare core version.
 - `project.yml`: `MARKETING_VERSION` matches `CFBundleShortVersionString`.
+- `windows/Directory.Build.props`: `<Version>` matches too. Nothing checks it, and missing it ships
+  a Windows build that still calls itself the previous version.
 
 `Resources/Info.plist` is the single source of truth. Every script reads the version from it,
 and `scripts/release.sh` refuses a version argument that disagrees with it.
@@ -111,7 +114,17 @@ Then commit that on its own, subject `Cask <version>`. **Never point the stable 
 prerelease.** The two casks conflict with each other by design, so a user is on one channel
 or the other, never both.
 
-### 7. Confirm
+### 7. Windows
+
+On a Windows machine (or from WSL with `powershell.exe` and `gh.exe`), from the pushed commit:
+
+    windows\scripts\build.ps1
+    gh release upload v<version> windows\dist\RedLine-<version>-x64.msi windows\dist\RedLine-<version>-x64.msi.sha256 windows\dist\RedLine-<version>-win-x64.zip windows\dist\RedLine-<version>-win-x64.zip.sha256
+
+Windows clients see the release as soon as it is published, so do this straight after step 4.
+Without these files they offer an update that has nothing to install.
+
+### 8. Confirm
 
     gh release list --limit 3
 

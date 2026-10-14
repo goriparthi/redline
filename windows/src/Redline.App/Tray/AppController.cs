@@ -103,6 +103,7 @@ public sealed partial class AppController : IDisposable
     public void Start(bool openDashboard)
     {
         Diag.Log.Info("app.launched", "RedLine started", new() { ["windows"] = Environment.OSVersion.VersionString });
+        ReportLastUpdate();
         tray = new TrayIcon();
         tray.Clicked += OnTrayClicked;
         alertCenter.Notifier = new NotifyIconNotifier(tray.NotifyIcon);
